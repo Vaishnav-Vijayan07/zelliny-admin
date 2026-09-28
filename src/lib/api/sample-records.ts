@@ -1,0 +1,1302 @@
+// Sample data extracted from the original prototype. Replace with real API responses in admin.functions.ts.
+/* eslint-disable */
+export const CATS = [
+ {
+  "id": "fragrance",
+  "en": "Fragrance",
+  "ar": "العطور",
+  "count": 186,
+  "mode": "Add to Cart",
+  "order": 1,
+  "status": "Active"
+ },
+ {
+  "id": "beauty",
+  "en": "Beauty",
+  "ar": "الجمال",
+  "count": 74,
+  "mode": "Add to Cart",
+  "order": 2,
+  "status": "Active"
+ },
+ {
+  "id": "jewellery",
+  "en": "Jewellery",
+  "ar": "المجوهرات",
+  "count": 42,
+  "mode": "Add to Cart",
+  "order": 3,
+  "status": "Active"
+ },
+ {
+  "id": "watches",
+  "en": "Watches",
+  "ar": "الساعات",
+  "count": 38,
+  "mode": "Add to Cart",
+  "order": 4,
+  "status": "Active"
+ },
+ {
+  "id": "bags",
+  "en": "Bags",
+  "ar": "الحقائب",
+  "count": 27,
+  "mode": "Add to Cart",
+  "order": 5,
+  "status": "Active"
+ },
+ {
+  "id": "leather",
+  "en": "Leather Goods",
+  "ar": "المصنوعات الجلدية",
+  "count": 56,
+  "mode": "Mixed",
+  "order": 6,
+  "status": "Active"
+ },
+ {
+  "id": "writing",
+  "en": "Writing Instruments",
+  "ar": "أدوات الكتابة",
+  "count": 91,
+  "mode": "Mixed",
+  "order": 7,
+  "status": "Active"
+ },
+ {
+  "id": "smoking",
+  "en": "Smoking Accessories",
+  "ar": "إكسسوارات التدخين",
+  "count": 18,
+  "mode": "Enquiry only",
+  "order": 8,
+  "status": "Active"
+ }
+];
+export const BRANDS = [
+ {
+  "id": "hermes",
+  "en": "Hermès",
+  "ar": "هيرميس",
+  "cats": [
+   "fragrance"
+  ],
+  "mode": "Add to Cart",
+  "count": 24,
+  "featured": true,
+  "status": "Active"
+ },
+ {
+  "id": "gucci",
+  "en": "Gucci",
+  "ar": "غوتشي",
+  "cats": [
+   "fragrance",
+   "bags"
+  ],
+  "mode": "Add to Cart",
+  "count": 31,
+  "featured": true,
+  "status": "Active"
+ },
+ {
+  "id": "clarins",
+  "en": "Clarins",
+  "ar": "كلارنس",
+  "cats": [
+   "beauty"
+  ],
+  "mode": "Add to Cart",
+  "count": 46,
+  "featured": true,
+  "status": "Active"
+ },
+ {
+  "id": "hugoboss",
+  "en": "Hugo Boss",
+  "ar": "هوغو بوس",
+  "cats": [
+   "writing",
+   "leather"
+  ],
+  "mode": "Enquiry only",
+  "count": 130,
+  "featured": true,
+  "status": "Active"
+ },
+ {
+  "id": "cerruti",
+  "en": "Cerruti 1881",
+  "ar": "تشيروتي 1881",
+  "cats": [
+   "leather"
+  ],
+  "mode": "Enquiry only",
+  "count": 34,
+  "featured": true,
+  "status": "Active"
+ },
+ {
+  "id": "dupont",
+  "en": "S.T. Dupont",
+  "ar": "إس تي ديبون",
+  "cats": [
+   "writing",
+   "smoking"
+  ],
+  "mode": "Enquiry only",
+  "count": 22,
+  "featured": true,
+  "status": "Active"
+ },
+ {
+  "id": "guess",
+  "en": "Guess",
+  "ar": "جس",
+  "cats": [
+   "watches",
+   "bags",
+   "jewellery"
+  ],
+  "mode": "Add to Cart",
+  "count": 58,
+  "featured": true,
+  "status": "Active"
+ },
+ {
+  "id": "swarovski",
+  "en": "Swarovski",
+  "ar": "سواروفسكي",
+  "cats": [
+   "jewellery"
+  ],
+  "mode": "Add to Cart",
+  "count": 29,
+  "featured": true,
+  "status": "Active"
+ },
+ {
+  "id": "burberry",
+  "en": "Burberry",
+  "ar": "بربري",
+  "cats": [
+   "fragrance"
+  ],
+  "mode": "Add to Cart",
+  "count": 19,
+  "featured": false,
+  "status": "Active"
+ },
+ {
+  "id": "herrera",
+  "en": "Carolina Herrera",
+  "ar": "كارولينا هيريرا",
+  "cats": [
+   "fragrance"
+  ],
+  "mode": "Add to Cart",
+  "count": 17,
+  "featured": false,
+  "status": "Active"
+ },
+ {
+  "id": "versace",
+  "en": "Versace",
+  "ar": "فيرساتشي",
+  "cats": [
+   "fragrance"
+  ],
+  "mode": "Add to Cart",
+  "count": 21,
+  "featured": false,
+  "status": "Active"
+ },
+ {
+  "id": "rabanne",
+  "en": "Paco Rabanne",
+  "ar": "باكو رابان",
+  "cats": [
+   "fragrance"
+  ],
+  "mode": "Add to Cart",
+  "count": 16,
+  "featured": false,
+  "status": "Active"
+ },
+ {
+  "id": "dg",
+  "en": "Dolce & Gabbana",
+  "ar": "دولتشي آند غابانا",
+  "cats": [
+   "fragrance"
+  ],
+  "mode": "Add to Cart",
+  "count": 18,
+  "featured": false,
+  "status": "Active"
+ },
+ {
+  "id": "chloe",
+  "en": "Chloé",
+  "ar": "كلوي",
+  "cats": [
+   "fragrance"
+  ],
+  "mode": "Add to Cart",
+  "count": 12,
+  "featured": false,
+  "status": "Draft"
+ },
+ {
+  "id": "davidoff",
+  "en": "Davidoff",
+  "ar": "دافيدوف",
+  "cats": [
+   "fragrance"
+  ],
+  "mode": "Add to Cart",
+  "count": 14,
+  "featured": false,
+  "status": "Active"
+ }
+];
+export const PRODUCTS = [
+ {
+  "id": "P1001",
+  "sku": "HER-TDH-EDT-100",
+  "en": "Terre d'Hermès Eau de Toilette 100ml",
+  "ar": "تير دي هيرميس أو دي تواليت ١٠٠ مل",
+  "brand": "hermes",
+  "cat": "fragrance",
+  "mode": "Add to Cart",
+  "price": 7850,
+  "offer": 7250,
+  "stock": 14,
+  "sold": 42,
+  "status": "Active",
+  "img": "#c9b9a6"
+ },
+ {
+  "id": "P1002",
+  "sku": "GUC-BLM-EDP-100",
+  "en": "Gucci Bloom Eau de Parfum 100ml",
+  "ar": "غوتشي بلوم أو دي بارفان ١٠٠ مل",
+  "brand": "gucci",
+  "cat": "fragrance",
+  "mode": "Add to Cart",
+  "price": 8400,
+  "offer": null,
+  "stock": 9,
+  "sold": 37,
+  "status": "Active",
+  "img": "#e4c6c6"
+ },
+ {
+  "id": "P1003",
+  "sku": "CH-GG-EDP-80",
+  "en": "Good Girl Eau de Parfum 80ml",
+  "ar": "جود جيرل أو دي بارفان ٨٠ مل",
+  "brand": "herrera",
+  "cat": "fragrance",
+  "mode": "Add to Cart",
+  "price": 6950,
+  "offer": 6450,
+  "stock": 22,
+  "sold": 58,
+  "status": "Active",
+  "img": "#2b2f45"
+ },
+ {
+  "id": "P1004",
+  "sku": "VER-ERS-EDT-100",
+  "en": "Versace Eros Eau de Toilette 100ml",
+  "ar": "فيرساتشي إيروس أو دي تواليت ١٠٠ مل",
+  "brand": "versace",
+  "cat": "fragrance",
+  "mode": "Add to Cart",
+  "price": 5900,
+  "offer": null,
+  "stock": 17,
+  "sold": 51,
+  "status": "Active",
+  "img": "#6fa3a8"
+ },
+ {
+  "id": "P1005",
+  "sku": "PR-1M-EDT-100",
+  "en": "1 Million Eau de Toilette 100ml",
+  "ar": "ون مليون أو دي تواليت ١٠٠ مل",
+  "brand": "rabanne",
+  "cat": "fragrance",
+  "mode": "Enquiry only",
+  "price": 5450,
+  "offer": null,
+  "stock": 0,
+  "sold": 64,
+  "status": "Active",
+  "img": "#c7a24a"
+ },
+ {
+  "id": "P1006",
+  "sku": "BUR-HER-EDP-100",
+  "en": "Burberry Her Eau de Parfum 100ml",
+  "ar": "بربري هير أو دي بارفان ١٠٠ مل",
+  "brand": "burberry",
+  "cat": "fragrance",
+  "mode": "Add to Cart",
+  "price": 6300,
+  "offer": null,
+  "stock": 11,
+  "sold": 29,
+  "status": "Active",
+  "img": "#e9b8c4"
+ },
+ {
+  "id": "P1007",
+  "sku": "DG-LB-EDT-100",
+  "en": "Light Blue Eau de Toilette 100ml",
+  "ar": "لايت بلو أو دي تواليت ١٠٠ مل",
+  "brand": "dg",
+  "cat": "fragrance",
+  "mode": "Add to Cart",
+  "price": 6100,
+  "offer": null,
+  "stock": 6,
+  "sold": 33,
+  "status": "Active",
+  "img": "#a9c8e0"
+ },
+ {
+  "id": "P1008",
+  "sku": "DAV-CW-EDT-125",
+  "en": "Cool Water Eau de Toilette 125ml",
+  "ar": "كول ووتر أو دي تواليت ١٢٥ مل",
+  "brand": "davidoff",
+  "cat": "fragrance",
+  "mode": "Add to Cart",
+  "price": 2950,
+  "offer": 2650,
+  "stock": 40,
+  "sold": 71,
+  "status": "Active",
+  "img": "#7fb3d5"
+ },
+ {
+  "id": "P1009",
+  "sku": "CLA-DS-50",
+  "en": "Clarins Double Serum 50ml",
+  "ar": "كلارنس دبل سيروم ٥٠ مل",
+  "brand": "clarins",
+  "cat": "beauty",
+  "mode": "Add to Cart",
+  "price": 5200,
+  "offer": null,
+  "stock": 12,
+  "sold": 26,
+  "status": "Active",
+  "img": "#d8a7a0"
+ },
+ {
+  "id": "P1010",
+  "sku": "CLA-EFN-50",
+  "en": "Clarins Extra-Firming Night Cream 50ml",
+  "ar": "كلارنس كريم الليل للشد ٥٠ مل",
+  "brand": "clarins",
+  "cat": "beauty",
+  "mode": "Add to Cart",
+  "price": 4600,
+  "offer": null,
+  "stock": 2,
+  "sold": 19,
+  "status": "Active",
+  "img": "#efe3dc"
+ },
+ {
+  "id": "P1011",
+  "sku": "SWA-MIL-NCK",
+  "en": "Swarovski Millenia Necklace",
+  "ar": "قلادة سواروفسكي ميلينيا",
+  "brand": "swarovski",
+  "cat": "jewellery",
+  "mode": "Add to Cart",
+  "price": 9800,
+  "offer": null,
+  "stock": 6,
+  "sold": 12,
+  "status": "Active",
+  "img": "#d9dde3",
+  "appointment": true
+ },
+ {
+  "id": "P1012",
+  "sku": "SWA-MTX-BRC",
+  "en": "Swarovski Matrix Tennis Bracelet",
+  "ar": "سوار سواروفسكي ماتريكس",
+  "brand": "swarovski",
+  "cat": "jewellery",
+  "mode": "Add to Cart",
+  "price": 7400,
+  "offer": 6900,
+  "stock": 8,
+  "sold": 15,
+  "status": "Active",
+  "img": "#cfd4dc",
+  "appointment": true
+ },
+ {
+  "id": "P1013",
+  "sku": "GUE-ICN-GLD",
+  "en": "Guess Iconic Gold-Tone Watch",
+  "ar": "ساعة جس أيكونيك ذهبية",
+  "brand": "guess",
+  "cat": "watches",
+  "mode": "Add to Cart",
+  "price": 11500,
+  "offer": null,
+  "stock": 5,
+  "sold": 9,
+  "status": "Active",
+  "img": "#b89556",
+  "appointment": true
+ },
+ {
+  "id": "P1014",
+  "sku": "GUE-LUX-TOTE",
+  "en": "Guess Luxe Tote Bag",
+  "ar": "حقيبة جس لوكس توت",
+  "brand": "guess",
+  "cat": "bags",
+  "mode": "Add to Cart",
+  "price": 6900,
+  "offer": null,
+  "stock": 7,
+  "sold": 14,
+  "status": "Active",
+  "img": "#6b4f3a"
+ },
+ {
+  "id": "P1015",
+  "sku": "HB-GMX-BP",
+  "en": "Hugo Boss Gear Matrix Ballpoint Pen",
+  "ar": "قلم هوغو بوس جير ماتريكس",
+  "brand": "hugoboss",
+  "cat": "writing",
+  "mode": "Enquiry only",
+  "price": null,
+  "offer": null,
+  "stock": 80,
+  "sold": 0,
+  "enq": 14,
+  "status": "Active",
+  "img": "#3a3a3a"
+ },
+ {
+  "id": "P1016",
+  "sku": "HB-CLS-WLT",
+  "en": "Hugo Boss Classic Leather Wallet",
+  "ar": "محفظة هوغو بوس جلدية كلاسيك",
+  "brand": "hugoboss",
+  "cat": "leather",
+  "mode": "Enquiry only",
+  "price": null,
+  "offer": null,
+  "stock": 46,
+  "sold": 0,
+  "enq": 9,
+  "status": "Active",
+  "img": "#1f1f1f"
+ },
+ {
+  "id": "P1017",
+  "sku": "CER-CH-BLK",
+  "en": "Cerruti 1881 Card Holder",
+  "ar": "حامل بطاقات تشيروتي 1881",
+  "brand": "cerruti",
+  "cat": "leather",
+  "mode": "Enquiry only",
+  "price": null,
+  "offer": null,
+  "stock": 38,
+  "sold": 0,
+  "enq": 7,
+  "status": "Active",
+  "img": "#4a3526"
+ },
+ {
+  "id": "P1018",
+  "sku": "STD-L2-LTR",
+  "en": "S.T. Dupont Ligne 2 Lighter",
+  "ar": "ولاعة إس تي ديبون لين ٢",
+  "brand": "dupont",
+  "cat": "smoking",
+  "mode": "Enquiry only",
+  "price": null,
+  "offer": null,
+  "stock": 12,
+  "sold": 0,
+  "enq": 5,
+  "status": "Active",
+  "img": "#a8a8a8"
+ },
+ {
+  "id": "P1019",
+  "sku": "STD-DEFI-FP",
+  "en": "S.T. Dupont Défi Fountain Pen",
+  "ar": "قلم حبر إس تي ديبون ديفي",
+  "brand": "dupont",
+  "cat": "writing",
+  "mode": "Enquiry only",
+  "price": null,
+  "offer": null,
+  "stock": 10,
+  "sold": 0,
+  "enq": 4,
+  "status": "Draft",
+  "img": "#2c2c34"
+ },
+ {
+  "id": "P1021",
+  "sku": "HB-CNT-BP",
+  "en": "Hugo Boss Contour Ballpoint Pen",
+  "ar": "قلم هوغو بوس كونتور",
+  "brand": "hugoboss",
+  "cat": "writing",
+  "mode": "Add to Cart",
+  "price": 2950,
+  "offer": null,
+  "stock": 24,
+  "sold": 11,
+  "status": "Active",
+  "img": "#5a5f66"
+ },
+ {
+  "id": "P1020",
+  "sku": "CHL-EDP-75",
+  "en": "Chloé Eau de Parfum 75ml",
+  "ar": "كلوي أو دي بارفان ٧٥ مل",
+  "brand": "chloe",
+  "cat": "fragrance",
+  "mode": "Add to Cart",
+  "price": 6750,
+  "offer": null,
+  "stock": 15,
+  "sold": 0,
+  "status": "Draft",
+  "img": "#f0d9c8"
+ }
+];
+export const CUSTOMERS = [
+ {
+  "id": "C201",
+  "name": "Nadine El-Sayed",
+  "email": "nadine.e@example.com",
+  "phone": "+20 100 214 7781",
+  "city": "New Cairo",
+  "orders": 6,
+  "spent": 41200,
+  "since": "Mar 2026",
+  "tag": "VIP"
+ },
+ {
+  "id": "C202",
+  "name": "Omar Hassan",
+  "email": "omar.h@example.com",
+  "phone": "+20 122 509 3310",
+  "city": "Sheikh Zayed",
+  "orders": 3,
+  "spent": 18650,
+  "since": "May 2026",
+  "tag": "Returning"
+ },
+ {
+  "id": "C203",
+  "name": "Salma Fathy",
+  "email": "salma.f@example.com",
+  "phone": "+20 111 880 4402",
+  "city": "Heliopolis",
+  "orders": 2,
+  "spent": 13400,
+  "since": "Jun 2026",
+  "tag": "Returning"
+ },
+ {
+  "id": "C204",
+  "name": "Karim Mansour",
+  "email": "karim.m@example.com",
+  "phone": "+20 106 772 1953",
+  "city": "Alexandria",
+  "orders": 1,
+  "spent": 11500,
+  "since": "Sep 2026",
+  "tag": "New"
+ },
+ {
+  "id": "C205",
+  "name": "Laila Abdelrahman",
+  "email": "laila.a@example.com",
+  "phone": "+20 101 336 9027",
+  "city": "Zamalek",
+  "orders": 4,
+  "spent": 27900,
+  "since": "Apr 2026",
+  "tag": "VIP"
+ },
+ {
+  "id": "C206",
+  "name": "Youssef Kamal",
+  "email": "youssef.k@example.com",
+  "phone": "+20 128 441 6605",
+  "city": "Maadi",
+  "orders": 2,
+  "spent": 8600,
+  "since": "Jul 2026",
+  "tag": "Returning"
+ },
+ {
+  "id": "C207",
+  "name": "Hana Mostafa",
+  "email": "hana.m@example.com",
+  "phone": "+20 115 902 7714",
+  "city": "6th of October",
+  "orders": 1,
+  "spent": 6450,
+  "since": "Sep 2026",
+  "tag": "New"
+ },
+ {
+  "id": "C208",
+  "name": "Tarek Samir",
+  "email": "tarek.s@example.com",
+  "phone": "+20 109 118 2239",
+  "city": "North Coast",
+  "orders": 1,
+  "spent": 5900,
+  "since": "Aug 2026",
+  "tag": "New"
+ }
+];
+export const ORDERS = [
+ {
+  "id": "ZL-10494",
+  "cust": "C207",
+  "date": "24 Sep 2026, 21:42",
+  "items": [
+   [
+    "P1003",
+    1
+   ]
+  ],
+  "total": 6450,
+  "ship": 0,
+  "pay": "Paymob · Card",
+  "payStatus": "Paid",
+  "status": "Pending",
+  "fulfil": "Courier",
+  "zone": "6th of October"
+ },
+ {
+  "id": "ZL-10493",
+  "cust": "C204",
+  "date": "24 Sep 2026, 19:10",
+  "items": [
+   [
+    "P1013",
+    1
+   ]
+  ],
+  "total": 11500,
+  "ship": 0,
+  "pay": "Paymob · Card",
+  "payStatus": "Paid",
+  "status": "Processing",
+  "fulfil": "Appointment",
+  "zone": "Alexandria"
+ },
+ {
+  "id": "ZL-10492",
+  "cust": "C201",
+  "date": "24 Sep 2026, 16:05",
+  "items": [
+   [
+    "P1001",
+    1
+   ],
+   [
+    "P1009",
+    1
+   ]
+  ],
+  "total": 12450,
+  "ship": 0,
+  "pay": "Paymob · Wallet",
+  "payStatus": "Paid",
+  "status": "Ready to ship",
+  "fulfil": "Courier",
+  "zone": "New Cairo"
+ },
+ {
+  "id": "ZL-10491",
+  "cust": "C206",
+  "date": "24 Sep 2026, 12:31",
+  "items": [
+   [
+    "P1008",
+    1
+   ]
+  ],
+  "total": 2650,
+  "ship": 75,
+  "pay": "Cash on Delivery",
+  "payStatus": "Unpaid",
+  "status": "Processing",
+  "fulfil": "Courier",
+  "zone": "Maadi"
+ },
+ {
+  "id": "ZL-10490",
+  "cust": "C205",
+  "date": "23 Sep 2026, 22:14",
+  "items": [
+   [
+    "P1012",
+    1
+   ]
+  ],
+  "total": 6900,
+  "ship": 0,
+  "pay": "Paymob · Card",
+  "payStatus": "Paid",
+  "status": "Shipped",
+  "fulfil": "Appointment",
+  "zone": "Zamalek"
+ },
+ {
+  "id": "ZL-10489",
+  "cust": "C202",
+  "date": "23 Sep 2026, 18:47",
+  "items": [
+   [
+    "P1004",
+    1
+   ],
+   [
+    "P1005",
+    1
+   ]
+  ],
+  "total": 11350,
+  "ship": 0,
+  "pay": "Paymob · Card",
+  "payStatus": "Paid",
+  "status": "Shipped",
+  "fulfil": "Courier",
+  "zone": "Sheikh Zayed"
+ },
+ {
+  "id": "ZL-10488",
+  "cust": "C208",
+  "date": "23 Sep 2026, 11:02",
+  "items": [
+   [
+    "P1004",
+    1
+   ]
+  ],
+  "total": 5900,
+  "ship": 150,
+  "pay": "Cash on Delivery",
+  "payStatus": "Unpaid",
+  "status": "Shipped",
+  "fulfil": "Courier",
+  "zone": "North Coast"
+ },
+ {
+  "id": "ZL-10487",
+  "cust": "C203",
+  "date": "22 Sep 2026, 20:36",
+  "items": [
+   [
+    "P1006",
+    1
+   ]
+  ],
+  "total": 6300,
+  "ship": 0,
+  "pay": "Paymob · Card",
+  "payStatus": "Paid",
+  "status": "Delivered",
+  "fulfil": "Courier",
+  "zone": "Heliopolis"
+ },
+ {
+  "id": "ZL-10486",
+  "cust": "C201",
+  "date": "22 Sep 2026, 15:19",
+  "items": [
+   [
+    "P1011",
+    1
+   ]
+  ],
+  "total": 9800,
+  "ship": 0,
+  "pay": "Paymob · Card",
+  "payStatus": "Paid",
+  "status": "Delivered",
+  "fulfil": "Appointment",
+  "zone": "New Cairo"
+ },
+ {
+  "id": "ZL-10485",
+  "cust": "C205",
+  "date": "21 Sep 2026, 13:55",
+  "items": [
+   [
+    "P1002",
+    1
+   ]
+  ],
+  "total": 8400,
+  "ship": 0,
+  "pay": "Paymob · Wallet",
+  "payStatus": "Refunded",
+  "status": "Returned",
+  "fulfil": "Courier",
+  "zone": "Zamalek"
+ },
+ {
+  "id": "ZL-10484",
+  "cust": "C206",
+  "date": "21 Sep 2026, 10:08",
+  "items": [
+   [
+    "P1007",
+    1
+   ]
+  ],
+  "total": 6100,
+  "ship": 0,
+  "pay": "Paymob · Card",
+  "payStatus": "Refunded",
+  "status": "Cancelled",
+  "fulfil": "Courier",
+  "zone": "Maadi"
+ },
+ {
+  "id": "ZL-10483",
+  "cust": "C202",
+  "date": "20 Sep 2026, 17:40",
+  "items": [
+   [
+    "P1014",
+    1
+   ]
+  ],
+  "total": 6900,
+  "ship": 0,
+  "pay": "Paymob · Card",
+  "payStatus": "Paid",
+  "status": "Delivered",
+  "fulfil": "Courier",
+  "zone": "Sheikh Zayed"
+ }
+];
+export const RETURNS = [
+ {
+  "id": "RMA-2036",
+  "order": "ZL-10485",
+  "cust": "C205",
+  "item": "P1002",
+  "reason": "Changed mind — unopened, sealed",
+  "rule": "Unopened · within 14 days",
+  "amount": 8400,
+  "status": "Refunded",
+  "date": "22 Sep 2026"
+ },
+ {
+  "id": "RMA-2035",
+  "order": "ZL-10486",
+  "cust": "C201",
+  "item": "P1011",
+  "reason": "Clasp defect on arrival",
+  "rule": "Manufacturing defect · within 30 days",
+  "amount": 9800,
+  "status": "Inspecting",
+  "date": "23 Sep 2026"
+ },
+ {
+  "id": "RMA-2034",
+  "order": "ZL-10487",
+  "cust": "C203",
+  "item": "P1006",
+  "reason": "Wrong size received",
+  "rule": "Unopened · within 14 days",
+  "amount": 6300,
+  "status": "Approved",
+  "date": "23 Sep 2026"
+ },
+ {
+  "id": "RMA-2033",
+  "order": "ZL-10483",
+  "cust": "C202",
+  "item": "P1014",
+  "reason": "Stitching fault on handle",
+  "rule": "Manufacturing defect · within 30 days",
+  "amount": 6900,
+  "status": "Requested",
+  "date": "24 Sep 2026"
+ },
+ {
+  "id": "RMA-2032",
+  "order": "ZL-10489",
+  "cust": "C202",
+  "item": "P1005",
+  "reason": "Opened — does not like scent",
+  "rule": "Opened beauty/fragrance · not returnable",
+  "amount": 5450,
+  "status": "Rejected",
+  "date": "19 Sep 2026"
+ }
+];
+export const ENQUIRIES = [
+ {
+  "id": "ENQ-318",
+  "company": "Meridian Real Estate",
+  "contact": "Dina Farouk",
+  "email": "dina@meridian.example",
+  "phone": "+20 100 555 1201",
+  "pillar": "Client Appreciation",
+  "items": "Hugo Boss pens + wallets",
+  "qty": 120,
+  "branding": "Logo engraving",
+  "stage": "New",
+  "owner": "Ramy Bakr",
+  "date": "24 Sep",
+  "source": "Corporate Gifting page"
+ },
+ {
+  "id": "ENQ-317",
+  "company": "Delta Pharma Group",
+  "contact": "Ahmed Nabil",
+  "email": "a.nabil@deltapharma.example",
+  "phone": "+20 122 555 8830",
+  "pillar": "Employee Recognition",
+  "items": "Cerruti 1881 card holders",
+  "qty": 250,
+  "branding": "Embossed initials",
+  "stage": "Contacted",
+  "owner": "Zain",
+  "date": "23 Sep",
+  "source": "Product page · Cerruti Card Holder"
+ },
+ {
+  "id": "ENQ-316",
+  "company": "Horizon Bank",
+  "contact": "Mariam Adel",
+  "email": "m.adel@horizon.example",
+  "phone": "+20 111 555 4476",
+  "pillar": "Executive & VIP Gifts",
+  "items": "S.T. Dupont Défi pens",
+  "qty": 40,
+  "branding": "Logo engraving + gift box",
+  "stage": "Quoted",
+  "owner": "Ramy Bakr",
+  "date": "22 Sep",
+  "source": "Corporate Gifting page"
+ },
+ {
+  "id": "ENQ-315",
+  "company": "Sahel Developments",
+  "contact": "Hesham Lotfy",
+  "email": "hesham@sahel.example",
+  "phone": "+20 106 555 9021",
+  "pillar": "Events & Corporate Occasions",
+  "items": "Mixed gift sets",
+  "qty": 300,
+  "branding": "Custom sleeve",
+  "stage": "Negotiation",
+  "owner": "Ramy Bakr",
+  "date": "20 Sep",
+  "source": "WhatsApp"
+ },
+ {
+  "id": "ENQ-314",
+  "company": "Pyramids Hospitality",
+  "contact": "Rana Khaled",
+  "email": "rana@pyramids.example",
+  "phone": "+20 101 555 3318",
+  "pillar": "Client Appreciation",
+  "items": "Hugo Boss leather sets",
+  "qty": 80,
+  "branding": "Logo printing",
+  "stage": "Won",
+  "owner": "Zain",
+  "date": "17 Sep",
+  "source": "Corporate Gifting page"
+ },
+ {
+  "id": "ENQ-313",
+  "company": "Aurora Law Partners",
+  "contact": "Sherif Osman",
+  "email": "s.osman@aurora.example",
+  "phone": "+20 128 555 7704",
+  "pillar": "Executive & VIP Gifts",
+  "items": "S.T. Dupont lighters",
+  "qty": 15,
+  "branding": "Initials engraving",
+  "stage": "Lost",
+  "owner": "Zain",
+  "date": "12 Sep",
+  "source": "Email"
+ },
+ {
+  "id": "ENQ-312",
+  "company": "Cairo Tech Hub",
+  "contact": "Noha Samy",
+  "email": "noha@cth.example",
+  "phone": "+20 115 555 6612",
+  "pillar": "Employee Recognition",
+  "items": "Hugo Boss pens",
+  "qty": 180,
+  "branding": "Logo engraving",
+  "stage": "Quoted",
+  "owner": "Ramy Bakr",
+  "date": "15 Sep",
+  "source": "Product page · Hugo Boss Gear Matrix"
+ }
+];
+export const DISCOUNTS = [
+ {
+  "code": "WELCOME10",
+  "type": "Percentage",
+  "value": "10%",
+  "scope": "Fragrance & Beauty",
+  "min": "3,000 EGP",
+  "uses": "142 / 500",
+  "status": "Active",
+  "dates": "1 Sep – 31 Oct 2026"
+ },
+ {
+  "code": "GIFTWRAP",
+  "type": "Free service",
+  "value": "Free ribbon wrapping",
+  "scope": "All shoppable items",
+  "min": "—",
+  "uses": "88 / ∞",
+  "status": "Active",
+  "dates": "Always on"
+ },
+ {
+  "code": "MOTHERSDAY",
+  "type": "Percentage",
+  "value": "15%",
+  "scope": "Fragrance",
+  "min": "5,000 EGP",
+  "uses": "0 / 300",
+  "status": "Scheduled",
+  "dates": "10 – 21 Mar 2027"
+ },
+ {
+  "code": "SUMMER500",
+  "type": "Fixed amount",
+  "value": "500 EGP",
+  "scope": "Watches & Jewellery",
+  "min": "8,000 EGP",
+  "uses": "61 / 100",
+  "status": "Expired",
+  "dates": "1 Jul – 31 Aug 2026"
+ }
+];
+export const ZONES = [
+ {
+  "zone": "Cairo — Heliopolis, Nasr City, Zamalek, Maadi",
+  "fee": 75,
+  "free": "3,000 EGP",
+  "eta": "1–2 days",
+  "cod": true,
+  "appt": true
+ },
+ {
+  "zone": "New Cairo & Fifth Settlement",
+  "fee": 75,
+  "free": "3,000 EGP",
+  "eta": "1–2 days",
+  "cod": true,
+  "appt": true
+ },
+ {
+  "zone": "Giza, Sheikh Zayed & 6th of October",
+  "fee": 90,
+  "free": "3,000 EGP",
+  "eta": "1–2 days",
+  "cod": true,
+  "appt": true
+ },
+ {
+  "zone": "Alexandria",
+  "fee": 120,
+  "free": "5,000 EGP",
+  "eta": "2–3 days",
+  "cod": true,
+  "appt": true
+ },
+ {
+  "zone": "North Coast (Sahel)",
+  "fee": 150,
+  "free": "5,000 EGP",
+  "eta": "2–4 days",
+  "cod": true,
+  "appt": false
+ },
+ {
+  "zone": "Hurghada & Red Sea",
+  "fee": 180,
+  "free": "6,000 EGP",
+  "eta": "3–5 days",
+  "cod": false,
+  "appt": false
+ },
+ {
+  "zone": "Upper Egypt (Luxor, Aswan)",
+  "fee": 180,
+  "free": "6,000 EGP",
+  "eta": "4–6 days",
+  "cod": false,
+  "appt": false
+ }
+];
+export const APPTS = [
+ {
+  "order": "ZL-10493",
+  "cust": "C204",
+  "item": "Guess Iconic Gold-Tone Watch",
+  "when": "Sat 26 Sep · 14:00–16:00",
+  "where": "Alexandria — Smouha",
+  "agent": "Abdelfattah Mohamed",
+  "status": "Confirmed"
+ },
+ {
+  "order": "ZL-10490",
+  "cust": "C205",
+  "item": "Swarovski Matrix Tennis Bracelet",
+  "when": "Fri 25 Sep · 18:00–20:00",
+  "where": "Zamalek",
+  "agent": "Abdelfattah Mohamed",
+  "status": "Out for delivery"
+ }
+];
+export const STAFF = [
+ {
+  "name": "Ramy Bakr",
+  "email": "ramy.bakr@zelliny.com",
+  "role": "Owner",
+  "access": "Everything",
+  "last": "Now",
+  "status": "Active"
+ },
+ {
+  "name": "Zain",
+  "email": "zain@zelliny.com",
+  "role": "Supervisor",
+  "access": "Products, Content, Enquiries, Reports",
+  "last": "2 h ago",
+  "status": "Active"
+ },
+ {
+  "name": "Abdelfattah Mohamed",
+  "email": "abdelfattah@zelliny.com",
+  "role": "Operations",
+  "access": "Orders, Returns, Delivery, Inventory",
+  "last": "35 min ago",
+  "status": "Active"
+ },
+ {
+  "name": "Customer Care",
+  "email": "care@zelliny.com",
+  "role": "Customer service",
+  "access": "Orders (view), Customers, Returns",
+  "last": "Yesterday",
+  "status": "Active"
+ }
+];
+export const ACTIVITY = [
+ {
+  "t": "21:42",
+  "who": "System",
+  "what": "New order ZL-10494 · 6,450 EGP · Paymob card",
+  "type": "order"
+ },
+ {
+  "t": "20:15",
+  "who": "System",
+  "what": "New corporate enquiry ENQ-318 · Meridian Real Estate · 120 pcs",
+  "type": "enquiry"
+ },
+ {
+  "t": "19:10",
+  "who": "System",
+  "what": "New order ZL-10493 · Guess watch · delivery by appointment",
+  "type": "order"
+ },
+ {
+  "t": "18:02",
+  "who": "Abdelfattah Mohamed",
+  "what": "Marked RMA-2035 as Inspecting",
+  "type": "return"
+ },
+ {
+  "t": "16:40",
+  "who": "Zain",
+  "what": "Edited Arabic description · Swarovski Millenia Necklace",
+  "type": "product"
+ },
+ {
+  "t": "15:12",
+  "who": "System",
+  "what": "Low stock · Clarins Extra-Firming Night Cream (2 left)",
+  "type": "stock"
+ },
+ {
+  "t": "14:30",
+  "who": "Ramy Bakr",
+  "what": "Changed homepage \"Curated for You\" row (10 products)",
+  "type": "content"
+ },
+ {
+  "t": "11:05",
+  "who": "System",
+  "what": "Refund issued · RMA-2036 · 8,400 EGP to original Paymob wallet",
+  "type": "refund"
+ }
+];
+export const BUNDLES = [
+ {
+  "id": "B02",
+  "en": "Her Signature Evening",
+  "ar": "أمسيتها المميزة",
+  "items": [
+   "P1003",
+   "P1012"
+  ],
+  "price": 12900,
+  "mode": "Add to Cart",
+  "visible": true,
+  "img": "#3a3450",
+  "occasion": "For Her"
+ },
+ {
+  "id": "B03",
+  "en": "The Gentleman's Travel Duo",
+  "ar": "ثنائي السفر للرجل",
+  "items": [
+   "P1001",
+   "P1008"
+  ],
+  "price": 9400,
+  "mode": "Add to Cart",
+  "visible": true,
+  "img": "#8f7a63",
+  "occasion": "For Him"
+ }
+];
