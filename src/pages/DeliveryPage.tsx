@@ -28,7 +28,6 @@ export default function DeliveryPage() {
     <>
       <PageHeader title="Delivery" subtitle="Courier zones via Bosta, plus hand delivery by appointment for watches and jewellery." />
       <Panel title="Zones & fees" className="mb-5"><DataTable columns={zoneCols} rows={data.zones} rowKey={(z) => z.zone} /></Panel>
-      <Panel title="Appointments"><DataTable columns={apptCols} rows={data.appointments} rowKey={(a) => a.order} /></Panel>
     </>
   );
 }

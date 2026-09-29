@@ -12,7 +12,7 @@ const columns: Column<CustomerRow>[] = [
   { header: "Phone", cell: (c) => c.phone },
   { header: "City", cell: (c) => c.city },
   { header: "Since", cell: (c) => c.since },
-  { header: "Type", cell: (c) => <StatusBadge tone={c.tag.tone}>{c.tag.label}</StatusBadge> },
+  // { header: "Type", cell: (c) => <StatusBadge tone={c.tag.tone}>{c.tag.label}</StatusBadge> },
   { header: "Orders", align: "right", cell: (c) => c.orders },
   { header: "Spent", align: "right", cell: (c) => <b className="font-medium">{formatMoney(c.spent)}</b> },
 ];
