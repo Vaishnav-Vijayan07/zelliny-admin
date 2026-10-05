@@ -35,7 +35,15 @@ import { Route as ScriptsRouteImport } from './routes/scripts'
 import { Route as SellingRouteImport } from './routes/selling'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StaffRouteImport } from './routes/staff'
+import { Route as CustomersCustomerIdRouteImport } from './routes/customers_.$customerId'
+import { Route as EnquiriesEnquiryIdRouteImport } from './routes/enquiries_.$enquiryId'
+import { Route as OrdersOrderIdRouteImport } from './routes/orders_.$orderId'
+import { Route as OrdersNewRouteImport } from './routes/orders_.new'
+import { Route as ProductsProductIdRouteImport } from './routes/products_.$productId'
 import { Route as ProductsNewRouteImport } from './routes/products_.new'
+import { Route as ReturnsReturnIdRouteImport } from './routes/returns_.$returnId'
+import { Route as InventoryPreordersProductIdRouteImport } from './routes/inventory_.preorders.$productId'
+import { Route as InventoryWaitingProductIdRouteImport } from './routes/inventory_.waiting.$productId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -167,11 +175,53 @@ const StaffRoute = StaffRouteImport.update({
   path: '/staff',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomersCustomerIdRoute = CustomersCustomerIdRouteImport.update({
+  id: '/customers_/$customerId',
+  path: '/customers/$customerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnquiriesEnquiryIdRoute = EnquiriesEnquiryIdRouteImport.update({
+  id: '/enquiries_/$enquiryId',
+  path: '/enquiries/$enquiryId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
+  id: '/orders_/$orderId',
+  path: '/orders/$orderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersNewRoute = OrdersNewRouteImport.update({
+  id: '/orders_/new',
+  path: '/orders/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductsProductIdRoute = ProductsProductIdRouteImport.update({
+  id: '/products_/$productId',
+  path: '/products/$productId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductsNewRoute = ProductsNewRouteImport.update({
   id: '/products_/new',
   path: '/products/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReturnsReturnIdRoute = ReturnsReturnIdRouteImport.update({
+  id: '/returns_/$returnId',
+  path: '/returns/$returnId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InventoryPreordersProductIdRoute =
+  InventoryPreordersProductIdRouteImport.update({
+    id: '/inventory_/preorders/$productId',
+    path: '/inventory/preorders/$productId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const InventoryWaitingProductIdRoute =
+  InventoryWaitingProductIdRouteImport.update({
+    id: '/inventory_/waiting/$productId',
+    path: '/inventory/waiting/$productId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -200,7 +250,15 @@ export interface FileRoutesByFullPath {
   '/selling': typeof SellingRoute
   '/settings': typeof SettingsRoute
   '/staff': typeof StaffRoute
+  '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/enquiries/$enquiryId': typeof EnquiriesEnquiryIdRoute
+  '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/orders/new': typeof OrdersNewRoute
+  '/products/$productId': typeof ProductsProductIdRoute
   '/products/new': typeof ProductsNewRoute
+  '/returns/$returnId': typeof ReturnsReturnIdRoute
+  '/inventory/preorders/$productId': typeof InventoryPreordersProductIdRoute
+  '/inventory/waiting/$productId': typeof InventoryWaitingProductIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -229,7 +287,15 @@ export interface FileRoutesByTo {
   '/selling': typeof SellingRoute
   '/settings': typeof SettingsRoute
   '/staff': typeof StaffRoute
+  '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/enquiries/$enquiryId': typeof EnquiriesEnquiryIdRoute
+  '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/orders/new': typeof OrdersNewRoute
+  '/products/$productId': typeof ProductsProductIdRoute
   '/products/new': typeof ProductsNewRoute
+  '/returns/$returnId': typeof ReturnsReturnIdRoute
+  '/inventory/preorders/$productId': typeof InventoryPreordersProductIdRoute
+  '/inventory/waiting/$productId': typeof InventoryWaitingProductIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -259,7 +325,15 @@ export interface FileRoutesById {
   '/selling': typeof SellingRoute
   '/settings': typeof SettingsRoute
   '/staff': typeof StaffRoute
+  '/customers_/$customerId': typeof CustomersCustomerIdRoute
+  '/enquiries_/$enquiryId': typeof EnquiriesEnquiryIdRoute
+  '/orders_/$orderId': typeof OrdersOrderIdRoute
+  '/orders_/new': typeof OrdersNewRoute
+  '/products_/$productId': typeof ProductsProductIdRoute
   '/products_/new': typeof ProductsNewRoute
+  '/returns_/$returnId': typeof ReturnsReturnIdRoute
+  '/inventory_/preorders/$productId': typeof InventoryPreordersProductIdRoute
+  '/inventory_/waiting/$productId': typeof InventoryWaitingProductIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -290,7 +364,15 @@ export interface FileRouteTypes {
     | '/selling'
     | '/settings'
     | '/staff'
+    | '/customers/$customerId'
+    | '/enquiries/$enquiryId'
+    | '/orders/$orderId'
+    | '/orders/new'
+    | '/products/$productId'
     | '/products/new'
+    | '/returns/$returnId'
+    | '/inventory/preorders/$productId'
+    | '/inventory/waiting/$productId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -319,7 +401,15 @@ export interface FileRouteTypes {
     | '/selling'
     | '/settings'
     | '/staff'
+    | '/customers/$customerId'
+    | '/enquiries/$enquiryId'
+    | '/orders/$orderId'
+    | '/orders/new'
+    | '/products/$productId'
     | '/products/new'
+    | '/returns/$returnId'
+    | '/inventory/preorders/$productId'
+    | '/inventory/waiting/$productId'
   id:
     | '__root__'
     | '/'
@@ -348,7 +438,15 @@ export interface FileRouteTypes {
     | '/selling'
     | '/settings'
     | '/staff'
+    | '/customers_/$customerId'
+    | '/enquiries_/$enquiryId'
+    | '/orders_/$orderId'
+    | '/orders_/new'
+    | '/products_/$productId'
     | '/products_/new'
+    | '/returns_/$returnId'
+    | '/inventory_/preorders/$productId'
+    | '/inventory_/waiting/$productId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -378,7 +476,15 @@ export interface RootRouteChildren {
   SellingRoute: typeof SellingRoute
   SettingsRoute: typeof SettingsRoute
   StaffRoute: typeof StaffRoute
+  CustomersCustomerIdRoute: typeof CustomersCustomerIdRoute
+  EnquiriesEnquiryIdRoute: typeof EnquiriesEnquiryIdRoute
+  OrdersOrderIdRoute: typeof OrdersOrderIdRoute
+  OrdersNewRoute: typeof OrdersNewRoute
+  ProductsProductIdRoute: typeof ProductsProductIdRoute
   ProductsNewRoute: typeof ProductsNewRoute
+  ReturnsReturnIdRoute: typeof ReturnsReturnIdRoute
+  InventoryPreordersProductIdRoute: typeof InventoryPreordersProductIdRoute
+  InventoryWaitingProductIdRoute: typeof InventoryWaitingProductIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -565,11 +671,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customers_/$customerId': {
+      id: '/customers_/$customerId'
+      path: '/customers/$customerId'
+      fullPath: '/customers/$customerId'
+      preLoaderRoute: typeof CustomersCustomerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/enquiries_/$enquiryId': {
+      id: '/enquiries_/$enquiryId'
+      path: '/enquiries/$enquiryId'
+      fullPath: '/enquiries/$enquiryId'
+      preLoaderRoute: typeof EnquiriesEnquiryIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders_/$orderId': {
+      id: '/orders_/$orderId'
+      path: '/orders/$orderId'
+      fullPath: '/orders/$orderId'
+      preLoaderRoute: typeof OrdersOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders_/new': {
+      id: '/orders_/new'
+      path: '/orders/new'
+      fullPath: '/orders/new'
+      preLoaderRoute: typeof OrdersNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/products_/$productId': {
+      id: '/products_/$productId'
+      path: '/products/$productId'
+      fullPath: '/products/$productId'
+      preLoaderRoute: typeof ProductsProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/products_/new': {
       id: '/products_/new'
       path: '/products/new'
       fullPath: '/products/new'
       preLoaderRoute: typeof ProductsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/returns_/$returnId': {
+      id: '/returns_/$returnId'
+      path: '/returns/$returnId'
+      fullPath: '/returns/$returnId'
+      preLoaderRoute: typeof ReturnsReturnIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inventory_/preorders/$productId': {
+      id: '/inventory_/preorders/$productId'
+      path: '/inventory/preorders/$productId'
+      fullPath: '/inventory/preorders/$productId'
+      preLoaderRoute: typeof InventoryPreordersProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inventory_/waiting/$productId': {
+      id: '/inventory_/waiting/$productId'
+      path: '/inventory/waiting/$productId'
+      fullPath: '/inventory/waiting/$productId'
+      preLoaderRoute: typeof InventoryWaitingProductIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -602,7 +764,15 @@ const rootRouteChildren: RootRouteChildren = {
   SellingRoute: SellingRoute,
   SettingsRoute: SettingsRoute,
   StaffRoute: StaffRoute,
+  CustomersCustomerIdRoute: CustomersCustomerIdRoute,
+  EnquiriesEnquiryIdRoute: EnquiriesEnquiryIdRoute,
+  OrdersOrderIdRoute: OrdersOrderIdRoute,
+  OrdersNewRoute: OrdersNewRoute,
+  ProductsProductIdRoute: ProductsProductIdRoute,
   ProductsNewRoute: ProductsNewRoute,
+  ReturnsReturnIdRoute: ReturnsReturnIdRoute,
+  InventoryPreordersProductIdRoute: InventoryPreordersProductIdRoute,
+  InventoryWaitingProductIdRoute: InventoryWaitingProductIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

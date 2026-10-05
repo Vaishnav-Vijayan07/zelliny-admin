@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { productsQuery } from "@/lib/api/sections.functions";
 import type { ProductRow } from "@/lib/api/section-types";
@@ -10,10 +10,11 @@ import { ModeSwitch, SkuChip, StatusBadge, Thumb, Toggle } from "@/components/ad
 import { Button, Card, DataTable, FilterBar, FilterSelect, PageHeader, Pager, SearchInput, type Column } from "@/components/admin/page";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { soon } from "@/hooks/use-toast-lite";
+import { editProduct, editProducts, useProducts, type ProductEdit } from "@/components/admin/ProductFlow";
 
 type Mode = "cart" | "enq";
-/** Local edits layered over the API data. Each change calls your API later (see admin.functions.ts). */
-type Edit = Partial<Pick<ProductRow, "mode" | "visible" | "price">>;
+/** Local edits are shared with the product editor (see ProductFlow). Each change calls your API later. */
+type Edit = ProductEdit;
 
 const isCart = (p: ProductRow) => p.mode === "Add to Cart";
 const STATUS_OPTIONS = ["In stock", "Low stock", "Out of stock", "Hidden from site", "Draft"];
@@ -42,7 +43,6 @@ function BulkButton({ children, onClick }: { children: ReactNode; onClick: () =>
 export default function ProductsPage() {
   const { data } = useSuspenseQuery(productsQuery());
   const navigate = useNavigate();
-  const [edits, setEdits] = useState<Record<string, Edit>>({});
   const [f, setF] = useState({ q: "", cat: "", brand: "", gender: "", mode: "", status: "" });
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
@@ -50,9 +50,9 @@ export default function ProductsPage() {
   const [priceFor, setPriceFor] = useState<ProductRow | null>(null);
   const [priceInput, setPriceInput] = useState("");
 
-  const products = useMemo(() => data.rows.map((p) => ({ ...p, ...edits[p.id] })), [data.rows, edits]);
+  const products = useProducts(data.rows);
   const setFilter = (k: keyof typeof f) => (v: string) => { setF((x) => ({ ...x, [k]: v })); setPage(1); };
-  const edit = (id: string, e: Edit) => setEdits((x) => ({ ...x, [id]: { ...x[id], ...e } }));
+  const edit = (id: string, e: Edit) => editProduct(id, e);
 
   const q = f.q.toLowerCase();
   const rows = products.filter((p) =>
@@ -97,7 +97,7 @@ export default function ProductsPage() {
       if (d === "hide") { next[p.id] = { visible: false }; n++; }
       if (d === "show") { next[p.id] = { visible: true }; n++; }
     });
-    setEdits((x) => { const o = { ...x }; for (const id in next) o[id] = { ...o[id], ...next[id] }; return o; });
+    editProducts(next);
     setSel(new Set());
     toast(`${n} products updated${skipped ? ` · ${skipped} without price stayed Enquiry` : ""}`);
   };
@@ -105,7 +105,7 @@ export default function ProductsPage() {
   const columns: Column<ProductRow>[] = [
     { header: "select", headerNode: <Check checked={allOn} onChange={toggleAll} label="Select all" />, cell: (p) => <Check checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} label={`Select ${p.name}`} /> },
     { header: "thumb", headerNode: "", cell: (p) => (
-      <button type="button" title="Manage images" onClick={(e) => { e.stopPropagation(); soon("Product images")(); }} className="group relative inline-block">
+      <button type="button" title="Manage images" onClick={(e) => { e.stopPropagation(); navigate({ to: "/products/$productId", params: { productId: p.id }, search: { tab: "Images" } }); }} className="group relative inline-block">
         <Thumb color={p.color} className="group-hover:outline group-hover:outline-2 group-hover:outline-offset-2 group-hover:outline-primary" />
         <em className="absolute -bottom-1 -right-1.5 rounded-full border border-border bg-surface px-[5px] text-[10px] not-italic">{p.imageCount}</em>
       </button>
@@ -167,7 +167,7 @@ export default function ProductsPage() {
             </>
           ) : <span>Tick products to change many at once</span>}
         </div>
-        <DataTable columns={columns} rows={shown} rowKey={(p) => p.id} empty="No products match" onRowClick={() => soon("Product page")()} />
+        <DataTable columns={columns} rows={shown} rowKey={(p) => p.id} empty="No products match" onRowClick={(p) => navigate({ to: "/products/$productId", params: { productId: p.id } })} />
         <Pager page={cur} pageSize={pageSize} total={rows.length} noun="products" onPage={setPage} onPageSize={(n) => { setPageSize(n); setPage(1); }} />
       </Card>
 

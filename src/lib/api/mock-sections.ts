@@ -6,8 +6,8 @@ import { GENERATED_PRODUCTS, SAMPLE_GENDER, type SampleProduct } from "./sample-
 
 const TONES: Record<string, Tone> = {
   Pending: "warn", Processing: "info", "Ready to ship": "info", Shipped: "info", Delivered: "ok",
-  Cancelled: "mute", Returned: "mute", Paid: "ok", Unpaid: "warn", Refunded: "mute",
-  Requested: "warn", Inspecting: "info", Approved: "info", Rejected: "bad",
+  Cancelled: "mute", Returned: "mute", Paid: "ok", Unpaid: "warn", "Awaiting payment": "warn", Refunded: "mute",
+  Requested: "warn", Inspecting: "info", Approved: "info", Received: "warn", Inspected: "warn", Rejected: "bad", "Return open": "warn",
   New: "warn", Contacted: "info", Quoted: "info", Negotiation: "warn", Won: "ok", Lost: "bad",
   Active: "ok", Draft: "mute", Scheduled: "info", Expired: "mute", VIP: "ok", Returning: "info",
   Confirmed: "ok", "In stock": "ok", "Low stock": "warn", "Out of stock": "bad", "Out for delivery": "info", Waiting: "warn",
@@ -19,27 +19,176 @@ const brand = (id: string) => BRANDS.find((b) => b.id === id)?.en ?? id;
 const cat = (id: string) => CATS.find((c) => c.id === id)?.en ?? id;
 const count = <X,>(xs: X[], f: (x: X) => boolean) => xs.filter(f).length;
 
-export function mockOrders(): T.OrdersData {
-  const rows: T.OrderRow[] = ORDERS.map((o) => ({
-    id: o.id, date: o.date, customer: cust(o.cust), itemCount: o.items.length, payment: o.pay,
-    payStatus: tag(o.payStatus), fulfilment: o.fulfil, status: tag(o.status), total: o.total + o.ship, zone: o.zone,
-  }));
-  const tiles = ["Pending", "Processing", "Ready to ship", "Shipped", "Delivered"].map((s) => ({
-    key: s, label: s, count: count(ORDERS, (o) => o.status === s),
-  }));
-  return { tiles, rows };
-}
+/* ---------- orders + returns sample (as in the prototype, v12–v14) ---------- */
+type SampleOrder = (typeof ORDERS)[number] & { delivered?: string };
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const parseDay = (s: string) => { const m = s.match(/(\d{1,2}) (\w{3}) (\d{4})/); return m ? new Date(+m[3]!, MON.indexOf(m[2]!), +m[1]!) : null; };
+const fmtDay = (d: Date) => `${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}`;
+/** Returns windows are measured from this date in the sample data. Your API sends today's date. */
+export const RETURNS_AS_OF = "25 Sep 2026";
+
+/** Older delivered orders, so some can be returned and some are outside the window. */
+const EXTRA_ORDERS: SampleOrder[] = ([
+  ["ZL-10482", "C201", "18 Sep 2026, 14:20", [["P1003", 1], ["P1010", 1]], "Paymob · Card", "New Cairo", "19 Sep 2026"],
+  ["ZL-10481", "C207", "15 Sep 2026, 11:05", [["P1008", 2]], "Paymob · Wallet", "6th of October", "16 Sep 2026"],
+  ["ZL-10480", "C204", "10 Sep 2026, 19:40", [["P1013", 1]], "Paymob · Card", "Alexandria", "11 Sep 2026"],
+  ["ZL-10479", "C203", "2 Sep 2026, 12:15", [["P1006", 1], ["P1021", 1]], "Paymob · Card", "Heliopolis", "3 Sep 2026"],
+  ["ZL-10478", "C202", "14 Aug 2026, 16:30", [["P1004", 1]], "Paymob · Card", "Sheikh Zayed", "15 Aug 2026"],
+] as [string, string, string, [string, number][], string, string, string][]).map(([id, c, date, items, pay, zone, delivered]) => ({
+  id, cust: c, date, items, pay, zone, delivered, ship: 0, payStatus: "Paid", status: "Delivered", fulfil: "Courier",
+  total: items.reduce((a, [p, q]) => a + ((prod(p)?.offer || prod(p)?.price) ?? 0) * q, 0),
+}) as unknown as SampleOrder);
+
+type SampleReturn = {
+  id: string; order: string; cust: string; items: [string, number][]; reason: string; rule: string; kind: string; amount: number;
+  status: string; date: string; via: string; photos: number; inspect: string | null; awb: string | null;
+  refund: T.RefundRecord | null; log: T.OrderEvent[];
+};
+const ev = (text: string, when: string, who: string): T.OrderEvent => ({ text, when, who });
+const RETURN_LOG: Record<string, T.OrderEvent[]> = {
+  "RMA-2036": [ev("Return requested by customer", "20 Sep, 10:14", "Laila Abdelrahman"), ev("Approved · Changed mind · unopened", "20 Sep, 11:02", "Zain"), ev("Return pickup booked · AWB BST-88207741", "20 Sep, 11:02", "Bosta"), ev("Received at the office", "21 Sep, 15:40", "Ahmed"), ev("Inspected · sealed · back in stock", "21 Sep, 16:05", "Ahmed"), ev("Refund issued · 8,400 EGP to Paymob · Wallet · ref PMB-RF-40218", "22 Sep, 11:05", "Ramy Bakr")],
+  "RMA-2035": [ev("Return requested by customer · 2 photos", "23 Sep, 09:30", "Nadine El-Sayed"), ev("Approved · Manufacturing defect", "23 Sep, 10:15", "Ramy Bakr"), ev("Return pickup booked · AWB BST-88213390", "23 Sep, 10:15", "Bosta"), ev("Received at the office", "24 Sep, 18:02", "Ahmed")],
+  "RMA-2034": [ev("Return requested by customer", "23 Sep, 12:40", "Salma Fathy"), ev("Approved · Wrong item sent", "23 Sep, 13:10", "Zain"), ev("Return pickup booked · AWB BST-88213561", "23 Sep, 13:10", "Bosta")],
+  "RMA-2033": [ev("Return requested by customer · 3 photos", "24 Sep, 08:55", "Omar Hassan")],
+  "RMA-2032": [ev("Return requested by customer", "18 Sep, 21:10", "Omar Hassan"), ev("Rejected · opened fragrance is not returnable", "19 Sep, 09:40", "Zain")],
+};
+const RETURNS_ALL: SampleReturn[] = [
+  ...RETURNS.map((r): SampleReturn => {
+    const log = RETURN_LOG[r.id] ?? [];
+    const awb = log.map((x) => x.text.match(/AWB (BST-\d+)/)?.[1]).find(Boolean) ?? null;
+    return {
+      id: r.id, order: r.order, cust: r.cust, items: [[r.item, 1]], rule: r.rule, amount: r.amount, date: r.date,
+      reason: r.id === "RMA-2034" ? "Wrong item sent — received Burberry Her EDT instead of EDP" : r.reason,
+      kind: r.rule.startsWith("Manufacturing") ? "Manufacturing defect" : r.id === "RMA-2034" ? "Wrong item sent" : "Changed mind · unopened, within 14 days",
+      status: r.status === "Inspecting" ? "Received" : r.status, via: "Website form", photos: (log[0]?.text.match(/(\d) photos?/)?.[1] ?? 0) as number,
+      inspect: r.status === "Refunded" ? "Perfect — back in stock" : null, awb, log,
+      refund: r.id === "RMA-2036" ? { ref: "PMB-RF-40218", method: "Paymob · Wallet (original)", amount: 8400, by: "Ramy Bakr", when: "22 Sep 2026, 11:05" } : null,
+    };
+  }),
+  { id: "RMA-2037", order: "ZL-10490", cust: "C205", items: [["P1012", 1]], reason: "Clasp stiff — defect", rule: "Manufacturing defect · within 30 days", kind: "Manufacturing defect", amount: 6900, status: "Requested", date: "24 Sep 2026", via: "Website form", photos: 1, inspect: null, awb: null, refund: null, log: [ev("Return requested by customer · 1 photo", "24 Sep, 19:20", "Laila Abdelrahman")] },
+  { id: "RMA-2038", order: "ZL-10484", cust: "C206", items: [["P1007", 1]], reason: "Order cancelled before dispatch", rule: "Order cancelled", kind: "Order cancelled", amount: 6100, status: "Inspected", date: "21 Sep 2026", via: "Phone call", photos: 0, inspect: "Item never left · in stock", awb: null, refund: null, log: [ev("Order cancelled on customer request", "21 Sep, 10:30", "Ahmed"), ev("Approved · Order cancelled", "21 Sep, 10:31", "Ahmed"), ev("Item never left · confirmed in stock", "21 Sep, 10:40", "Ahmed")] },
+];
+const openReturn = (orderId: string) => RETURNS_ALL.some((r) => r.order === orderId && !["Refunded", "Rejected"].includes(r.status));
+/** Orders reflect their returns: an open return shows on the order, a rejected one leaves it Delivered. */
+const ALL_ORDERS: SampleOrder[] = [...ORDERS, ...EXTRA_ORDERS].map((o) => {
+  if (o.id === "ZL-10484") return o;
+  if (openReturn(o.id)) return { ...o, status: "Return open" } as SampleOrder;
+  if (o.id === "ZL-10489") return { ...o, status: "Delivered", delivered: "24 Sep 2026" } as SampleOrder;
+  return o;
+});
+const deliveredOn = (o: SampleOrder) => {
+  if (o.delivered) return o.delivered;
+  const d = parseDay(o.date); if (!d) return null;
+  d.setDate(d.getDate() + 1); return fmtDay(d);
+};
+
+const RETURN_TILES = [
+  { key: "Requested", hint: "Customer asked · approve or reject", group: "Your team" },
+  { key: "Approved", hint: "Bosta bringing it back", group: "Courier" },
+  { key: "Received", hint: "At the office · inspect it", group: "Your team" },
+  { key: "Inspected", hint: "Checked · refund is next", group: "Your team" },
+  { key: "Refunded", hint: "Money returned · closed", group: "Closed" },
+  { key: "Rejected", hint: "Not accepted · closed", group: "Closed" },
+];
+const RETURNS_POLICY = [
+  { title: "Fragrance & beauty", text: "Returnable within 14 days of delivery — unopened, sealed, original packaging, invoice presented." },
+  { title: "Manufacturing defects", text: "Accepted within 30 days on all categories." },
+  { title: "Not returnable", text: "Opened beauty, engraved or personalised pieces." },
+  { title: "Watches & fine jewellery", text: "Manufacturing defects only." },
+  { title: "Refund method", text: "Always to the original payment method." },
+];
 
 export function mockReturns(): T.ReturnsData {
-  const rows = RETURNS.map((r) => ({
-    id: r.id, order: r.order, customer: cust(r.cust), item: prod(r.item)?.en ?? r.item, reason: r.reason,
-    rule: r.rule, amount: r.amount, status: tag(r.status), date: r.date,
-  }));
-  const tiles = ["Requested", "Inspecting", "Approved", "Refunded", "Rejected"].map((s) => ({
-    key: s, label: s, count: count(RETURNS, (r) => r.status === s),
-  }));
-  return { tiles, rows };
+  const rows: T.ReturnRow[] = RETURNS_ALL.map((r) => {
+    const c = CUSTOMERS.find((x) => x.id === r.cust);
+    const lines = orderLines(r.items);
+    return {
+      id: r.id, order: r.order, customer: c?.name ?? r.cust, item: lines[0]?.name ?? "", reason: r.reason, rule: r.rule, kind: r.kind,
+      amount: r.amount, status: tag(r.status), date: r.date, lines, customerInfo: { id: r.cust, name: c?.name ?? r.cust, phone: c?.phone ?? "" },
+      payment: ALL_ORDERS.find((o) => o.id === r.order)?.pay ?? "Paymob · Card",
+      awb: r.awb, via: r.via, photos: Number(r.photos) || 0, inspect: r.inspect, refund: r.refund, log: r.log,
+    };
+  });
+  const tiles = RETURN_TILES.map((t) => ({ ...t, label: t.key, count: count(RETURNS_ALL, (r) => r.status === t.key) }));
+  return { tiles, rows, asOf: RETURNS_AS_OF, policy: RETURNS_POLICY };
 }
+
+const ORDER_TILES = [
+  { key: "Pending", hint: "New · confirm it", group: "Your team" },
+  { key: "Processing", hint: "Being prepared by the team", group: "Your team" },
+  { key: "Ready to ship", hint: "Packed · waiting for courier", group: "Your team" },
+  { key: "Shipped", hint: "With the courier", group: "Courier" },
+  { key: "Delivered", hint: "Customer has it", group: "Courier" },
+];
+
+const orderLines = (items: (string | number)[][]): T.OrderLine[] => items.map(([id, q]) => {
+  const p = prod(String(id));
+  return { name: p?.en ?? String(id), sku: p?.sku ?? "", qty: Number(q), price: p?.offer || p?.price || 0, category: p?.cat ?? "" };
+});
+
+export function mockOrders(): T.OrdersData {
+  const rows: T.OrderRow[] = ALL_ORDERS.map((o, k) => ({
+    id: o.id, date: o.date, customer: cust(o.cust), itemCount: o.items.length, payment: o.pay,
+    payStatus: tag(o.payStatus), fulfilment: o.fulfil, status: tag(o.status), total: o.total + o.ship, zone: o.zone,
+    lines: orderLines(o.items), manual: false,
+    // Courier orders that have left the building carry the Bosta airway bill.
+    awb: o.fulfil === "Courier" && ["Shipped", "Delivered"].includes(o.status) ? `BST-8821${4000 + k * 37}` : null,
+    appointment: null,
+    deliveredOn: ["Delivered", "Return open", "Returned"].includes(o.status) ? deliveredOn(o) : null,
+  }));
+  const tiles = ORDER_TILES.map((t) => ({ ...t, label: t.key, count: count(ALL_ORDERS, (o) => o.status === t.key) }));
+  const draftLines = orderLines([["P1012", 1], ["P1011", 1]]);
+  const drafts: T.DraftOrderRow[] = [{
+    id: "D-031", saved: "Today 16:20", by: "Zain", customer: cust("C205"), lines: draftLines, source: "Instagram",
+    total: draftLines.reduce((a, l) => a + l.price * l.qty, 0), note: "Waiting for her to confirm the bracelet size",
+  }];
+  return { tiles, rows, drafts };
+}
+
+/** "24 Sep, 16:05" + minutes → same format (rolls to "Next day"). */
+const addMin = (d: string, m: number) => {
+  const [day, t = "00:00"] = d.split(", ");
+  const [h = 0, mi = 0] = t.split(":").map(Number);
+  let x = h * 60 + mi + m;
+  const next = x >= 1440; x %= 1440;
+  return `${next ? "Next day" : day}, ${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
+};
+
+export function mockOrderDetail(id: string): T.OrderDetail | null {
+  const row = mockOrders().rows.find((r) => r.id === id);
+  const o = ALL_ORDERS.find((x) => x.id === id);
+  const c = o && CUSTOMERS.find((x) => x.id === o.cust);
+  if (!row || !o || !c) return null;
+  const cod = o.pay === "Cash on Delivery", appt = o.fulfil === "Appointment";
+  const d = o.date.replace(" 2026", "");
+  const i = STAGE_ORDER.indexOf(o.status === "Return open" ? "Delivered" : o.status);
+  const h: T.OrderEvent[] = [
+    { text: "Order placed on zelliny.com", when: d, who: "Customer" },
+    { text: cod ? `Cash on Delivery — to collect ${(o.total + o.ship).toLocaleString("en-US")} EGP at the door` : `Payment captured · ${o.pay}`, when: d, who: "Paymob" },
+  ];
+  const ev = (text: string, when: string, who: string) => h.push({ text, when, who });
+  if (i >= 1) ev("Confirmed · started preparing", addMin(d, 40), "Ahmed");
+  if (i >= 2) ev("Packing checklist completed · Ready to ship", addMin(d, 180), "Ahmed");
+  if (row.awb) ev(`Courier pickup booked · AWB ${row.awb}`, addMin(d, 180), "Ahmed");
+  if (i >= 3) ev(appt ? "Out for delivery with the Zelliny team" : "Collected by Bosta (scanned)", appt ? "Next day, 11:00" : "Next day, 10:20", appt ? "Ahmed" : "Bosta");
+  if (i >= 3 && !appt) ev("Out for delivery", "Next day, 13:05", "Bosta");
+  if (i >= 4) ev(appt ? "Delivered in person · signature taken" : "Delivered · signed by customer", appt ? "Next day, 15:30" : "Next day, 16:40", appt ? "Ahmed" : "Bosta");
+  if (i >= 4 && cod) ev("Cash collected by Bosta · to be paid to Zelliny", "Next day, 16:40", "Bosta");
+  if (o.status === "Cancelled") ev("Cancelled · customer request · refunded", d, "Ahmed");
+  if (o.status === "Returned") ev("Returned · refunded", d, "Ramy Bakr");
+  const subtotal = row.lines.reduce((a, l) => a + l.price * l.qty, 0);
+  return {
+    ...row,
+    customerInfo: { id: c.id, name: c.name, email: c.email, phone: c.phone, orders: c.orders, spent: c.spent },
+    subtotal, discount: Math.max(0, subtotal - o.total), delivery: o.ship,
+    address: `Villa 14, Street 90, ${o.zone}`,
+    transactionId: cod ? null : `PMB-${o.id.slice(3)}-7731`,
+    gift: { wrap: "Ribbon wrapping", message: "Happy birthday, with love.", hidePrices: true },
+    history: h,
+  };
+}
+const STAGE_ORDER = ["Pending", "Processing", "Ready to ship", "Shipped", "Delivered"];
+
 
 export const stockLabel = (stock: number) => (stock === 0 ? "Out of stock" : stock <= 2 ? "Low stock" : "In stock");
 
@@ -67,27 +216,131 @@ export const mockCategories = (): T.CategoryRow[] =>
 export const mockBrands = (): T.BrandRow[] =>
   BRANDS.map((b) => ({ id: b.id, name: b.en, nameAr: b.ar, categories: b.cats.map(cat).join(", "), mode: b.mode, count: b.count, featured: b.featured, status: tag(b.status) }));
 
+/* Back-in-stock waiting lists and pre-orders, as in the prototype (v17–v18). */
+const WAITING: [string, [string, string, string, "Customer" | "Guest", "English" | "Arabic"][]][] = [
+  ["P1007", [
+    ["Mariam Adel", "mariam.adel@example.com", "3 Sep 2026", "Customer", "English"], ["Hassan Nabil", "hassan.nabil@example.com", "4 Sep 2026", "Guest", "Arabic"],
+    ["Farida Samir", "farida.s@example.com", "5 Sep 2026", "Customer", "English"], ["Karim Mansour", "karim.m@example.com", "6 Sep 2026", "Customer", "English"],
+    ["Nadine El-Sayed", "nadine.es@example.com", "7 Sep 2026", "Customer", "English"], ["Omar Tarek", "omar.tarek@example.com", "8 Sep 2026", "Guest", "Arabic"],
+    ["Salma Fathy", "salma.f@example.com", "9 Sep 2026", "Customer", "English"], ["Youssef Kamal", "youssef.k@example.com", "11 Sep 2026", "Customer", "Arabic"],
+    ["Heba Mostafa", "heba.m@example.com", "12 Sep 2026", "Guest", "English"], ["Ali Sherif", "ali.sherif@example.com", "13 Sep 2026", "Guest", "English"],
+    ["Rana Hegazy", "rana.h@example.com", "15 Sep 2026", "Customer", "English"], ["Tamer Wahba", "tamer.w@example.com", "17 Sep 2026", "Guest", "Arabic"],
+    ["Laila Abdelrahman", "laila.a@example.com", "19 Sep 2026", "Customer", "English"], ["Mona Ezzat", "mona.e@example.com", "22 Sep 2026", "Guest", "Arabic"]]],
+  ["P1010", [
+    ["Dina Raouf", "dina.r@example.com", "15 Sep 2026", "Customer", "English"], ["Nour El-Din", "nour.e@example.com", "16 Sep 2026", "Customer", "English"],
+    ["Ghada Fouad", "ghada.f@example.com", "17 Sep 2026", "Guest", "Arabic"], ["Sara Helmy", "sara.h@example.com", "18 Sep 2026", "Guest", "English"],
+    ["Yasmin Hosny", "yasmin.h@example.com", "20 Sep 2026", "Customer", "English"], ["Aya Mahmoud", "aya.m@example.com", "23 Sep 2026", "Guest", "Arabic"]]],
+  ["P1005", [
+    ["Mostafa Ali", "mostafa.a@example.com", "21 Sep 2026", "Customer", "English"], ["Sherif Lotfy", "sherif.l@example.com", "23 Sep 2026", "Guest", "Arabic"],
+    ["Ahmed Fawzy", "ahmed.f@example.com", "25 Sep 2026", "Customer", "English"]]],
+];
+const PREORDERS: T.PreorderRow[] = [
+  { productId: "P1005", expected: "12 Oct 2026", limit: 10, open: true, payment: "Paid in full online",
+    customers: [["C202", "Omar Hassan", "21 Sep 2026"], ["C206", "Youssef Kamal", "23 Sep 2026"], ["C208", "Tarek Samir", "25 Sep 2026"]].map(([customerId, name, date]) => ({ customerId: customerId!, name: name!, date: date! })) },
+  { productId: "P1020", expected: "20 Oct 2026", limit: 6, open: false, payment: "Paid in full online",
+    customers: [["C201", "Nadine El-Sayed", "18 Sep 2026"], ["C203", "Salma Fathy", "19 Sep 2026"], ["C205", "Laila Abdelrahman", "20 Sep 2026"], ["C207", "Hana Mostafa", "22 Sep 2026"], ["C209", "Mona Adel", "24 Sep 2026"], ["C210", "Sherif Nabil", "26 Sep 2026"]].map(([customerId, name, date]) => ({ customerId: customerId!, name: name!, date: date! })) },
+  { productId: "P1013", expected: "5 Nov 2026", limit: 4, open: true, payment: "Paid in full online", customers: [] },
+];
+
 export function mockInventory(): T.InventoryData {
-  const state = (s: number) => (s === 0 ? { label: "Out of stock", tone: "bad" as Tone } : s <= 10 ? { label: "Low", tone: "warn" as Tone } : { label: "In stock", tone: "ok" as Tone });
-  const rows = PRODUCTS.map((p) => ({ id: p.id, sku: p.sku, name: p.en, brand: brand(p.brand), color: p.img, stock: p.stock, sold: p.sold, state: state(p.stock) }));
   return {
-    tiles: [
-      { key: "all", label: "All products", count: rows.length },
-      { key: "Low", label: "Low stock", count: count(rows, (r) => r.state.label === "Low"), hint: "10 or fewer" },
-      { key: "Out of stock", label: "Out of stock", count: count(rows, (r) => r.state.label === "Out of stock"), hint: "Reorder now" },
-    ],
-    rows,
+    waitlists: WAITING.map(([productId, list]) => ({
+      productId,
+      customers: list.map(([name, email, date, account, language], i) => ({ id: `${productId}-${i}`, name, email, date, account, language, notified: null })),
+    })),
+    preorders: PREORDERS,
+    features: { backInStock: true, preorders: false },
   };
 }
 
-export const mockCustomers = (): T.CustomerRow[] =>
-  CUSTOMERS.map((c) => ({ ...c, tag: tag(c.tag) }));
+/** Extra sample customers (prototype v14/v16) so contact rules and numbered pages show. */
+const EXTRA_CUSTOMERS: [string, string, string, string, number, number, string, Partial<T.CustomerRow["marketing"]>, string?][] = [
+  ["Mona Adel", "", "+20 100 772 4410", "Nasr City", 1, 4600, "Aug 2026", { email: false }, "Phone call"],
+  ["Sherif Nabil", "sherif.n@example.com", "+20 127 330 5518", "Alexandria", 2, 15700, "Jun 2026", { whatsapp: false }],
+  ["Rania Galal", "rania.g@example.com", "+20 100 481 2290", "Zamalek", 3, 19400, "May 2026", {}],
+  ["Ahmed Fawzy", "ahmed.f@example.com", "+20 122 730 6618", "New Cairo", 1, 7250, "Sep 2026", {}],
+  ["Dalia Shaker", "", "+20 111 205 7743", "Heliopolis", 2, 12100, "Jul 2026", { email: false }, "WhatsApp"],
+  ["Mostafa Ali", "mostafa.a@example.com", "+20 106 339 1020", "Maadi", 1, 5450, "Aug 2026", {}],
+  ["Nour El-Din", "nour.e@example.com", "+20 127 604 8812", "Sheikh Zayed", 5, 33800, "Apr 2026", {}],
+  ["Yasmin Hosny", "yasmin.h@example.com", "+20 101 772 5530", "Alexandria", 2, 9800, "Jun 2026", {}, "Instagram"],
+];
+export const mockCustomers = (): T.CustomersData => {
+  const base: T.CustomerRow[] = CUSTOMERS.map((c) => ({
+    id: c.id, name: c.name, phone: c.phone, city: c.city, orders: c.orders, spent: c.spent, since: c.since,
+    email: c.id === "C208" ? "" : c.email, // ordered by phone, never gave an email
+    marketing: { email: c.id !== "C206" && c.id !== "C208", sms: true, whatsapp: true }, // C206 unsubscribed from emails
+    language: "English", address: `Villa 14, Street 90, ${c.city}`,
+    birthday: c.id === "C201" ? "14 March" : "", source: "Website",
+    notes: c.id === "C201" ? "Prefers delivery after 6 pm. Loves woody fragrances." : "",
+  }));
+  const extra: T.CustomerRow[] = EXTRA_CUSTOMERS.map(([name, email, phone, city, orders, spent, since, mkt, source], i) => ({
+    id: `C${209 + i}`, name, email, phone, city, orders, spent, since,
+    marketing: { email: !!email, sms: true, whatsapp: true, ...mkt }, language: i === 0 ? "Arabic" : "English",
+    address: `Villa 14, Street 90, ${city}`, birthday: "", source: source ?? "Website", notes: "",
+  }));
+  return { rows: [...base, ...extra], totalAccounts: 1146 };
+};
+
+/* Extra detail per sample enquiry, as in the prototype (v14). */
+type EnqExtra = Pick<T.EnquiryRow, "interest" | "time" | "budget" | "needBy" | "message" | "src"> & { log: [string, string, string][]; quote?: [string, number, number, number][]; quoteRef?: string; quoteSent?: string; order?: string; followUp?: string; unread?: boolean };
+const ENQ_EXTRA: Record<string, EnqExtra> = {
+  "ENQ-318": { interest: "Writing Instruments", time: "20:15", budget: "", needBy: "30 Oct 2026", unread: true, followUp: "Mon 28 Sep, 10:00",
+    message: "We would like premium pens and wallets for our top clients before year end. Please share engraving options and your gift box.",
+    src: { channel: "Google", how: "Search · “corporate gifts cairo”", page: "Corporate Gifting page", device: "Desktop", visits: 1 },
+    log: [["System", "Enquiry received from the website form", "24 Sep, 20:15"], ["System", "Auto-reply sent to client (EN)", "24 Sep, 20:15"]] },
+  "ENQ-317": { interest: "Leather Goods", time: "11:40", budget: "1,500 EGP / pc", needBy: "20 Oct 2026",
+    message: "Card holders for 250 employees, initials embossed. Can you deliver to two offices?",
+    src: { channel: "LinkedIn", how: "Company post", page: "Product page · Cerruti 1881 Card Holder", device: "Desktop", visits: 3 },
+    log: [["System", "Enquiry received from product page · Cerruti 1881 Card Holder", "23 Sep, 11:40"], ["Phone", "Zain called Ahmed — confirmed 250 pcs and two delivery addresses", "23 Sep, 13:05"]] },
+  "ENQ-316": { interest: "Writing Instruments", time: "09:20", budget: "", needBy: "15 Oct 2026",
+    message: "Looking for an executive gift for our board — 40 pens with logo engraving, presented in a gift box.",
+    src: { channel: "Google", how: "Search · “executive pens engraving”", page: "Corporate Gifting page", device: "Desktop", visits: 1 },
+    log: [["System", "Enquiry received from the website form", "22 Sep, 09:20"], ["Email", "Ramy emailed catalogue and engraving samples", "22 Sep, 12:10"], ["Email", "Quotation Q-2026-0419 sent · 204,000 EGP", "23 Sep, 16:30"]],
+    quote: [["name:S.T. Dupont Défi Fountain Pen", 40, 4850, 250]], quoteRef: "Q-2026-0419", quoteSent: "23 Sep" },
+  "ENQ-315": { interest: "Mixed / not sure yet", time: "18:02", budget: "250,000 EGP total", needBy: "5 Nov 2026",
+    message: "Gift sets for a launch event, around 300 guests. Open to suggestions.",
+    src: { channel: "WhatsApp", how: "Message to our number", manual: true },
+    log: [["WhatsApp", "Hesham sent the request on WhatsApp", "20 Sep, 18:02"], ["Phone", "Call — discussed three set options", "21 Sep, 11:00"], ["Email", "Revised quote sent", "23 Sep, 15:45"]],
+    quote: [["P1008", 150, 2650, 0], ["P1021", 150, 2950, 120]], quoteRef: "Q-2026-0418", quoteSent: "23 Sep" },
+  "ENQ-314": { interest: "Leather Goods", time: "10:10", budget: "", needBy: "1 Oct 2026", order: "ZL-C-0031",
+    message: "Leather sets for our hotel partners, logo printed.",
+    src: { channel: "Facebook", how: "Paid ad", page: "Corporate Gifting page", campaign: "Hospitality partners", device: "Mobile", visits: 1 },
+    log: [["System", "Enquiry received from the website form", "17 Sep, 10:10"], ["Phone", "Call with Rana", "17 Sep, 12:00"], ["System", "Order confirmed · ZL-C-0031", "19 Sep, 14:20"]] },
+  "ENQ-313": { interest: "Smoking Accessories", time: "15:30", budget: "", needBy: "",
+    message: "Lighters for 15 partners, initials engraved.",
+    src: { channel: "Email", how: "Wrote to info@zelliny.com", manual: true },
+    log: [["Email", "Request received by email", "12 Sep, 15:30"], ["Email", "Quote sent", "13 Sep, 10:00"], ["System", "Marked lost — chose another supplier", "18 Sep, 09:40"]] },
+  "ENQ-312": { interest: "Writing Instruments", time: "14:25", budget: "900 EGP / pc", needBy: "25 Oct 2026",
+    message: "180 pens for staff awards, logo engraved.",
+    src: { channel: "Direct", how: "Typed zelliny.com", page: "Product page · Hugo Boss Gear Matrix", device: "Desktop", visits: 4 },
+    log: [["System", "Enquiry received from product page · Hugo Boss Gear Matrix", "15 Sep, 14:25"], ["Phone", "Call with Noha", "15 Sep, 16:00"], ["Email", "Quote sent", "16 Sep, 11:30"]],
+    quote: [["P1015", 180, 1450, 150]], quoteRef: "Q-2026-0417", quoteSent: "16 Sep" },
+};
+const NEW_ENQUIRY = {
+  id: "ENQ-319", company: "Nile Ventures", contact: "Aya Hamdy", email: "aya@nileventures.example", phone: "+20 102 555 7340",
+  items: "S.T. Dupont pens or Hugo Boss leather — open to ideas", qty: 60, branding: "Logo engraving", stage: "New", owner: "Unassigned", date: "25 Sep",
+};
+const ENQ_319: EnqExtra = { interest: "Mixed / not sure yet", time: "09:12", budget: "", needBy: "Early November", unread: true,
+  message: "We are planning year-end gifts for 60 investors. Could you suggest two or three options within a premium budget?",
+  src: { channel: "Instagram", how: "Paid ad", page: "Corporate Gifting page", campaign: "Year-end gifting 2026", device: "Mobile", visits: 2 },
+  log: [["System", "Enquiry received from the website form", "25 Sep, 09:12"], ["System", "Auto-reply sent to client (EN)", "25 Sep, 09:12"]] };
 
 export function mockEnquiries(): T.EnquiriesData {
-  const stages = ["New", "Contacted", "Quoted", "Negotiation", "Won", "Lost"];
+  const products = [...PRODUCTS, ...GENERATED_PRODUCTS] as SampleProduct[];
+  const rows: T.EnquiryRow[] = [{ ...NEW_ENQUIRY, x: ENQ_319 }, ...ENQUIRIES.map((e) => ({ ...e, x: ENQ_EXTRA[e.id]! }))].map(({ x, ...e }) => ({
+    id: e.id, company: e.company, contact: e.contact, email: e.email, phone: e.phone, items: e.items, qty: e.qty, branding: e.branding,
+    stage: tag(e.stage), owner: e.owner, date: e.date, time: x.time, interest: x.interest, budget: x.budget, needBy: x.needBy, message: x.message, src: x.src,
+    followUp: x.followUp ?? "", unread: !!x.unread, order: x.order ?? null, quoteRef: x.quoteRef ?? null, quoteSent: x.quoteSent ?? null,
+    quote: (x.quote ?? []).map(([ref, qty, unit, pers]) => {
+      // "name:…" picks the first published product with that name.
+      const p = ref.startsWith("name:") ? products.find((y) => y.status !== "Draft" && y.en.startsWith(ref.slice(5))) : products.find((y) => y.id === ref);
+      const pid = p?.id ?? ref; return { productId: pid, name: p?.en ?? pid, sku: p?.sku ?? "", qty, unit, pers }; }),
+    log: x.log.map(([via, text, when]) => ({ via, text, when })),
+  }));
   return {
-    tiles: stages.map((s) => ({ key: s, label: s, count: count(ENQUIRIES, (e) => e.stage === s) })),
-    rows: ENQUIRIES.map((e) => ({ id: e.id, company: e.company, contact: e.contact, email: e.email, items: e.items, qty: e.qty, branding: e.branding, stage: tag(e.stage), owner: e.owner, date: e.date, source: e.source, pillar: e.pillar })),
+    rows,
+    owners: ["Ramy Bakr", "Zain", "Ahmed", "Abdelfattah Mohamed", "Nada Samir"],
+    products: products.filter((p) => p.status !== "Draft").map((p) => ({ id: p.id, name: p.en, sku: p.sku, brand: brand(p.brand), price: p.offer || p.price })),
   };
 }
 
@@ -180,3 +433,13 @@ export const SIMPLE_PAGES: Record<string, () => T.SimplePageData> = {
     g("Notifications", [["New order email", "ramy.bakr@zelliny.com"], ["Low stock alert", "10 units or fewer"]]),
   ] }),
 };
+
+export function mockOrderForm(): T.OrderFormData {
+  const all = [...PRODUCTS, ...GENERATED_PRODUCTS] as SampleProduct[];
+  return {
+    customers: mockCustomers().rows.map((c) => ({ id: c.id, name: c.name, phone: c.phone, email: c.email, city: c.city, orders: c.orders, address: c.address })),
+    products: all.filter((p) => p.status !== "Draft").map((p) => ({ id: p.id, name: p.en, sku: p.sku, brand: brand(p.brand), price: p.offer || p.price, stock: p.stock, color: p.img })),
+    zones: [["New Cairo", 75], ["Heliopolis", 75], ["Nasr City", 75], ["Maadi", 75], ["Zamalek", 75], ["6th of October", 90], ["Sheikh Zayed", 90], ["Alexandria", 120], ["North Coast", 150]].map(([name, fee]) => ({ name: String(name), fee: Number(fee) })),
+    sources: ["Phone call", "WhatsApp", "Instagram", "Facebook", "In person", "Email"],
+  };
+}

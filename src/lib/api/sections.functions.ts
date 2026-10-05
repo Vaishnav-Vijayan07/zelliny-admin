@@ -11,7 +11,11 @@ const opts = <T,>(key: string, fn: () => Promise<T>) =>
   queryOptions({ queryKey: ["section", key], queryFn: fn, staleTime: 30_000 });
 
 export const getOrders = createServerFn({ method: "GET" }).handler(async () => M.mockOrders());
-export const getReturns = createServerFn({ method: "GET" }).handler(async () => M.mockReturns());
+export const getOrder = createServerFn({ method: "GET" })
+  .inputValidator((d: { id: string }) => z.object({ id: z.string().trim().min(1).max(40) }).parse(d))
+  .handler(async ({ data }) => M.mockOrderDetail(data.id));
+export const getOrderForm = createServerFn({ method: "GET" }).handler(async () => M.mockOrderForm());
+export const getReturns =createServerFn({ method: "GET" }).handler(async () => M.mockReturns());
 export const getPayments = createServerFn({ method: "GET" }).handler(async () => M.mockPayments());
 export const getCustomers = createServerFn({ method: "GET" }).handler(async () => M.mockCustomers());
 export const getEnquiries = createServerFn({ method: "GET" }).handler(async () => M.mockEnquiries());
@@ -53,7 +57,9 @@ export const signIn = createServerFn({ method: "POST" })
   });
 
 export const ordersQuery = () => opts("orders", () => getOrders());
-export const returnsQuery = () => opts("returns", () => getReturns());
+export const orderQuery = (id: string) => opts(`order-${id}`, () => getOrder({ data: { id } }));
+export const orderFormQuery = () => opts("order-form", () => getOrderForm());
+export const returnsQuery =() => opts("returns", () => getReturns());
 export const paymentsQuery = () => opts("payments", () => getPayments());
 export const customersQuery = () => opts("customers", () => getCustomers());
 export const enquiriesQuery = () => opts("enquiries", () => getEnquiries());
