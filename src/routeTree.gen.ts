@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SectionRouteImport } from './routes/$section'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
+import { Route as AttributesRouteImport } from './routes/attributes'
 import { Route as BrandsRouteImport } from './routes/brands'
 import { Route as BrowsingRouteImport } from './routes/browsing'
 import { Route as BundlesRouteImport } from './routes/bundles'
@@ -35,15 +36,31 @@ import { Route as ScriptsRouteImport } from './routes/scripts'
 import { Route as SellingRouteImport } from './routes/selling'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StaffRouteImport } from './routes/staff'
+import { Route as AttributesAttributeIdRouteImport } from './routes/attributes_.$attributeId'
+import { Route as AttributesNewRouteImport } from './routes/attributes_.new'
+import { Route as BrandsBrandIdRouteImport } from './routes/brands_.$brandId'
+import { Route as BrandsNewRouteImport } from './routes/brands_.new'
+import { Route as BundlesBundleIdRouteImport } from './routes/bundles_.$bundleId'
+import { Route as BundlesNewRouteImport } from './routes/bundles_.new'
+import { Route as CategoriesCategoryIdRouteImport } from './routes/categories_.$categoryId'
+import { Route as CategoriesNewRouteImport } from './routes/categories_.new'
+import { Route as ContentHomepageRouteImport } from './routes/content_.homepage'
 import { Route as CustomersCustomerIdRouteImport } from './routes/customers_.$customerId'
+import { Route as DiscountsCodeRouteImport } from './routes/discounts_.$code'
+import { Route as DiscountsNewRouteImport } from './routes/discounts_.new'
 import { Route as EnquiriesEnquiryIdRouteImport } from './routes/enquiries_.$enquiryId'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders_.$orderId'
 import { Route as OrdersNewRouteImport } from './routes/orders_.new'
 import { Route as ProductsProductIdRouteImport } from './routes/products_.$productId'
 import { Route as ProductsNewRouteImport } from './routes/products_.new'
 import { Route as ReturnsReturnIdRouteImport } from './routes/returns_.$returnId'
+import { Route as ScriptsScriptIdRouteImport } from './routes/scripts_.$scriptId'
+import { Route as ScriptsNewRouteImport } from './routes/scripts_.new'
+import { Route as AttributesAttributeIdValuesRouteImport } from './routes/attributes_.$attributeId_.values'
 import { Route as InventoryPreordersProductIdRouteImport } from './routes/inventory_.preorders.$productId'
 import { Route as InventoryWaitingProductIdRouteImport } from './routes/inventory_.waiting.$productId'
+import { Route as StaffMemberMemberIdRouteImport } from './routes/staff_.member.$memberId'
+import { Route as StaffRoleRoleIdRouteImport } from './routes/staff_.role.$roleId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -63,6 +80,11 @@ const ActivityRoute = ActivityRouteImport.update({
 const ApprovalsRoute = ApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AttributesRoute = AttributesRouteImport.update({
+  id: '/attributes',
+  path: '/attributes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BrandsRoute = BrandsRouteImport.update({
@@ -175,9 +197,64 @@ const StaffRoute = StaffRouteImport.update({
   path: '/staff',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AttributesAttributeIdRoute = AttributesAttributeIdRouteImport.update({
+  id: '/attributes_/$attributeId',
+  path: '/attributes/$attributeId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AttributesNewRoute = AttributesNewRouteImport.update({
+  id: '/attributes_/new',
+  path: '/attributes/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrandsBrandIdRoute = BrandsBrandIdRouteImport.update({
+  id: '/brands_/$brandId',
+  path: '/brands/$brandId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrandsNewRoute = BrandsNewRouteImport.update({
+  id: '/brands_/new',
+  path: '/brands/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BundlesBundleIdRoute = BundlesBundleIdRouteImport.update({
+  id: '/bundles_/$bundleId',
+  path: '/bundles/$bundleId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BundlesNewRoute = BundlesNewRouteImport.update({
+  id: '/bundles_/new',
+  path: '/bundles/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CategoriesCategoryIdRoute = CategoriesCategoryIdRouteImport.update({
+  id: '/categories_/$categoryId',
+  path: '/categories/$categoryId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CategoriesNewRoute = CategoriesNewRouteImport.update({
+  id: '/categories_/new',
+  path: '/categories/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContentHomepageRoute = ContentHomepageRouteImport.update({
+  id: '/content_/homepage',
+  path: '/content/homepage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CustomersCustomerIdRoute = CustomersCustomerIdRouteImport.update({
   id: '/customers_/$customerId',
   path: '/customers/$customerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscountsCodeRoute = DiscountsCodeRouteImport.update({
+  id: '/discounts_/$code',
+  path: '/discounts/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscountsNewRoute = DiscountsNewRouteImport.update({
+  id: '/discounts_/new',
+  path: '/discounts/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EnquiriesEnquiryIdRoute = EnquiriesEnquiryIdRouteImport.update({
@@ -210,6 +287,22 @@ const ReturnsReturnIdRoute = ReturnsReturnIdRouteImport.update({
   path: '/returns/$returnId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScriptsScriptIdRoute = ScriptsScriptIdRouteImport.update({
+  id: '/scripts_/$scriptId',
+  path: '/scripts/$scriptId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScriptsNewRoute = ScriptsNewRouteImport.update({
+  id: '/scripts_/new',
+  path: '/scripts/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AttributesAttributeIdValuesRoute =
+  AttributesAttributeIdValuesRouteImport.update({
+    id: '/attributes_/$attributeId_/values',
+    path: '/attributes/$attributeId/values',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const InventoryPreordersProductIdRoute =
   InventoryPreordersProductIdRouteImport.update({
     id: '/inventory_/preorders/$productId',
@@ -222,12 +315,23 @@ const InventoryWaitingProductIdRoute =
     path: '/inventory/waiting/$productId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const StaffMemberMemberIdRoute = StaffMemberMemberIdRouteImport.update({
+  id: '/staff_/member/$memberId',
+  path: '/staff/member/$memberId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StaffRoleRoleIdRoute = StaffRoleRoleIdRouteImport.update({
+  id: '/staff_/role/$roleId',
+  path: '/staff/role/$roleId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$section': typeof SectionRoute
   '/activity': typeof ActivityRoute
   '/approvals': typeof ApprovalsRoute
+  '/attributes': typeof AttributesRoute
   '/brands': typeof BrandsRoute
   '/browsing': typeof BrowsingRoute
   '/bundles': typeof BundlesRoute
@@ -250,21 +354,38 @@ export interface FileRoutesByFullPath {
   '/selling': typeof SellingRoute
   '/settings': typeof SettingsRoute
   '/staff': typeof StaffRoute
+  '/attributes/$attributeId': typeof AttributesAttributeIdRoute
+  '/attributes/new': typeof AttributesNewRoute
+  '/brands/$brandId': typeof BrandsBrandIdRoute
+  '/brands/new': typeof BrandsNewRoute
+  '/bundles/$bundleId': typeof BundlesBundleIdRoute
+  '/bundles/new': typeof BundlesNewRoute
+  '/categories/$categoryId': typeof CategoriesCategoryIdRoute
+  '/categories/new': typeof CategoriesNewRoute
+  '/content/homepage': typeof ContentHomepageRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/discounts/$code': typeof DiscountsCodeRoute
+  '/discounts/new': typeof DiscountsNewRoute
   '/enquiries/$enquiryId': typeof EnquiriesEnquiryIdRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/products/new': typeof ProductsNewRoute
   '/returns/$returnId': typeof ReturnsReturnIdRoute
+  '/scripts/$scriptId': typeof ScriptsScriptIdRoute
+  '/scripts/new': typeof ScriptsNewRoute
+  '/attributes/$attributeId/values': typeof AttributesAttributeIdValuesRoute
   '/inventory/preorders/$productId': typeof InventoryPreordersProductIdRoute
   '/inventory/waiting/$productId': typeof InventoryWaitingProductIdRoute
+  '/staff/member/$memberId': typeof StaffMemberMemberIdRoute
+  '/staff/role/$roleId': typeof StaffRoleRoleIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$section': typeof SectionRoute
   '/activity': typeof ActivityRoute
   '/approvals': typeof ApprovalsRoute
+  '/attributes': typeof AttributesRoute
   '/brands': typeof BrandsRoute
   '/browsing': typeof BrowsingRoute
   '/bundles': typeof BundlesRoute
@@ -287,15 +408,31 @@ export interface FileRoutesByTo {
   '/selling': typeof SellingRoute
   '/settings': typeof SettingsRoute
   '/staff': typeof StaffRoute
+  '/attributes/$attributeId': typeof AttributesAttributeIdRoute
+  '/attributes/new': typeof AttributesNewRoute
+  '/brands/$brandId': typeof BrandsBrandIdRoute
+  '/brands/new': typeof BrandsNewRoute
+  '/bundles/$bundleId': typeof BundlesBundleIdRoute
+  '/bundles/new': typeof BundlesNewRoute
+  '/categories/$categoryId': typeof CategoriesCategoryIdRoute
+  '/categories/new': typeof CategoriesNewRoute
+  '/content/homepage': typeof ContentHomepageRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/discounts/$code': typeof DiscountsCodeRoute
+  '/discounts/new': typeof DiscountsNewRoute
   '/enquiries/$enquiryId': typeof EnquiriesEnquiryIdRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/products/new': typeof ProductsNewRoute
   '/returns/$returnId': typeof ReturnsReturnIdRoute
+  '/scripts/$scriptId': typeof ScriptsScriptIdRoute
+  '/scripts/new': typeof ScriptsNewRoute
+  '/attributes/$attributeId/values': typeof AttributesAttributeIdValuesRoute
   '/inventory/preorders/$productId': typeof InventoryPreordersProductIdRoute
   '/inventory/waiting/$productId': typeof InventoryWaitingProductIdRoute
+  '/staff/member/$memberId': typeof StaffMemberMemberIdRoute
+  '/staff/role/$roleId': typeof StaffRoleRoleIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -303,6 +440,7 @@ export interface FileRoutesById {
   '/$section': typeof SectionRoute
   '/activity': typeof ActivityRoute
   '/approvals': typeof ApprovalsRoute
+  '/attributes': typeof AttributesRoute
   '/brands': typeof BrandsRoute
   '/browsing': typeof BrowsingRoute
   '/bundles': typeof BundlesRoute
@@ -325,15 +463,31 @@ export interface FileRoutesById {
   '/selling': typeof SellingRoute
   '/settings': typeof SettingsRoute
   '/staff': typeof StaffRoute
+  '/attributes_/$attributeId': typeof AttributesAttributeIdRoute
+  '/attributes_/new': typeof AttributesNewRoute
+  '/brands_/$brandId': typeof BrandsBrandIdRoute
+  '/brands_/new': typeof BrandsNewRoute
+  '/bundles_/$bundleId': typeof BundlesBundleIdRoute
+  '/bundles_/new': typeof BundlesNewRoute
+  '/categories_/$categoryId': typeof CategoriesCategoryIdRoute
+  '/categories_/new': typeof CategoriesNewRoute
+  '/content_/homepage': typeof ContentHomepageRoute
   '/customers_/$customerId': typeof CustomersCustomerIdRoute
+  '/discounts_/$code': typeof DiscountsCodeRoute
+  '/discounts_/new': typeof DiscountsNewRoute
   '/enquiries_/$enquiryId': typeof EnquiriesEnquiryIdRoute
   '/orders_/$orderId': typeof OrdersOrderIdRoute
   '/orders_/new': typeof OrdersNewRoute
   '/products_/$productId': typeof ProductsProductIdRoute
   '/products_/new': typeof ProductsNewRoute
   '/returns_/$returnId': typeof ReturnsReturnIdRoute
+  '/scripts_/$scriptId': typeof ScriptsScriptIdRoute
+  '/scripts_/new': typeof ScriptsNewRoute
+  '/attributes_/$attributeId_/values': typeof AttributesAttributeIdValuesRoute
   '/inventory_/preorders/$productId': typeof InventoryPreordersProductIdRoute
   '/inventory_/waiting/$productId': typeof InventoryWaitingProductIdRoute
+  '/staff_/member/$memberId': typeof StaffMemberMemberIdRoute
+  '/staff_/role/$roleId': typeof StaffRoleRoleIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -342,6 +496,7 @@ export interface FileRouteTypes {
     | '/$section'
     | '/activity'
     | '/approvals'
+    | '/attributes'
     | '/brands'
     | '/browsing'
     | '/bundles'
@@ -364,21 +519,38 @@ export interface FileRouteTypes {
     | '/selling'
     | '/settings'
     | '/staff'
+    | '/attributes/$attributeId'
+    | '/attributes/new'
+    | '/brands/$brandId'
+    | '/brands/new'
+    | '/bundles/$bundleId'
+    | '/bundles/new'
+    | '/categories/$categoryId'
+    | '/categories/new'
+    | '/content/homepage'
     | '/customers/$customerId'
+    | '/discounts/$code'
+    | '/discounts/new'
     | '/enquiries/$enquiryId'
     | '/orders/$orderId'
     | '/orders/new'
     | '/products/$productId'
     | '/products/new'
     | '/returns/$returnId'
+    | '/scripts/$scriptId'
+    | '/scripts/new'
+    | '/attributes/$attributeId/values'
     | '/inventory/preorders/$productId'
     | '/inventory/waiting/$productId'
+    | '/staff/member/$memberId'
+    | '/staff/role/$roleId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/$section'
     | '/activity'
     | '/approvals'
+    | '/attributes'
     | '/brands'
     | '/browsing'
     | '/bundles'
@@ -401,21 +573,38 @@ export interface FileRouteTypes {
     | '/selling'
     | '/settings'
     | '/staff'
+    | '/attributes/$attributeId'
+    | '/attributes/new'
+    | '/brands/$brandId'
+    | '/brands/new'
+    | '/bundles/$bundleId'
+    | '/bundles/new'
+    | '/categories/$categoryId'
+    | '/categories/new'
+    | '/content/homepage'
     | '/customers/$customerId'
+    | '/discounts/$code'
+    | '/discounts/new'
     | '/enquiries/$enquiryId'
     | '/orders/$orderId'
     | '/orders/new'
     | '/products/$productId'
     | '/products/new'
     | '/returns/$returnId'
+    | '/scripts/$scriptId'
+    | '/scripts/new'
+    | '/attributes/$attributeId/values'
     | '/inventory/preorders/$productId'
     | '/inventory/waiting/$productId'
+    | '/staff/member/$memberId'
+    | '/staff/role/$roleId'
   id:
     | '__root__'
     | '/'
     | '/$section'
     | '/activity'
     | '/approvals'
+    | '/attributes'
     | '/brands'
     | '/browsing'
     | '/bundles'
@@ -438,15 +627,31 @@ export interface FileRouteTypes {
     | '/selling'
     | '/settings'
     | '/staff'
+    | '/attributes_/$attributeId'
+    | '/attributes_/new'
+    | '/brands_/$brandId'
+    | '/brands_/new'
+    | '/bundles_/$bundleId'
+    | '/bundles_/new'
+    | '/categories_/$categoryId'
+    | '/categories_/new'
+    | '/content_/homepage'
     | '/customers_/$customerId'
+    | '/discounts_/$code'
+    | '/discounts_/new'
     | '/enquiries_/$enquiryId'
     | '/orders_/$orderId'
     | '/orders_/new'
     | '/products_/$productId'
     | '/products_/new'
     | '/returns_/$returnId'
+    | '/scripts_/$scriptId'
+    | '/scripts_/new'
+    | '/attributes_/$attributeId_/values'
     | '/inventory_/preorders/$productId'
     | '/inventory_/waiting/$productId'
+    | '/staff_/member/$memberId'
+    | '/staff_/role/$roleId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -454,6 +659,7 @@ export interface RootRouteChildren {
   SectionRoute: typeof SectionRoute
   ActivityRoute: typeof ActivityRoute
   ApprovalsRoute: typeof ApprovalsRoute
+  AttributesRoute: typeof AttributesRoute
   BrandsRoute: typeof BrandsRoute
   BrowsingRoute: typeof BrowsingRoute
   BundlesRoute: typeof BundlesRoute
@@ -476,15 +682,31 @@ export interface RootRouteChildren {
   SellingRoute: typeof SellingRoute
   SettingsRoute: typeof SettingsRoute
   StaffRoute: typeof StaffRoute
+  AttributesAttributeIdRoute: typeof AttributesAttributeIdRoute
+  AttributesNewRoute: typeof AttributesNewRoute
+  BrandsBrandIdRoute: typeof BrandsBrandIdRoute
+  BrandsNewRoute: typeof BrandsNewRoute
+  BundlesBundleIdRoute: typeof BundlesBundleIdRoute
+  BundlesNewRoute: typeof BundlesNewRoute
+  CategoriesCategoryIdRoute: typeof CategoriesCategoryIdRoute
+  CategoriesNewRoute: typeof CategoriesNewRoute
+  ContentHomepageRoute: typeof ContentHomepageRoute
   CustomersCustomerIdRoute: typeof CustomersCustomerIdRoute
+  DiscountsCodeRoute: typeof DiscountsCodeRoute
+  DiscountsNewRoute: typeof DiscountsNewRoute
   EnquiriesEnquiryIdRoute: typeof EnquiriesEnquiryIdRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
   ProductsProductIdRoute: typeof ProductsProductIdRoute
   ProductsNewRoute: typeof ProductsNewRoute
   ReturnsReturnIdRoute: typeof ReturnsReturnIdRoute
+  ScriptsScriptIdRoute: typeof ScriptsScriptIdRoute
+  ScriptsNewRoute: typeof ScriptsNewRoute
+  AttributesAttributeIdValuesRoute: typeof AttributesAttributeIdValuesRoute
   InventoryPreordersProductIdRoute: typeof InventoryPreordersProductIdRoute
   InventoryWaitingProductIdRoute: typeof InventoryWaitingProductIdRoute
+  StaffMemberMemberIdRoute: typeof StaffMemberMemberIdRoute
+  StaffRoleRoleIdRoute: typeof StaffRoleRoleIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -515,6 +737,13 @@ declare module '@tanstack/react-router' {
       path: '/approvals'
       fullPath: '/approvals'
       preLoaderRoute: typeof ApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attributes': {
+      id: '/attributes'
+      path: '/attributes'
+      fullPath: '/attributes'
+      preLoaderRoute: typeof AttributesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/brands': {
@@ -671,11 +900,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/attributes_/$attributeId': {
+      id: '/attributes_/$attributeId'
+      path: '/attributes/$attributeId'
+      fullPath: '/attributes/$attributeId'
+      preLoaderRoute: typeof AttributesAttributeIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attributes_/new': {
+      id: '/attributes_/new'
+      path: '/attributes/new'
+      fullPath: '/attributes/new'
+      preLoaderRoute: typeof AttributesNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brands_/$brandId': {
+      id: '/brands_/$brandId'
+      path: '/brands/$brandId'
+      fullPath: '/brands/$brandId'
+      preLoaderRoute: typeof BrandsBrandIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brands_/new': {
+      id: '/brands_/new'
+      path: '/brands/new'
+      fullPath: '/brands/new'
+      preLoaderRoute: typeof BrandsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bundles_/$bundleId': {
+      id: '/bundles_/$bundleId'
+      path: '/bundles/$bundleId'
+      fullPath: '/bundles/$bundleId'
+      preLoaderRoute: typeof BundlesBundleIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bundles_/new': {
+      id: '/bundles_/new'
+      path: '/bundles/new'
+      fullPath: '/bundles/new'
+      preLoaderRoute: typeof BundlesNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/categories_/$categoryId': {
+      id: '/categories_/$categoryId'
+      path: '/categories/$categoryId'
+      fullPath: '/categories/$categoryId'
+      preLoaderRoute: typeof CategoriesCategoryIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/categories_/new': {
+      id: '/categories_/new'
+      path: '/categories/new'
+      fullPath: '/categories/new'
+      preLoaderRoute: typeof CategoriesNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/content_/homepage': {
+      id: '/content_/homepage'
+      path: '/content/homepage'
+      fullPath: '/content/homepage'
+      preLoaderRoute: typeof ContentHomepageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customers_/$customerId': {
       id: '/customers_/$customerId'
       path: '/customers/$customerId'
       fullPath: '/customers/$customerId'
       preLoaderRoute: typeof CustomersCustomerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discounts_/$code': {
+      id: '/discounts_/$code'
+      path: '/discounts/$code'
+      fullPath: '/discounts/$code'
+      preLoaderRoute: typeof DiscountsCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discounts_/new': {
+      id: '/discounts_/new'
+      path: '/discounts/new'
+      fullPath: '/discounts/new'
+      preLoaderRoute: typeof DiscountsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/enquiries_/$enquiryId': {
@@ -720,6 +1026,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReturnsReturnIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scripts_/$scriptId': {
+      id: '/scripts_/$scriptId'
+      path: '/scripts/$scriptId'
+      fullPath: '/scripts/$scriptId'
+      preLoaderRoute: typeof ScriptsScriptIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scripts_/new': {
+      id: '/scripts_/new'
+      path: '/scripts/new'
+      fullPath: '/scripts/new'
+      preLoaderRoute: typeof ScriptsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attributes_/$attributeId_/values': {
+      id: '/attributes_/$attributeId_/values'
+      path: '/attributes/$attributeId/values'
+      fullPath: '/attributes/$attributeId/values'
+      preLoaderRoute: typeof AttributesAttributeIdValuesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inventory_/preorders/$productId': {
       id: '/inventory_/preorders/$productId'
       path: '/inventory/preorders/$productId'
@@ -734,6 +1061,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InventoryWaitingProductIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/staff_/member/$memberId': {
+      id: '/staff_/member/$memberId'
+      path: '/staff/member/$memberId'
+      fullPath: '/staff/member/$memberId'
+      preLoaderRoute: typeof StaffMemberMemberIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff_/role/$roleId': {
+      id: '/staff_/role/$roleId'
+      path: '/staff/role/$roleId'
+      fullPath: '/staff/role/$roleId'
+      preLoaderRoute: typeof StaffRoleRoleIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -742,6 +1083,7 @@ const rootRouteChildren: RootRouteChildren = {
   SectionRoute: SectionRoute,
   ActivityRoute: ActivityRoute,
   ApprovalsRoute: ApprovalsRoute,
+  AttributesRoute: AttributesRoute,
   BrandsRoute: BrandsRoute,
   BrowsingRoute: BrowsingRoute,
   BundlesRoute: BundlesRoute,
@@ -764,15 +1106,31 @@ const rootRouteChildren: RootRouteChildren = {
   SellingRoute: SellingRoute,
   SettingsRoute: SettingsRoute,
   StaffRoute: StaffRoute,
+  AttributesAttributeIdRoute: AttributesAttributeIdRoute,
+  AttributesNewRoute: AttributesNewRoute,
+  BrandsBrandIdRoute: BrandsBrandIdRoute,
+  BrandsNewRoute: BrandsNewRoute,
+  BundlesBundleIdRoute: BundlesBundleIdRoute,
+  BundlesNewRoute: BundlesNewRoute,
+  CategoriesCategoryIdRoute: CategoriesCategoryIdRoute,
+  CategoriesNewRoute: CategoriesNewRoute,
+  ContentHomepageRoute: ContentHomepageRoute,
   CustomersCustomerIdRoute: CustomersCustomerIdRoute,
+  DiscountsCodeRoute: DiscountsCodeRoute,
+  DiscountsNewRoute: DiscountsNewRoute,
   EnquiriesEnquiryIdRoute: EnquiriesEnquiryIdRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
   OrdersNewRoute: OrdersNewRoute,
   ProductsProductIdRoute: ProductsProductIdRoute,
   ProductsNewRoute: ProductsNewRoute,
   ReturnsReturnIdRoute: ReturnsReturnIdRoute,
+  ScriptsScriptIdRoute: ScriptsScriptIdRoute,
+  ScriptsNewRoute: ScriptsNewRoute,
+  AttributesAttributeIdValuesRoute: AttributesAttributeIdValuesRoute,
   InventoryPreordersProductIdRoute: InventoryPreordersProductIdRoute,
   InventoryWaitingProductIdRoute: InventoryWaitingProductIdRoute,
+  StaffMemberMemberIdRoute: StaffMemberMemberIdRoute,
+  StaffRoleRoleIdRoute: StaffRoleRoleIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

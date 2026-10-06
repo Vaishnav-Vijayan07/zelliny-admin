@@ -32,6 +32,7 @@ export const APP_PAGES: AppPageGroup[] = [
   { title: "Catalogue", pages: [
     { key: "products", label: "Products", icon: "◇" },
     { key: "categories", label: "Categories", icon: "▦" },
+    { key: "attributes", label: "Attributes", icon: "◆" },
     { key: "brands", label: "Maisons", icon: "❖" },
     { key: "selling", label: "Selling control", icon: "⇄" },
     { key: "inventory", label: "Inventory", icon: "▥" },

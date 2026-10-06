@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { productsQuery } from "@/lib/api/sections.functions";
+import { attributesQuery, productsQuery } from "@/lib/api/sections.functions";
 import { pageHead } from "@/lib/seo";
 import ProductDetailPage from "@/pages/ProductDetailPage";
 
@@ -9,7 +9,7 @@ export const Route = createFileRoute("/products_/$productId")({
   // ?tab=Images opens straight on that tab (used by the thumbnail in the products list).
   validateSearch: z.object({ tab: z.string().max(30).optional() }),
   head: ({ params }) => pageHead(`Product ${params.productId}`, "Edit a Zelliny product in English and Arabic: price, images, stock, gifting and SEO."),
-  loader: ({ context }) => context.queryClient.ensureQueryData(productsQuery()),
+  loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(productsQuery()), context.queryClient.ensureQueryData(attributesQuery())]),
   component: ProductRoute,
 });
 

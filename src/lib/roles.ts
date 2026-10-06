@@ -2,6 +2,8 @@
 // Based on the "Role permissions" table in the original prototype.
 // When a real backend exists, it can return these permissions per user instead.
 
+import { findRoleByName, levelOf } from "@/lib/team-store";
+
 export type DashboardWidget = "revenue" | "latestOrders" | "lowStock" | "bestSellers" | "mostEnquired" | "pipeline";
 
 interface RoleAccess {
@@ -16,7 +18,7 @@ export const ROLE_ACCESS: Record<string, RoleAccess> = {
   Owner: { pages: "all", widgets: ALL_WIDGETS, focus: "Full view of the business" },
   "Store manager": {
     pages: ["dashboard", "approvals", "reports", "activity", "orders", "returns", "customers", "enquiries",
-      "products", "categories", "brands", "selling", "inventory", "discounts", "browsing", "loyalty",
+      "products", "categories", "attributes", "brands", "selling", "inventory", "discounts", "browsing", "loyalty",
       "bundles", "gifting", "content", "delivery", "staff"],
     widgets: ALL_WIDGETS,
     focus: "Sales, catalogue and team approvals",
@@ -32,7 +34,7 @@ export const ROLE_ACCESS: Record<string, RoleAccess> = {
     focus: "Processing today's orders and returns",
   },
   "Content editor": {
-    pages: ["dashboard", "activity", "products", "categories", "brands", "bundles", "gifting", "content", "browsing"],
+    pages: ["dashboard", "activity", "products", "categories", "attributes", "brands", "bundles", "gifting", "content", "browsing"],
     widgets: ["bestSellers", "mostEnquired"],
     focus: "Products and site content",
   },
@@ -41,6 +43,8 @@ export const ROLE_ACCESS: Record<string, RoleAccess> = {
 const access = (role?: string | null): RoleAccess => ROLE_ACCESS[role ?? ""] ?? ROLE_ACCESS["Order desk"]!;
 
 export function canSeePage(role: string | null | undefined, key: string) {
+  const custom = findRoleByName(role);
+  if (custom) return key === "dashboard" ? true : levelOf(custom, key) !== "none";
   const p = access(role).pages;
   return p === "all" || p.includes(key);
 }

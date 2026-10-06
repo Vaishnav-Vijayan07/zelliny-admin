@@ -83,6 +83,11 @@ export interface ProductsData { rows: ProductRow[]; brands: string[]; categories
 export interface CategoryRow { id: string; name: string; nameAr: string; count: number; mode: string; order: number; status: Tagged }
 export interface BrandRow { id: string; name: string; nameAr: string; categories: string; mode: string; count: number; featured: boolean; status: Tagged }
 
+export type AttributePreviewType = "COLOR" | "ICON" | "TEXT";
+/** `color` is a hex string (COLOR type), `icon` a data/image URL (ICON type) — both null otherwise. */
+export interface AttributeValueRow { id: string; value: string; color: string | null; icon: string | null; iconAlt: string | null }
+export interface AttributeRow { id: string; name: string; previewType: AttributePreviewType; values: AttributeValueRow[]; status: Tagged }
+
 /** A customer who pressed "Notify me when it's back" on a sold-out product. */
 export interface WaitingCustomer { id: string; name: string; email: string; date: string; account: "Customer" | "Guest"; language: "English" | "Arabic"; notified: string | null }
 export interface WaitlistRow { productId: string; customers: WaitingCustomer[] }
@@ -148,9 +153,10 @@ export interface PaymentRow { id: string; order: string; customer: string; metho
 export interface PaymentsData { summary: { label: string; value: string }[]; rows: PaymentRow[] }
 
 export interface DiscountRow { code: string; type: string; value: string; scope: string; min: string; uses: string; dates: string; status: Tagged }
-export interface BundleRow { id: string; name: string; nameAr: string; items: string[]; price: number; occasion: string; color: string; visible: boolean }
+export interface BundleLine { productId: string; qty: number }
+export interface BundleRow { id: string; name: string; nameAr: string; items: string[]; lines: BundleLine[]; mode: string; price: number; occasion: string; color: string; visible: boolean }
 
-export interface ZoneRow { zone: string; fee: number; free: string; eta: string; cod: boolean; appointment: boolean }
+export interface ZoneRow { id: string; name: string; areas: string[]; fee: number; free: string; eta: string; cod: boolean }
 export interface AppointmentRow { order: string; customer: string; item: string; when: string; where: string; agent: string; status: Tagged }
 export interface DeliveryData { zones: ZoneRow[]; appointments: AppointmentRow[] }
 

@@ -216,6 +216,29 @@ export const mockCategories = (): T.CategoryRow[] =>
 export const mockBrands = (): T.BrandRow[] =>
   BRANDS.map((b) => ({ id: b.id, name: b.en, nameAr: b.ar, categories: b.cats.map(cat).join(", "), mode: b.mode, count: b.count, featured: b.featured, status: tag(b.status) }));
 
+/* Attributes (variant options like colour/size) — not in the original prototype, added for the admin's own catalogue needs. */
+const ATTRIBUTES: { id: string; name: string; previewType: T.AttributePreviewType; status: string; values: { id: string; value: string; color?: string; icon?: string; iconAlt?: string }[] }[] = [
+  { id: "colour", name: "Colour", previewType: "COLOR", status: "Active", values: [
+    { id: "colour-black", value: "Black", color: "#0a0a0a" },
+    { id: "colour-gold", value: "Gold", color: "#c9a227" },
+    { id: "colour-burgundy", value: "Burgundy", color: "#5c1a24" },
+    { id: "colour-tan", value: "Tan", color: "#b08968" },
+  ] },
+  { id: "size", name: "Size", previewType: "TEXT", status: "Active", values: [
+    { id: "size-s", value: "Small" }, { id: "size-m", value: "Medium" }, { id: "size-l", value: "Large" },
+  ] },
+  { id: "material", name: "Material", previewType: "ICON", status: "Active", values: [
+    { id: "material-leather", value: "Leather" }, { id: "material-canvas", value: "Canvas" },
+  ] },
+  { id: "finish", name: "Finish", previewType: "TEXT", status: "Inactive", values: [] },
+];
+
+export const mockAttributes = (): T.AttributeRow[] =>
+  ATTRIBUTES.map((a) => ({
+    id: a.id, name: a.name, previewType: a.previewType, status: tag(a.status),
+    values: a.values.map((v) => ({ id: v.id, value: v.value, color: v.color ?? null, icon: v.icon ?? null, iconAlt: v.iconAlt ?? null })),
+  }));
+
 /* Back-in-stock waiting lists and pre-orders, as in the prototype (v17–v18). */
 const WAITING: [string, [string, string, string, "Customer" | "Guest", "English" | "Arabic"][]][] = [
   ["P1007", [
@@ -361,10 +384,19 @@ export function mockPayments(): T.PaymentsData {
 export const mockDiscounts = (): T.DiscountRow[] => DISCOUNTS.map((d) => ({ ...d, status: tag(d.status) }));
 
 export const mockBundles = (): T.BundleRow[] =>
-  BUNDLES.map((b) => ({ id: b.id, name: b.en, nameAr: b.ar, items: b.items.map((i) => prod(i)?.en ?? i), price: b.price, occasion: b.occasion, color: b.img, visible: b.visible }));
+  BUNDLES.map((b) => ({ id: b.id, name: b.en, nameAr: b.ar, items: b.items.map((i) => prod(i)?.en ?? i), lines: b.items.map((i) => ({ productId: i, qty: 1 })), mode: b.mode, price: b.price, occasion: b.occasion, color: b.img, visible: b.visible }));
 
+const ZONE_AREAS: [string, string[]][] = [
+  ["Greater Cairo", ["Heliopolis", "Nasr City", "Zamalek", "Maadi"]],
+  ["New Cairo", ["New Cairo", "Fifth Settlement"]],
+  ["Giza & October", ["Giza", "Sheikh Zayed", "6th of October"]],
+  ["Alexandria", ["Alexandria"]],
+  ["North Coast", ["North Coast"]],
+  ["Red Sea", ["Hurghada", "Red Sea"]],
+  ["Upper Egypt", ["Luxor", "Aswan"]],
+];
 export const mockDelivery = (): T.DeliveryData => ({
-  zones: ZONES.map((z) => ({ zone: z.zone, fee: z.fee, free: z.free, eta: z.eta, cod: z.cod, appointment: z.appt })),
+  zones: ZONES.map((z, i) => ({ id: `Z${i + 1}`, name: ZONE_AREAS[i]?.[0] ?? z.zone, areas: ZONE_AREAS[i]?.[1] ?? [z.zone], fee: z.fee, free: z.free, eta: z.eta, cod: z.cod })),
   appointments: APPTS.map((a) => ({ order: a.order, customer: cust(a.cust), item: a.item, when: a.when, where: a.where, agent: a.agent, status: tag(a.status) })),
 });
 

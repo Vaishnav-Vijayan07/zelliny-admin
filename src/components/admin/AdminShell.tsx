@@ -3,9 +3,11 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import type { CurrentUser, ShellData } from "@/lib/api/types";
 import { canSeePage } from "@/lib/roles";
+import { useRoles } from "@/lib/team-store";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 export function AdminShell({ shell, user, children }: { shell: ShellData; user: CurrentUser | null; children: ReactNode }) {
+  useRoles();
   const [menuOpen, setMenuOpen] = useState(false);
   const me = user ?? shell.user;
   const nav = shell.nav

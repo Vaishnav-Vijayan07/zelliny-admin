@@ -710,7 +710,7 @@ export const ORDERS = [
   "pay": "Paymob · Card",
   "payStatus": "Paid",
   "status": "Processing",
-  "fulfil": "Appointment",
+  "fulfil": "Courier",
   "zone": "Alexandria"
  },
  {
@@ -768,7 +768,7 @@ export const ORDERS = [
   "pay": "Paymob · Card",
   "payStatus": "Paid",
   "status": "Shipped",
-  "fulfil": "Appointment",
+  "fulfil": "Courier",
   "zone": "Zamalek"
  },
  {
@@ -844,7 +844,7 @@ export const ORDERS = [
   "pay": "Paymob · Card",
   "payStatus": "Paid",
   "status": "Delivered",
-  "fulfil": "Appointment",
+  "fulfil": "Courier",
   "zone": "New Cairo"
  },
  {

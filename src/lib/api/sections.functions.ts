@@ -22,6 +22,7 @@ export const getEnquiries = createServerFn({ method: "GET" }).handler(async () =
 export const getProducts = createServerFn({ method: "GET" }).handler(async () => M.mockProducts());
 export const getCategories = createServerFn({ method: "GET" }).handler(async () => M.mockCategories());
 export const getBrands = createServerFn({ method: "GET" }).handler(async () => M.mockBrands());
+export const getAttributes = createServerFn({ method: "GET" }).handler(async () => M.mockAttributes());
 export const getInventory = createServerFn({ method: "GET" }).handler(async () => M.mockInventory());
 export const getDiscounts = createServerFn({ method: "GET" }).handler(async () => M.mockDiscounts());
 export const getBundles = createServerFn({ method: "GET" }).handler(async () => M.mockBundles());
@@ -66,6 +67,7 @@ export const enquiriesQuery = () => opts("enquiries", () => getEnquiries());
 export const productsQuery = () => opts("products", () => getProducts());
 export const categoriesQuery = () => opts("categories", () => getCategories());
 export const brandsQuery = () => opts("brands", () => getBrands());
+export const attributesQuery = () => opts("attributes", () => getAttributes());
 export const inventoryQuery = () => opts("inventory", () => getInventory());
 export const discountsQuery = () => opts("discounts", () => getDiscounts());
 export const bundlesQuery = () => opts("bundles", () => getBundles());

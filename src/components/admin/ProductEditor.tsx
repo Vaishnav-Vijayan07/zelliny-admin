@@ -3,6 +3,9 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { attributesQuery } from "@/lib/api/sections.functions";
+import { useAttributes } from "@/components/admin/AttributeFlow";
 import type { ProductRow } from "@/lib/api/section-types";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -10,9 +13,10 @@ import { ModeSwitch, StatusBadge, Toggle } from "@/components/admin/primitives";
 import { addProduct, deleteProduct, editProduct, statusOf } from "@/components/admin/ProductFlow";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-export const PRODUCT_TABS = ["General", "Price & action", "Images", "Variants", "Inventory", "Gifting", "SEO"] as const;
+export const PRODUCT_TABS = ["General", "Price & action", "Images", "Shipping", "Gifting", "SEO"] as const;
 export type ProductTab = (typeof PRODUCT_TABS)[number];
 type Mode = "cart" | "enq";
+type Variant = { key: string; label: string; sku: string; price: string; offer: string; stock: string };
 /** Site-wide gift services. Switched on or off only in Gift services — the product page just shows the state. */
 const GIFT_FEATURES = [
   { key: "giftwrap", name: "Gift wrapping", live: true },
@@ -21,7 +25,6 @@ const GIFT_FEATURES = [
 
 const inputCls = "h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary";
 const toNum = (v: string) => parseInt(v.replace(/[^0-9]/g, ""), 10) || 0;
-const stockState = (n: number) => (n === 0 ? "Out of stock" : n <= 2 ? "Low stock" : "In stock");
 
 /* ---------- small building blocks (prototype helpers) ---------- */
 
@@ -132,10 +135,13 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
         mode: "cart" as Mode, price: "", offer: "", sku: "", stock: "0", visible: false, status: "Draft" });
   const set = <K extends keyof typeof p>(k: K) => (v: (typeof p)[K]) => setP((x) => ({ ...x, [k]: v }));
   const [imgs, setImgs] = useState<Img[]>(() => (product ? Array.from({ length: product.imageCount }, (_, v) => ({ c: product.color, v })) : []));
-  const [variants, setVariants] = useState(() => {
-    const sku = product?.sku ?? "";
-    return [["50 ml", sku.replace("100", "50") || "—", "5,450 EGP", "—", "8"], ["100 ml", sku || "—", product?.price ? `${formatNumber(product.price)} EGP` : "—", product?.offer ? `${formatNumber(product.offer)} EGP` : "—", String(product?.stock ?? 0)], ["200 ml", sku.replace("100", "200") || "—", "10,900 EGP", "—", "3"]];
-  });
+  const { data: attrData } = useSuspenseQuery(attributesQuery());
+  const attributes = useAttributes(attrData).filter((a) => a.status.label !== "Inactive" && a.values.length > 0);
+  const [productType, setProductType] = useState<"simple" | "variable">("simple");
+  /** attribute id → ticked value ids */
+  const [attrSel, setAttrSel] = useState<Record<string, string[]>>({});
+  const [variants, setVariants] = useState<Variant[]>([]);
+  const [publishDate, setPublishDate] = useState("");
   const [askPrice, setAskPrice] = useState(false);
   const [priceInput, setPriceInput] = useState("");
   const [askDelete, setAskDelete] = useState(false);
@@ -145,11 +151,37 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
   const dragFrom = useRef<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
 
-  const price = toNum(p.price), offer = toNum(p.offer), isCart = p.mode === "cart";
+  const isVariable = productType === "variable";
+  const vPrices = variants.map((v) => toNum(v.price)).filter(Boolean);
+  const vOffers = variants.map((v) => toNum(v.offer)).filter(Boolean);
+  const price = isVariable ? (vPrices.length ? Math.min(...vPrices) : 0) : toNum(p.price);
+  const offer = isVariable ? (vOffers.length ? Math.min(...vOffers) : 0) : toNum(p.offer);
+  const totalStock = isVariable ? variants.reduce((a, v) => a + toNum(v.stock), 0) : toNum(p.stock);
+  const isCart = p.mode === "cart";
   const name = p.en || "This product";
 
+  const toggleAttr = (id: string) => setAttrSel((s) => { const n = { ...s }; if (n[id]) delete n[id]; else n[id] = []; return n; });
+  const toggleVal = (aid: string, vid: string) => setAttrSel((s) => { const cur = s[aid] ?? []; return { ...s, [aid]: cur.includes(vid) ? cur.filter((x) => x !== vid) : [...cur, vid] }; });
+  const generate = () => {
+    const chosen = attributes.filter((a) => (attrSel[a.id] ?? []).length > 0);
+    if (!chosen.length) { toast("Tick an attribute and at least one of its values first"); return; }
+    let combos: { key: string; label: string }[] = [{ key: "", label: "" }];
+    chosen.forEach((a) => {
+      const vals = a.values.filter((v) => (attrSel[a.id] ?? []).includes(v.id));
+      combos = combos.flatMap((c) => vals.map((v) => ({ key: c.key ? `${c.key}|${v.id}` : v.id, label: c.label ? `${c.label} / ${v.value}` : v.value })));
+    });
+    const old = new Map(variants.map((v) => [v.key, v]));
+    const base = p.sku.trim() || "SKU";
+    setVariants(combos.map((c, i) => old.get(c.key) ?? { key: c.key, label: c.label, sku: `${base}-${String(i + 1).padStart(2, "0")}`, price: "", offer: "", stock: "0" }));
+    toast(`${combos.length} combination${combos.length === 1 ? "" : "s"} generated — add each price`);
+  };
+  const setVar = (key: string, patch: Partial<Variant>) => setVariants((vs) => vs.map((v) => (v.key === key ? { ...v, ...patch } : v)));
+
   const setMode = (m: Mode) => {
-    if (m === "cart" && !price) { setPriceInput(""); setAskPrice(true); return; }
+    if (m === "cart" && !price) {
+      if (isVariable) { setTab("Price & action"); toast("Generate the combinations and add their prices first"); return; }
+      setPriceInput(""); setAskPrice(true); return;
+    }
     set("mode")(m);
     if (product) editProduct(product.id, { mode: m === "cart" ? "Add to Cart" : "Enquiry only" });
     toast(`${name} → ${m === "cart" ? "Add to Cart" : "Enquiry"}`);
@@ -172,9 +204,9 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
   /* save / publish / duplicate / delete */
   const fields = (publish: boolean): Omit<ProductRow, "id"> => {
     const isDraft = publish ? false : p.status === "Draft";
-    const stock = toNum(p.stock);
+    const stock = totalStock;
     return {
-      sku: p.sku.trim(), name: p.en.trim(), nameAr: p.ar.trim(), brand: p.brand, category: p.category, gender: p.gender as ProductRow["gender"],
+      sku: (isVariable ? variants[0]?.sku ?? p.sku : p.sku).trim(), name: p.en.trim(), nameAr: p.ar.trim(), brand: p.brand, category: p.category, gender: p.gender as ProductRow["gender"],
       mode: isCart ? "Add to Cart" : "Enquiry only", price: price || null, offer: offer || null, stock,
       sold: product?.sold ?? 0, enquiries: product?.enquiries ?? 0, status: statusOf(stock, isDraft), color: product?.color ?? "#e8e8e8",
       visible: publish ? true : p.visible, imageCount: imgs.length, hiddenBy: product?.hiddenBy ?? null, isDraft,
@@ -182,8 +214,11 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
   };
   const save = (publish: boolean) => {
     if (!p.en.trim()) { setTab("General"); toast("Add the English product name first"); return; }
-    if (publish && !p.sku.trim()) { setTab("Inventory"); toast("Add the SKU before publishing"); return; }
-    if (publish && isCart && !price) { setTab("Price & action"); toast("Add to Cart needs a price — set one, or switch to Enquiry"); return; }
+    if (publish && !isVariable && !p.sku.trim()) { setTab("General"); toast("Add the SKU before publishing"); return; }
+    if (p.status === "Scheduled" && !publishDate) { toast("Choose the date this product goes live"); return; }
+    if (isVariable && !variants.length) { setTab("Price & action"); toast("Generate the combinations for this variable product"); return; }
+    if (isVariable && variants.some((v) => !v.sku.trim())) { setTab("Price & action"); toast("Every combination needs a SKU"); return; }
+    if (publish && isCart && (isVariable ? variants.some((v) => !toNum(v.price)) : !price)) { setTab("Price & action"); toast(isVariable ? "Every combination needs a price" : "Add to Cart needs a price — set one, or switch to Enquiry"); return; }
     if (product) {
       editProduct(product.id, fields(publish));
       if (publish) setP((x) => ({ ...x, status: "Published", visible: true }));
@@ -198,7 +233,7 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
   const duplicate = () => {
     if (!product) return;
     const id = `P${9000 + Math.floor(Math.random() * 999)}`;
-    addProduct({ ...product, ...fields(false), id, sku: "", name: `${p.en} (copy)`, isDraft: true, visible: false, status: statusOf(toNum(p.stock), true), sold: 0, enquiries: 0 });
+    addProduct({ ...product, ...fields(false), id, sku: "", name: `${p.en} (copy)`, isDraft: true, visible: false, status: statusOf(totalStock, true), sold: 0, enquiries: 0 });
     toast("Product duplicated as Draft");
     navigate({ to: "/products/$productId", params: { productId: id } });
   };
@@ -250,7 +285,7 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
   const emptyBox = "flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-[1.5px] border-dashed border-[#c9c9c9] bg-hover text-[13px] text-muted-foreground hover:border-primary hover:text-foreground";
 
   const pricePreview = !isCart ? "Price on request" : offer ? <>{formatNumber(offer)} EGP <s className="ml-1.5 text-muted-foreground">{formatNumber(price)} EGP</s></> : price ? `${formatNumber(price)} EGP` : "—";
-  const live = statusOf(toNum(p.stock), p.status === "Draft");
+  const live = statusOf(totalStock, p.status === "Draft");
 
   const bodies: Record<ProductTab, ReactNode> = {
     General: (
@@ -261,6 +296,12 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
           <Bilingual label="Full description" en="" ar="" rows={5} />
           <Bilingual label="Notes / key details (bullet list)" en="" ar="" rows={3} />
         </Card>
+        <Card title="Identification">
+          <Grid cols={2}>
+            <Field label={isVariable ? "Base SKU" : "SKU"} req={!isVariable} hint={isVariable ? "Each combination gets its own SKU in Price & action" : undefined}><Input value={p.sku} onChange={set("sku")} /></Field>
+            <Field label="Barcode (EAN)"><Input defaultValue="3346131400423" /></Field>
+          </Grid>
+        </Card>
         <Card title="Organisation">
           <Grid cols={2}>
             <Field label="Maison" req><Select value={p.brand} onChange={set("brand")} options={brands} /></Field>
@@ -268,7 +309,6 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
           </Grid>
           <Grid cols={2}>
             <Field label="Gender" hint="Unisex products appear under both Women and Men on the site"><Select value={p.gender} onChange={set("gender")} options={["Women", "Men", "Unisex"]} /></Field>
-            <Field label="Sub-category"><Select defaultValue="Eau de Toilette" options={["Eau de Parfum", "Eau de Toilette", "Parfum", "Cologne", "Gift set"]} /></Field>
           </Grid>
           <Field label="Collections / tags" hint="Controls where it appears: homepage rows, mega-menu, New Arrivals"><Input defaultValue="Curated for You, Bestseller" /></Field>
         </Card>
@@ -288,17 +328,94 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
           </div>
           <p className="text-[12px] text-muted-foreground">Set per product. To switch a whole maison or category at once, use Selling control — you can always flip one product back here.</p>
         </Card>
-        <Card title="Price">
-          <Grid cols={2}>
-            <Field label="Price" hint={"Shown as “7,850 EGP”"}><Input value={p.price} onChange={set("price")} /></Field>
-            <Field label="Offer price" hint="Empty = no offer"><Input value={p.offer} onChange={set("offer")} /></Field>
-          </Grid>
-          <Grid cols={2}>
-            <Field label="Offer starts"><Input defaultValue="1 Sep 2026" /></Field>
-            <Field label="Offer ends"><Input defaultValue="31 Oct 2026" /></Field>
-          </Grid>
-          <ToggleRow initial label="Eligible for discount codes" />
-          <ToggleRow initial label="Allow cash on delivery" />
+        <Card title="Product type">
+          <div className="mb-2.5 grid gap-3 lg:grid-cols-2">
+            {([["simple", "Simple product", "One price, one SKU"], ["variable", "Variable product", "Options such as size or colour — each combination has its own SKU, price and offer price"]] as const).map(([t, title, d]) => (
+              <button key={t} type="button" onClick={() => setProductType(t)} className={cn("relative flex flex-col gap-1.5 rounded-[10px] border px-[18px] py-4 text-left transition", productType === t ? "border-primary shadow-[inset_0_0_0_1px_#0a0a0a]" : "border-border")}>
+                <b className="font-head text-[18px] font-normal">{title}</b>
+                <span className="text-[12.5px] text-muted-foreground">{d}</span>
+                {productType === t && <span className="absolute right-4 top-3.5 rounded-full bg-primary px-2 py-0.5 text-[11px] text-primary-foreground">✓ Current</span>}
+              </button>
+            ))}
+          </div>
+        </Card>
+        {!isVariable ? (
+          <Card title="Price">
+            <Grid cols={2}>
+              <Field label="Price" hint={"Shown as “7,850 EGP”"}><Input value={p.price} onChange={set("price")} /></Field>
+              <Field label="Offer price" hint="Empty = no offer"><Input value={p.offer} onChange={set("offer")} /></Field>
+            </Grid>
+            <ToggleRow initial label="Eligible for discount codes" />
+            <ToggleRow initial label="Allow cash on delivery" />
+            <Field label="Stock on hand"><Input value={p.stock} onChange={set("stock")} /></Field>
+          </Card>
+        ) : (
+          <>
+            <Card title="Attributes">
+              {attributes.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">No active attributes with values yet. <Link to="/attributes/new" className="underline">Create an attribute</Link> first.</p>
+              ) : (
+                <>
+                  <p className="mb-3 text-[12px] text-muted-foreground">Tick the attributes this product varies by, then tick the values it comes in.</p>
+                  {attributes.map((a) => {
+                    const on = !!attrSel[a.id];
+                    return (
+                      <div key={a.id} className="mb-3 rounded-lg border border-border p-3">
+                        <label className="flex cursor-pointer items-center gap-2 text-[13.5px] font-medium">
+                          <input type="checkbox" checked={on} onChange={() => toggleAttr(a.id)} className="size-4 accent-[#0a0a0a]" />{a.name}
+                          <span className="text-[11px] font-normal text-muted-foreground">{a.previewType.toLowerCase()}</span>
+                        </label>
+                        {on && (
+                          <div className="mt-2.5 flex flex-wrap gap-2">
+                            {a.values.map((v) => {
+                              const sel = (attrSel[a.id] ?? []).includes(v.id);
+                              return (
+                                <button key={v.id} type="button" onClick={() => toggleVal(a.id, v.id)} className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] transition", sel ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary")}>
+                                  {a.previewType === "COLOR" && v.color && <span className="inline-block size-3 rounded-full border border-white/40" style={{ background: v.color }} />}
+                                  {v.value}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <Btn primary onClick={generate}>{variants.length ? "Regenerate combinations" : "Generate combinations"}</Btn>
+                </>
+              )}
+            </Card>
+            <Card title={`Variants${variants.length ? ` · ${variants.length}` : ""}`}>
+              {variants.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">No combinations yet. Choose attributes and values above, then press Generate.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-[13px]">
+                    <thead><tr>{["Variant", "SKU", "Price (EGP)", "Offer price (EGP)", "Stock", ""].map((h, i) => <th key={i} className="whitespace-nowrap border-b border-border px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-[.08em] text-muted-foreground">{h}</th>)}</tr></thead>
+                    <tbody>
+                      {variants.map((v) => (
+                        <tr key={v.key}>
+                          <td className="border-b border-line-soft p-3 font-medium">{v.label}</td>
+                          <td className="border-b border-line-soft p-3"><input value={v.sku} onChange={(e) => setVar(v.key, { sku: e.target.value })} className="w-full min-w-[130px] rounded-md border border-border bg-surface px-2 py-1.5" /></td>
+                          <td className="border-b border-line-soft p-3"><input value={v.price} onChange={(e) => setVar(v.key, { price: e.target.value })} placeholder="Price" className="w-full min-w-[90px] rounded-md border border-border bg-surface px-2 py-1.5" /></td>
+                          <td className="border-b border-line-soft p-3"><input value={v.offer} onChange={(e) => setVar(v.key, { offer: e.target.value })} placeholder="Optional" className="w-full min-w-[90px] rounded-md border border-border bg-surface px-2 py-1.5" /></td>
+                          <td className="border-b border-line-soft p-3"><input value={v.stock} onChange={(e) => setVar(v.key, { stock: e.target.value })} className="w-full min-w-[70px] rounded-md border border-border bg-surface px-2 py-1.5" /></td>
+                          <td className="border-b border-line-soft p-3"><button type="button" className="text-muted-foreground" onClick={() => setVariants((vs) => vs.filter((x) => x.key !== v.key))}>Remove</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="mt-3 text-[12px] text-muted-foreground">The product page shows “from” the lowest price. Offer price is optional per combination. Total stock: <b className="text-foreground">{totalStock}</b></p>
+              <ToggleRow initial label="Eligible for discount codes" />
+              <ToggleRow initial label="Allow cash on delivery" />
+            </Card>
+          </>
+        )}
+        <Card title="When stock runs out">
+          <ToggleRow initial={false} label="Allow orders when out of stock (pre-order)" />
+          <ToggleRow initial label="Hide from site when out of stock" />
         </Card>
         <Card title="Automatic switching">
           <ToggleRow initial label="When stock hits 0 → switch to Enquiry" hint={"Keeps the product live and collects demand instead of showing “Out of stock”"} />
@@ -351,43 +468,20 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
         </Card>
       </>
     ),
-    Variants: (
-      <Card title="Sizes / colours / variants">
-        <p className="text-[12px] text-muted-foreground">One product page, several options. Each variant has its own SKU, price and stock.</p>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]">
-            <thead><tr>{["Variant", "SKU", "Price", "Offer", "Stock", ""].map((h, i) => <th key={i} className={cn("whitespace-nowrap border-b border-border px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-[.08em] text-muted-foreground", i >= 2 && i <= 4 && "text-right")}>{h}</th>)}</tr></thead>
-            <tbody>
-              {variants.map((r, ri) => (
-                <tr key={ri}>
-                  {r.map((x, ci) => <td key={ci} className="border-b border-line-soft p-3"><input defaultValue={x} className="w-full rounded-md border border-border bg-surface px-2 py-1.5" /></td>)}
-                  <td className="border-b border-line-soft p-3"><button type="button" className="text-muted-foreground" onClick={() => setVariants((v) => v.filter((_, k) => k !== ri))}>Remove</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-3.5 flex flex-wrap gap-2"><Btn onClick={() => { setVariants((v) => [...v, ["", "", "", "", ""]]); toast("Variant row added"); }}>+ Add variant</Btn></div>
-      </Card>
-    ),
-    Inventory: (
+    Shipping: (
       <>
-        <Card title="Stock">
-          <Grid cols={3}>
-            <Field label="SKU" req><Input value={p.sku} onChange={set("sku")} /></Field>
-            <Field label="Barcode (EAN)"><Input defaultValue="3346131400423" /></Field>
-            <Field label="Stock on hand"><Input value={p.stock} onChange={set("stock")} /></Field>
-          </Grid>
-          <Grid cols={3}>
-            <Field label="Stock status" hint="Low stock = 2 pieces or fewer · Out of stock = 0"><Input value={stockState(toNum(p.stock))} readOnly /></Field>
-            <Field label="Warehouse"><Select defaultValue="Cairo — Nozha" options={["Cairo — Nozha", "Dubai"]} /></Field>
+        <Card title="Size & weight">
+          <Grid cols={2}>
             <Field label="Weight (g)"><Input defaultValue="450" /></Field>
+            <Field label="Length (cm)"><Input placeholder="e.g. 12" /></Field>
           </Grid>
-          <ToggleRow initial={false} label="Allow orders when out of stock (pre-order)" />
-          <ToggleRow initial label="Hide from site when out of stock" />
+          <Grid cols={2}>
+            <Field label="Width (cm)"><Input placeholder="e.g. 8" /></Field>
+            <Field label="Height (cm)"><Input placeholder="e.g. 15" /></Field>
+          </Grid>
+          <p className="text-[12px] text-muted-foreground">Packed size, used by the courier to price the parcel.</p>
         </Card>
         <Card title="Delivery & returns">
-          {/* <ToggleRow initial={["Watches", "Jewellery"].includes(p.category)} label="Deliver by appointment only" hint="For watches and fine jewellery — handed over in person, not by courier" /> */}
           <ToggleRow initial label="Returnable (per returns policy)" />
           <ToggleRow initial={false} label="Engraving available" hint="Engraved items become non-returnable automatically" />
           <ToggleRow initial label="Gift wrapping available" />
@@ -479,7 +573,11 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
             {product?.hiddenBy && <p className="mt-2 text-[12px] text-warn">Not on site — {product.hiddenBy}</p>}
             <div className="mt-2.5" />
             <Field label="Status"><Select value={p.status} onChange={set("status")} options={["Published", "Draft", "Scheduled"]} /></Field>
-            <Field label="Publish date"><Input defaultValue="Immediately" /></Field>
+            {p.status === "Scheduled" && (
+              <Field label="Publish on" req hint="Goes live on the site automatically on this date">
+                <input type="date" value={publishDate} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setPublishDate(e.target.value)} className={cn(inputCls, "cursor-pointer")} />
+              </Field>
+            )}
           </Card>
           <Card title="Sells as">
             <ModeSwitch<Mode> title="Change how this product sells" value={p.mode} onChange={setMode} options={[{ value: "cart", label: "Add to Cart" }, { value: "enq", label: "Enquiry" }]} />
