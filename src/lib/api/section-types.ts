@@ -182,3 +182,15 @@ export interface OrderFormData {
   zones: { name: string; fee: number }[];
   sources: string[];
 }
+
+/* ---------- Browsing & follow-up ---------- */
+export type BrowserStop = "home" | "category" | "product" | "bag" | "checkout";
+export interface BrowserView { productId: string; name: string; brand: string; category: string; price: number | null; color: string; times: number }
+export interface BrowserRow {
+  id: string; name: string; email: string; how: string; optin: boolean; last: string; visits: number;
+  views: BrowserView[]; stop: BrowserStop; stopTxt: string; intent: "Hot" | "Warm" | "Cool"; src: string; device: string;
+  sent: { when: string; subject: string; status: string }[];
+  /** Linked customer record, when this person has ordered before. */
+  customer: { id: string; orders: number; spent: number } | null;
+}
+export interface BrowsingData { visitors: number; rows: BrowserRow[] }

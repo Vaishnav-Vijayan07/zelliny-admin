@@ -40,6 +40,7 @@ import { Route as AttributesAttributeIdRouteImport } from './routes/attributes_.
 import { Route as AttributesNewRouteImport } from './routes/attributes_.new'
 import { Route as BrandsBrandIdRouteImport } from './routes/brands_.$brandId'
 import { Route as BrandsNewRouteImport } from './routes/brands_.new'
+import { Route as BrowsingBrowserIdRouteImport } from './routes/browsing_.$browserId'
 import { Route as BundlesBundleIdRouteImport } from './routes/bundles_.$bundleId'
 import { Route as BundlesNewRouteImport } from './routes/bundles_.new'
 import { Route as CategoriesCategoryIdRouteImport } from './routes/categories_.$categoryId'
@@ -217,6 +218,11 @@ const BrandsNewRoute = BrandsNewRouteImport.update({
   path: '/brands/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BrowsingBrowserIdRoute = BrowsingBrowserIdRouteImport.update({
+  id: '/browsing_/$browserId',
+  path: '/browsing/$browserId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BundlesBundleIdRoute = BundlesBundleIdRouteImport.update({
   id: '/bundles_/$bundleId',
   path: '/bundles/$bundleId',
@@ -358,6 +364,7 @@ export interface FileRoutesByFullPath {
   '/attributes/new': typeof AttributesNewRoute
   '/brands/$brandId': typeof BrandsBrandIdRoute
   '/brands/new': typeof BrandsNewRoute
+  '/browsing/$browserId': typeof BrowsingBrowserIdRoute
   '/bundles/$bundleId': typeof BundlesBundleIdRoute
   '/bundles/new': typeof BundlesNewRoute
   '/categories/$categoryId': typeof CategoriesCategoryIdRoute
@@ -412,6 +419,7 @@ export interface FileRoutesByTo {
   '/attributes/new': typeof AttributesNewRoute
   '/brands/$brandId': typeof BrandsBrandIdRoute
   '/brands/new': typeof BrandsNewRoute
+  '/browsing/$browserId': typeof BrowsingBrowserIdRoute
   '/bundles/$bundleId': typeof BundlesBundleIdRoute
   '/bundles/new': typeof BundlesNewRoute
   '/categories/$categoryId': typeof CategoriesCategoryIdRoute
@@ -467,6 +475,7 @@ export interface FileRoutesById {
   '/attributes_/new': typeof AttributesNewRoute
   '/brands_/$brandId': typeof BrandsBrandIdRoute
   '/brands_/new': typeof BrandsNewRoute
+  '/browsing_/$browserId': typeof BrowsingBrowserIdRoute
   '/bundles_/$bundleId': typeof BundlesBundleIdRoute
   '/bundles_/new': typeof BundlesNewRoute
   '/categories_/$categoryId': typeof CategoriesCategoryIdRoute
@@ -523,6 +532,7 @@ export interface FileRouteTypes {
     | '/attributes/new'
     | '/brands/$brandId'
     | '/brands/new'
+    | '/browsing/$browserId'
     | '/bundles/$bundleId'
     | '/bundles/new'
     | '/categories/$categoryId'
@@ -577,6 +587,7 @@ export interface FileRouteTypes {
     | '/attributes/new'
     | '/brands/$brandId'
     | '/brands/new'
+    | '/browsing/$browserId'
     | '/bundles/$bundleId'
     | '/bundles/new'
     | '/categories/$categoryId'
@@ -631,6 +642,7 @@ export interface FileRouteTypes {
     | '/attributes_/new'
     | '/brands_/$brandId'
     | '/brands_/new'
+    | '/browsing_/$browserId'
     | '/bundles_/$bundleId'
     | '/bundles_/new'
     | '/categories_/$categoryId'
@@ -686,6 +698,7 @@ export interface RootRouteChildren {
   AttributesNewRoute: typeof AttributesNewRoute
   BrandsBrandIdRoute: typeof BrandsBrandIdRoute
   BrandsNewRoute: typeof BrandsNewRoute
+  BrowsingBrowserIdRoute: typeof BrowsingBrowserIdRoute
   BundlesBundleIdRoute: typeof BundlesBundleIdRoute
   BundlesNewRoute: typeof BundlesNewRoute
   CategoriesCategoryIdRoute: typeof CategoriesCategoryIdRoute
@@ -928,6 +941,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BrandsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/browsing_/$browserId': {
+      id: '/browsing_/$browserId'
+      path: '/browsing/$browserId'
+      fullPath: '/browsing/$browserId'
+      preLoaderRoute: typeof BrowsingBrowserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/bundles_/$bundleId': {
       id: '/bundles_/$bundleId'
       path: '/bundles/$bundleId'
@@ -1110,6 +1130,7 @@ const rootRouteChildren: RootRouteChildren = {
   AttributesNewRoute: AttributesNewRoute,
   BrandsBrandIdRoute: BrandsBrandIdRoute,
   BrandsNewRoute: BrandsNewRoute,
+  BrowsingBrowserIdRoute: BrowsingBrowserIdRoute,
   BundlesBundleIdRoute: BundlesBundleIdRoute,
   BundlesNewRoute: BundlesNewRoute,
   CategoriesCategoryIdRoute: CategoriesCategoryIdRoute,

@@ -13,7 +13,7 @@ import { ModeSwitch, StatusBadge, Toggle } from "@/components/admin/primitives";
 import { addProduct, deleteProduct, editProduct, statusOf } from "@/components/admin/ProductFlow";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-export const PRODUCT_TABS = ["General", "Price & action", "Images", "Shipping", "Gifting", "SEO"] as const;
+export const PRODUCT_TABS = ["General", "Price & action", "Images", "Shipping", "SEO"] as const;
 export type ProductTab = (typeof PRODUCT_TABS)[number];
 type Mode = "cart" | "enq";
 type Variant = { key: string; label: string; sku: string; price: string; offer: string; stock: string };
@@ -483,40 +483,8 @@ export function ProductEditor({ product, brands, categories, initialTab = "Gener
         </Card>
         <Card title="Delivery & returns">
           <ToggleRow initial label="Returnable (per returns policy)" />
-          <ToggleRow initial={false} label="Engraving available" hint="Engraved items become non-returnable automatically" />
-          <ToggleRow initial label="Gift wrapping available" />
-        </Card>
-      </>
-    ),
-    Gifting: (
-      <>
-        <FeatureNote name={GIFT_FEATURES[0].name} live={GIFT_FEATURES[0].live} />
-        <Card title="Gift wrapping">
-          <ToggleRow initial label="Gift wrapping available for this product" />
-          <ToggleRow initial label="Gift message card" />
-          <ToggleRow initial label={"“Hide prices on invoice” option"} />
-          <Field label="Wrapping style"><Select defaultValue="Signature black box with ribbon" options={["Signature black box with ribbon", "Ribbon only", "Brand original box only (no wrap)"]} /></Field>
-        </Card>
-        <FeatureNote name={GIFT_FEATURES[1].name} live={GIFT_FEATURES[1].live} />
-        <Card title="Engraving & embossing">
-          <div className={cn(!GIFT_FEATURES[1].live && "opacity-55")}>
-            <ToggleRow initial={false} label="Engraving available on this product" hint="Pens, lighters, watches, jewellery" />
-            <Grid cols={3}>
-              <Field label="Max characters"><Input defaultValue="20" /></Field>
-              <Field label="Engraving price" hint="0 = complimentary"><Input defaultValue="350 EGP" /></Field>
-              <Field label="Lines"><Select defaultValue="1" options={["1", "2"]} /></Field>
-            </Grid>
-            <Grid cols={2}>
-              <Field label="Fonts offered" hint="Customer chooses on the product page"><Input defaultValue="Serif caps, Script" /></Field>
-              <Field label="Extra production time"><Input defaultValue="+2 working days" /></Field>
-            </Grid>
-            <ToggleRow initial={false} label="Embossing (initials on leather)" hint="Up to 3 letters · 250 EGP" />
-            <div className="mt-2.5 flex flex-col gap-2.5 rounded-lg border border-border p-3.5">
-              <span className="text-muted-foreground">Customer preview</span>
-              <div className="grid h-[46px] place-items-center rounded-[23px] bg-[linear-gradient(90deg,#1a1a1a,#3b3b3b,#1a1a1a)] font-head text-[15px] tracking-[.4em] text-[#d8d8d8]">R . B</div>
-            </div>
-            <p className="mt-0.5 text-[12px] text-muted-foreground">Engraved or embossed items are automatically marked non-returnable at checkout.</p>
-          </div>
+          {/* <ToggleRow initial={false} label="Engraving available" hint="Engraved items become non-returnable automatically" />
+          <ToggleRow initial label="Gift wrapping available" /> */}
         </Card>
       </>
     ),

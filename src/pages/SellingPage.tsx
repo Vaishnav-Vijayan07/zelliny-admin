@@ -12,7 +12,7 @@ import { bulkMode, isCart, useCatalogue } from "@/components/admin/CatalogueFlow
 import { MixBar, useBulkMode, useVisibility } from "@/components/admin/CatalogueUi";
 import { editProduct, editProducts, type ProductEdit } from "@/components/admin/ProductFlow";
 
-const TABS = ["By maison", "By category", "By product", "Automatic rules"] as const;
+const TABS = ["By maison", "By category", "By product"] as const;
 type Tab = (typeof TABS)[number];
 const RULES: [string, string][] = [
   ["Out of stock → switch to Enquiry automatically", "Instead of showing “Out of stock”, the product stays live and collects enquiries"],

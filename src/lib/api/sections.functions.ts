@@ -77,3 +77,6 @@ export const activityQuery = () => opts("activity", () => getActivity());
 export const approvalsQuery = () => opts("approvals", () => getApprovals());
 export const reportsQuery = () => opts("reports", () => getReports());
 export const simplePageQuery = (key: SimpleKey) => opts(`simple-${key}`, () => getSimplePage({ data: { key } }));
+
+export const getBrowsing = createServerFn({ method: "GET" }).handler(async () => M.mockBrowsing());
+export const browsingQuery = () => opts("browsing-people", () => getBrowsing());

@@ -475,3 +475,28 @@ export function mockOrderForm(): T.OrderFormData {
     sources: ["Phone call", "WhatsApp", "Instagram", "Facebook", "In person", "Email"],
   };
 }
+
+/* ---------- Browsing & follow-up (people we know, with what they looked at) ---------- */
+const BROWSER_SEED: { id: string; name: string; email: string; cust: string | null; how: string; optin: boolean; last: string; visits: number; views: [string, number][]; stop: T.BrowserStop; stopTxt: string; intent: "Hot" | "Warm" | "Cool"; src: string; device: string; sent: [string, string, string][] }[] = [
+  { id: "B01", name: "Nadine El-Sayed", email: "nadine.e@example.com", cust: "C201", how: "Signed in", optin: true, last: "Today 20:14", visits: 4, views: [["P1011", 5], ["P1012", 2]], stop: "bag", stopTxt: "Left the necklace in the bag", intent: "Hot", src: "Instagram", device: "iPhone", sent: [] },
+  { id: "B02", name: "Karim Mansour", email: "karim.m@example.com", cust: "C204", how: "Signed in", optin: true, last: "Today 18:51", visits: 3, views: [["P1013", 6]], stop: "checkout", stopTxt: "Stopped at the delivery step", intent: "Hot", src: "Google", device: "Windows", sent: [] },
+  { id: "B03", name: "Ali Fawzy", email: "ali.fawzy@example.com", cust: null, how: "Started checkout", optin: false, last: "Today 16:30", visits: 2, views: [["P1014", 2]], stop: "checkout", stopTxt: "Stopped at payment", intent: "Hot", src: "Facebook", device: "Android", sent: [] },
+  { id: "B04", name: "Rana Adly", email: "rana.adly@example.com", cust: null, how: "Created an account", optin: true, last: "Today 13:05", visits: 5, views: [["P1001", 4], ["P1004", 1]], stop: "product", stopTxt: "Viewed 4 times, never added", intent: "Hot", src: "Instagram", device: "iPhone", sent: [["22 Sep", "Still thinking about Terre d'Hermès?", "Opened · clicked · no order yet"]] },
+  { id: "B05", name: "Omar Hassan", email: "omar.h@example.com", cust: "C202", how: "Signed in", optin: true, last: "Yesterday 22:40", visits: 2, views: [["P1004", 3], ["P1005", 2]], stop: "product", stopTxt: "Compared two fragrances", intent: "Warm", src: "Direct", device: "iPhone", sent: [] },
+  { id: "B06", name: "Farida Nabil", email: "farida.n@example.com", cust: null, how: "Joined newsletter", optin: true, last: "Yesterday 19:12", visits: 3, views: [["P1002", 2], ["P1020", 2], ["P1006", 1]], stop: "category", stopTxt: "Browsing Fragrance, no product chosen", intent: "Warm", src: "Instagram", device: "iPhone", sent: [] },
+  { id: "B07", name: "Hana Mostafa", email: "hana.m@example.com", cust: "C207", how: "Signed in", optin: true, last: "Yesterday 11:26", visits: 2, views: [["P1009", 3]], stop: "product", stopTxt: "Read reviews, left", intent: "Warm", src: "Google", device: "Mac", sent: [["Yesterday", "Your Clarins Double Serum is waiting", "Opened"]] },
+  { id: "B09", name: "Salma Fathy", email: "salma.f@example.com", cust: "C203", how: "Signed in", optin: true, last: "22 Sep 12:10", visits: 1, views: [["P1006", 1], ["P1007", 1]], stop: "product", stopTxt: "Quick look", intent: "Cool", src: "Facebook", device: "Android", sent: [] },
+  { id: "B10", name: "Youssef Kamal", email: "youssef.k@example.com", cust: "C206", how: "Signed in", optin: true, last: "21 Sep 21:02", visits: 1, views: [["P1008", 1]], stop: "home", stopTxt: "Left after the homepage and one product", intent: "Cool", src: "Direct", device: "iPhone", sent: [] },
+];
+export const mockBrowsing = (): T.BrowsingData => ({
+  visitors: 4820,
+  rows: BROWSER_SEED.map((b): T.BrowserRow => {
+    const c = b.cust ? CUSTOMERS.find((x) => x.id === b.cust) : undefined;
+    return {
+      id: b.id, name: b.name, email: b.email, how: b.how, optin: b.optin, last: b.last, visits: b.visits, stop: b.stop, stopTxt: b.stopTxt, intent: b.intent, src: b.src, device: b.device,
+      views: b.views.map(([pid, times]) => { const p = prod(pid); return { productId: pid, name: p?.en ?? pid, brand: p ? brand(p.brand) : "", category: p ? cat(p.cat) : "", price: p ? (p.offer ?? p.price ?? null) : null, color: p?.img ?? "#ccc", times }; }),
+      sent: b.sent.map(([when, subject, status]) => ({ when, subject, status })),
+      customer: c ? { id: c.id, orders: (c as { orders?: number }).orders ?? 0, spent: (c as { spent?: number }).spent ?? 0 } : null,
+    };
+  }),
+});

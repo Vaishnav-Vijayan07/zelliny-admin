@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { simplePageQuery } from "@/lib/api/sections.functions";
+import { browsingQuery } from "@/lib/api/sections.functions";
 import { pageHead } from "@/lib/seo";
-import { SimpleSectionPage } from "@/components/admin/SimpleSectionPage";
+import BrowsingPage from "@/pages/BrowsingPage";
 
+// Page UI lives in src/pages/BrowsingPage.tsx
 export const Route = createFileRoute("/browsing")({
-  head: () => pageHead("Browsing & follow-up", "Live shoppers on zelliny.com and automated follow-up messages."),
-  loader: ({ context }) => context.queryClient.ensureQueryData(simplePageQuery("browsing")),
-  component: () => <SimpleSectionPage sectionKey="browsing" title="Browsing & follow-up" subtitle="Who is on the site now, and the reminders sent after they leave." />,
+  head: () => pageHead("Browsing & follow-up", "People who browsed Zelliny and the follow-up emails you can send them."),
+  loader: ({ context }) => context.queryClient.ensureQueryData(browsingQuery()),
+  component: BrowsingPage,
 });

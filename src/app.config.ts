@@ -39,10 +39,10 @@ export const APP_PAGES: AppPageGroup[] = [
   ]},
   { title: "Marketing", pages: [
     { key: "discounts", label: "Discounts & offers", icon: "%" },
-    // { key: "browsing", label: "Browsing & follow-up", icon: "◎" },
+    { key: "browsing", label: "Browsing & follow-up", icon: "◎" },
     // { key: "loyalty", label: "Loyalty programme", icon: "♢" },
     { key: "bundles", label: "Bundles & gift sets", icon: "❒" },
-    { key: "gifting", label: "Gift services", icon: "✦" },
+    // { key: "gifting", label: "Gift services", icon: "✦" },
     { key: "content", label: "Site content", icon: "▣" },
   ]},
   { title: "Operations", pages: [
