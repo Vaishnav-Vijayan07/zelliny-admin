@@ -25,6 +25,7 @@ export const APP_PAGES: AppPageGroup[] = [
     { key: "returns", label: "Returns & refunds", icon: "↺" },
     { key: "payments", label: "Payments", icon: "◈" },
     { key: "customers", label: "Customers", icon: "◉" },
+    
   ]},
   { title: "Corporate", pages: [
     { key: "enquiries", label: "Corporate enquiries", icon: "✉" },
