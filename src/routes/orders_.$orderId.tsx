@@ -5,8 +5,16 @@ import OrderDetailPage from "@/pages/OrderDetailPage";
 
 // Page UI lives in src/pages/OrderDetailPage.tsx
 export const Route = createFileRoute("/orders_/$orderId")({
-  head: ({ params }) => pageHead(`Order ${params.orderId}`, "One Zelliny order: next step, items, history, payment and delivery."),
-  loader: ({ context, params }) => Promise.all([context.queryClient.ensureQueryData(orderQuery(params.orderId)), context.queryClient.ensureQueryData(returnsQuery())]),
+  head: ({ params }) =>
+    pageHead(
+      `Order ${params.orderId}`,
+      "One Zelliny order: next step, items, history, payment and delivery.",
+    ),
+  loader: ({ context, params }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(orderQuery(params.orderId)),
+      context.queryClient.ensureQueryData(returnsQuery()),
+    ]),
   component: OrderRoute,
 });
 

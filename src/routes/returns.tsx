@@ -8,8 +8,16 @@ import ReturnsPage from "@/pages/ReturnsPage";
 export const Route = createFileRoute("/returns")({
   // ?log=ZL-10482 opens "Log a return" for that order (used from the order page).
   validateSearch: z.object({ log: z.string().max(20).optional() }),
-  head: () => pageHead("Returns & refunds", "Review, inspect and refund Zelliny returns against the returns policy."),
-  loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(returnsQuery()), context.queryClient.ensureQueryData(ordersQuery())]),
+  head: () =>
+    pageHead(
+      "Returns & refunds",
+      "Review, inspect and refund Zelliny returns against the returns policy.",
+    ),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(returnsQuery()),
+      context.queryClient.ensureQueryData(ordersQuery()),
+    ]),
   component: ReturnsRoute,
 });
 

@@ -5,8 +5,14 @@ import CategoryEditPage from "@/pages/CategoryEditPage";
 
 // Page UI lives in src/pages/CategoryEditPage.tsx
 export const Route = createFileRoute("/categories_/$categoryId")({
-  head: () => pageHead("Edit category", "Edit a Zelliny category: name, text, images and selling mode."),
-  loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(categoriesQuery()), context.queryClient.ensureQueryData(brandsQuery()), context.queryClient.ensureQueryData(productsQuery())]),
+  head: () =>
+    pageHead("Edit category", "Edit a Zelliny category: name, text, images and selling mode."),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(categoriesQuery()),
+      context.queryClient.ensureQueryData(brandsQuery()),
+      context.queryClient.ensureQueryData(productsQuery()),
+    ]),
   component: CategoryRoute,
 });
 function CategoryRoute() {

@@ -6,7 +6,15 @@ import { canSeePage } from "@/lib/roles";
 import { useRoles } from "@/lib/team-store";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
-export function AdminShell({ shell, user, children }: { shell: ShellData; user: CurrentUser | null; children: ReactNode }) {
+export function AdminShell({
+  shell,
+  user,
+  children,
+}: {
+  shell: ShellData;
+  user: CurrentUser | null;
+  children: ReactNode;
+}) {
   useRoles();
   const [menuOpen, setMenuOpen] = useState(false);
   const me = user ?? shell.user;
@@ -23,7 +31,12 @@ export function AdminShell({ shell, user, children }: { shell: ShellData; user: 
         </SheetContent>
       </Sheet>
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar user={me} team={shell.team} notifications={shell.notifications} onMenuOpen={() => setMenuOpen(true)} />
+        <Topbar
+          user={me}
+          team={shell.team}
+          notifications={shell.notifications}
+          onMenuOpen={() => setMenuOpen(true)}
+        />
         <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-7 md:px-8">{children}</main>
       </div>
     </div>

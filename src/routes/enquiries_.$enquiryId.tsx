@@ -5,7 +5,11 @@ import EnquiryDetailPage from "@/pages/EnquiryDetailPage";
 
 // Page UI lives in src/pages/EnquiryDetailPage.tsx
 export const Route = createFileRoute("/enquiries_/$enquiryId")({
-  head: ({ params }) => pageHead(`Enquiry ${params.enquiryId}`, "One corporate enquiry: stage, client, where they came from, quotation and history."),
+  head: ({ params }) =>
+    pageHead(
+      `Enquiry ${params.enquiryId}`,
+      "One corporate enquiry: stage, client, where they came from, quotation and history.",
+    ),
   loader: ({ context }) => context.queryClient.ensureQueryData(enquiriesQuery()),
   component: EnquiryRoute,
 });

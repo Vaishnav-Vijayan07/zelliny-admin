@@ -5,7 +5,11 @@ import EnquiriesPage from "@/pages/EnquiriesPage";
 
 // Page UI lives in src/pages/EnquiriesPage.tsx
 export const Route = createFileRoute("/enquiries")({
-  head: () => pageHead("Corporate enquiries", "Corporate gifting enquiries moving from new to quoted to won."),
+  head: () =>
+    pageHead(
+      "Corporate enquiries",
+      "Corporate gifting enquiries moving from new to quoted to won.",
+    ),
   loader: ({ context }) => context.queryClient.ensureQueryData(enquiriesQuery()),
   component: EnquiriesPage,
 });

@@ -5,7 +5,11 @@ import BrowserDetailPage from "@/pages/BrowserDetailPage";
 
 // Page UI lives in src/pages/BrowserDetailPage.tsx
 export const Route = createFileRoute("/browsing_/$browserId")({
-  head: () => pageHead("Browsing history", "Everything this person looked at, where they stopped, and the follow-ups sent."),
+  head: () =>
+    pageHead(
+      "Browsing history",
+      "Everything this person looked at, where they stopped, and the follow-ups sent.",
+    ),
   loader: ({ context }) => context.queryClient.ensureQueryData(browsingQuery()),
   component: BrowserRoute,
 });

@@ -5,7 +5,11 @@ import AttributeEditPage from "@/pages/AttributeEditPage";
 
 // Page UI lives in src/pages/AttributeEditPage.tsx
 export const Route = createFileRoute("/attributes_/$attributeId")({
-  head: ({ params }) => pageHead(`Attribute ${params.attributeId}`, "Edit a Zelliny attribute's name, preview type and status."),
+  head: ({ params }) =>
+    pageHead(
+      `Attribute ${params.attributeId}`,
+      "Edit a Zelliny attribute's name, preview type and status.",
+    ),
   loader: ({ context }) => context.queryClient.ensureQueryData(attributesQuery()),
   component: AttributeEditRoute,
 });

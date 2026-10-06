@@ -10,7 +10,9 @@ function Sparkline({ series }: { series: RevenueSummary["series"] }) {
     const step = 1000 / Math.max(series.length - 1, 1);
     return { max, points: series.map((s, i) => [i * step, 80 - (s.value / max) * 80] as const) };
   }, [series]);
-  const line = points.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const line = points
+    .map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`)
+    .join(" ");
   const active = hover ?? series.length - 1;
   const [ax, ay] = points[active] ?? [0, 0];
   const ticks = [0, 7, 15, 22, series.length - 1].filter((i) => i < series.length);
@@ -33,7 +35,13 @@ function Sparkline({ series }: { series: RevenueSummary["series"] }) {
             </linearGradient>
           </defs>
           <path d={`${line} L1000 80 L0 80 Z`} fill="url(#rev-g)" />
-          <path d={line} fill="none" stroke="var(--gold)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+          <path
+            d={line}
+            fill="none"
+            stroke="var(--gold)"
+            strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+          />
         </svg>
         <span
           className="pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold ring-4 ring-gold/20"
@@ -49,7 +57,9 @@ function Sparkline({ series }: { series: RevenueSummary["series"] }) {
         )}
       </div>
       <div className="mt-2 flex justify-between text-[11px] text-hero-muted">
-        {ticks.map((i) => <span key={i}>{series[i]?.label}</span>)}
+        {ticks.map((i) => (
+          <span key={i}>{series[i]?.label}</span>
+        ))}
       </div>
       <span className="sr-only">Peak {formatNumber(Math.round(max))}</span>
     </div>

@@ -14,7 +14,10 @@ import { canSeePage, canSeeWidget, roleFocus } from "@/lib/roles";
 export default function Dashboard() {
   const [range, setRange] = useState<DateRange>("30d");
   const initial = useSuspenseQuery(dashboardQuery("30d")).data;
-  const { data = initial } = useQuery({ ...dashboardQuery(range), placeholderData: keepPreviousData });
+  const { data = initial } = useQuery({
+    ...dashboardQuery(range),
+    placeholderData: keepPreviousData,
+  });
   const user = useSessionUser();
   const role = user?.role ?? "Owner";
   const show = (w: Parameters<typeof canSeeWidget>[1]) => canSeeWidget(role, w);
@@ -27,12 +30,28 @@ export default function Dashboard() {
 
   return (
     <>
-      <DashboardHeader name={user?.name.split(" ")[0] ?? data.greetingName} dateLabel={data.dateLabel} liveVisitors={data.liveVisitors} range={range} onRangeChange={setRange} />
-      <p className="-mt-5 mb-6 text-[13px] text-muted-foreground">{role} dashboard · {roleFocus(role)}</p>
+      <DashboardHeader
+        name={user?.name.split(" ")[0] ?? data.greetingName}
+        dateLabel={data.dateLabel}
+        liveVisitors={data.liveVisitors}
+        range={range}
+        onRangeChange={setRange}
+      />
+      <p className="-mt-5 mb-6 text-[13px] text-muted-foreground">
+        {role} dashboard · {roleFocus(role)}
+      </p>
       {needs.length > 0 && <NeedsNow items={needs} />}
       {show("revenue") && <RevenueHero data={data.revenue} />}
-      {show("latestOrders") && <LatestOrders orders={data.latestOrders.items} more={data.latestOrders.more} />}
-      {ranked.length > 0 && <div className={`mb-5 grid gap-5 ${["", "lg:grid-cols-1", "lg:grid-cols-2", "lg:grid-cols-3"][ranked.length]}`}>{ranked}</div>}
+      {show("latestOrders") && (
+        <LatestOrders orders={data.latestOrders.items} more={data.latestOrders.more} />
+      )}
+      {ranked.length > 0 && (
+        <div
+          className={`mb-5 grid gap-5 ${["", "lg:grid-cols-1", "lg:grid-cols-2", "lg:grid-cols-3"][ranked.length]}`}
+        >
+          {ranked}
+        </div>
+      )}
       {show("pipeline") && <PipelineCard {...data.pipeline} />}
     </>
   );

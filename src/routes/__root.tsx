@@ -98,7 +98,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Tenor+Sans&family=Jost:wght@300;400;500;600&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Tenor+Sans&family=Jost:wght@300;400;500;600&display=swap",
+      },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(shellQuery()),
@@ -145,14 +148,24 @@ function ShellFrame() {
     if (!user && pathname !== "/login") navigate({ to: "/login", replace: true });
   }, [user, pathname, navigate]);
 
-  if (pathname === "/login") return <><Outlet /><Toaster /></>;
+  if (pathname === "/login")
+    return (
+      <>
+        <Outlet />
+        <Toaster />
+      </>
+    );
   const allowed = !user || canSeePage(user.role, pageKeyFromPath(pathname));
   return (
     <AdminShell shell={data} user={user}>
-      {allowed ? <Outlet /> : (
+      {allowed ? (
+        <Outlet />
+      ) : (
         <div className="mx-auto max-w-md py-24 text-center">
           <h1 className="text-[28px]">No access to this page</h1>
-          <p className="mt-2 text-muted-foreground">Your role ({user.role}) can't open this area. Ask the owner if you need it.</p>
+          <p className="mt-2 text-muted-foreground">
+            Your role ({user.role}) can't open this area. Ask the owner if you need it.
+          </p>
         </div>
       )}
       <Toaster />

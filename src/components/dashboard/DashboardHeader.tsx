@@ -37,7 +37,9 @@ export function DashboardHeader({ name, dateLabel, liveVisitors, range, onRangeC
             {r}
           </button>
         ))}
-        <button className="rounded-lg px-3.5 py-1.5 text-[13px] text-muted-foreground hover:text-foreground">Custom</button>
+        <button className="rounded-lg px-3.5 py-1.5 text-[13px] text-muted-foreground hover:text-foreground">
+          Custom
+        </button>
       </div>
     </div>
   );

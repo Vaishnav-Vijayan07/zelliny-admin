@@ -5,7 +5,11 @@ import AttributeValuesPage from "@/pages/AttributeValuesPage";
 
 // Page UI lives in src/pages/AttributeValuesPage.tsx
 export const Route = createFileRoute("/attributes_/$attributeId_/values")({
-  head: ({ params }) => pageHead(`Attribute ${params.attributeId} — Values`, "Add, edit and delete the values customers can pick for this attribute."),
+  head: ({ params }) =>
+    pageHead(
+      `Attribute ${params.attributeId} — Values`,
+      "Add, edit and delete the values customers can pick for this attribute.",
+    ),
   loader: ({ context }) => context.queryClient.ensureQueryData(attributesQuery()),
   component: AttributeValuesRoute,
 });

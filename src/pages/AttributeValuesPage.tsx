@@ -8,17 +8,41 @@ import type { AttributeRow, AttributeValueRow } from "@/lib/api/section-types";
 import { cn } from "@/lib/utils";
 import { Chip, StatusBadge } from "@/components/admin/primitives";
 import { Button, Card, DataTable, PageHeader, type Column } from "@/components/admin/page";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { addAttributeValue, deleteAttributeValue, updateAttributeValue, useAttributes } from "@/components/admin/AttributeFlow";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  addAttributeValue,
+  deleteAttributeValue,
+  updateAttributeValue,
+  useAttributes,
+} from "@/components/admin/AttributeFlow";
 
-const inputCls = "h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary";
+const inputCls =
+  "h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary";
 
 function slugify(s: string) {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
-function ValueFormDialog({ attribute, open, onOpenChange, value }: {
-  attribute: AttributeRow; open: boolean; onOpenChange: (o: boolean) => void; value: AttributeValueRow | null;
+function ValueFormDialog({
+  attribute,
+  open,
+  onOpenChange,
+  value,
+}: {
+  attribute: AttributeRow;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  value: AttributeValueRow | null;
 }) {
   const isUpdate = !!value;
   const [text, setText] = useState(value?.value ?? "");
@@ -38,7 +62,10 @@ function ValueFormDialog({ attribute, open, onOpenChange, value }: {
 
   const save = () => {
     const trimmed = text.trim();
-    if (!trimmed) { toast("Enter a value"); return; }
+    if (!trimmed) {
+      toast("Enter a value");
+      return;
+    }
     const patch = {
       value: trimmed,
       color: attribute.previewType === "COLOR" ? color : null,
@@ -61,40 +88,85 @@ function ValueFormDialog({ attribute, open, onOpenChange, value }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="font-head text-[18px] font-normal">{isUpdate ? "Edit value" : "Add value"}</DialogTitle>
+          <DialogTitle className="font-head text-[18px] font-normal">
+            {isUpdate ? "Edit value" : "Add value"}
+          </DialogTitle>
         </DialogHeader>
 
-        <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">Value <em className="not-italic text-bad">*</em>
-          <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. Small, Red, Leather" className={inputCls} />
+        <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
+          Value <em className="not-italic text-bad">*</em>
+          <input
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="e.g. Small, Red, Leather"
+            className={inputCls}
+          />
         </label>
 
         {attribute.previewType === "COLOR" && (
-          <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">Colour
+          <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
+            Colour
             <div className="flex items-center gap-2.5">
-              <input type="color" value={isHexColor ? color : "#000000"} onChange={(e) => setColor(e.target.value)} className="h-9 w-12 cursor-pointer rounded-md border border-border bg-surface p-1" />
-              <input value={color} onChange={(e) => setColor(e.target.value)} placeholder="#000000" className={cn(inputCls, "font-mono")} />
+              <input
+                type="color"
+                value={isHexColor ? color : "#000000"}
+                onChange={(e) => setColor(e.target.value)}
+                className="h-9 w-12 cursor-pointer rounded-md border border-border bg-surface p-1"
+              />
+              <input
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="#000000"
+                className={cn(inputCls, "font-mono")}
+              />
             </div>
           </label>
         )}
 
         {attribute.previewType === "ICON" && (
           <>
-            <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">Icon image
+            <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
+              Icon image
               <div className="flex items-center gap-3">
-                {icon ? <img src={icon} alt="" className="size-12 rounded-md border border-border object-contain p-1" /> : <span className="grid size-12 place-items-center rounded-md border border-dashed border-[#c9c9c9] text-[10px] text-muted-foreground">No icon</span>}
+                {icon ? (
+                  <img
+                    src={icon}
+                    alt=""
+                    className="size-12 rounded-md border border-border object-contain p-1"
+                  />
+                ) : (
+                  <span className="grid size-12 place-items-center rounded-md border border-dashed border-[#c9c9c9] text-[10px] text-muted-foreground">
+                    No icon
+                  </span>
+                )}
                 <Button onClick={() => fileRef.current?.click()}>Upload</Button>
-                <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => onFile(e.target.files)} />
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => onFile(e.target.files)}
+                />
               </div>
             </label>
-            <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">Icon alt text
-              <input value={iconAlt} onChange={(e) => setIconAlt(e.target.value)} placeholder="e.g. Leather icon" className={inputCls} />
+            <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
+              Icon alt text
+              <input
+                value={iconAlt}
+                onChange={(e) => setIconAlt(e.target.value)}
+                placeholder="e.g. Leather icon"
+                className={inputCls}
+              />
             </label>
           </>
         )}
 
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button primary onClick={save}>{isUpdate ? "Save changes" : "Add value"}</Button>
+          <Button primary onClick={save}>
+            {isUpdate ? "Save changes" : "Add value"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -110,7 +182,8 @@ export default function AttributeValuesPage({ attributeId }: { attributeId: stri
   const [editing, setEditing] = useState<AttributeValueRow | null>(null);
   const [deleting, setDeleting] = useState<AttributeValueRow | null>(null);
 
-  if (!attribute) return <p className="py-24 text-center text-muted-foreground">Attribute not found.</p>;
+  if (!attribute)
+    return <p className="py-24 text-center text-muted-foreground">Attribute not found.</p>;
 
   const term = q.toLowerCase().trim();
   const rows = attribute.values.filter((v) => !term || v.value.toLowerCase().includes(term));
@@ -124,37 +197,98 @@ export default function AttributeValuesPage({ attributeId }: { attributeId: stri
 
   const columns: Column<AttributeValueRow>[] = [
     { header: "Value", cell: (v) => <b className="font-medium">{v.value}</b> },
-    ...(attribute.previewType === "COLOR" ? [{
-      header: "Colour", cell: (v: AttributeValueRow) => v.color ? (
-        <div className="flex items-center gap-2">
-          <span className="inline-block size-5 rounded-full border border-border" style={{ background: v.color }} />
-          <span className="font-mono text-[12px]">{v.color}</span>
+    ...(attribute.previewType === "COLOR"
+      ? [
+          {
+            header: "Colour",
+            cell: (v: AttributeValueRow) =>
+              v.color ? (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block size-5 rounded-full border border-border"
+                    style={{ background: v.color }}
+                  />
+                  <span className="font-mono text-[12px]">{v.color}</span>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+        ]
+      : []),
+    ...(attribute.previewType === "ICON"
+      ? [
+          {
+            header: "Icon",
+            cell: (v: AttributeValueRow) =>
+              v.icon ? (
+                <div className="flex items-center gap-2.5">
+                  <img
+                    src={v.icon}
+                    alt={v.iconAlt ?? v.value}
+                    className="size-9 rounded-md border border-border object-contain p-1"
+                  />
+                  {v.iconAlt && (
+                    <span className="text-[12px] text-muted-foreground">{v.iconAlt}</span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+        ]
+      : []),
+    {
+      header: "actions",
+      headerNode: "",
+      align: "right",
+      cell: (v) => (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            onClick={() => {
+              setEditing(v);
+              setFormOpen(true);
+            }}
+          >
+            Edit
+          </Button>
+          <Button onClick={() => setDeleting(v)}>Delete</Button>
         </div>
-      ) : <span className="text-muted-foreground">—</span>,
-    }] : []),
-    ...(attribute.previewType === "ICON" ? [{
-      header: "Icon", cell: (v: AttributeValueRow) => v.icon ? (
-        <div className="flex items-center gap-2.5">
-          <img src={v.icon} alt={v.iconAlt ?? v.value} className="size-9 rounded-md border border-border object-contain p-1" />
-          {v.iconAlt && <span className="text-[12px] text-muted-foreground">{v.iconAlt}</span>}
-        </div>
-      ) : <span className="text-muted-foreground">—</span>,
-    }] : []),
-    { header: "actions", headerNode: "", align: "right", cell: (v) => (
-      <div className="flex items-center justify-end gap-2">
-        <Button onClick={() => { setEditing(v); setFormOpen(true); }}>Edit</Button>
-        <Button onClick={() => setDeleting(v)}>Delete</Button>
-      </div>
-    ) },
+      ),
+    },
   ];
 
   return (
     <>
-      <div className="mb-2 text-[12px] text-muted-foreground"><Link to="/attributes" className="underline underline-offset-[3px]">Attributes</Link> / {attribute.name} / Values</div>
+      <div className="mb-2 text-[12px] text-muted-foreground">
+        <Link to="/attributes" className="underline underline-offset-[3px]">
+          Attributes
+        </Link>{" "}
+        / {attribute.name} / Values
+      </div>
       <PageHeader
         title={attribute.name}
         subtitle="The values customers can pick for this attribute on a product."
-        actions={<><Button onClick={() => navigate({ to: "/attributes/$attributeId", params: { attributeId: attribute.id } })}>Edit attribute</Button><Button primary onClick={() => { setEditing(null); setFormOpen(true); }}>+ Add value</Button></>}
+        actions={
+          <>
+            <Button
+              onClick={() =>
+                navigate({ to: "/attributes/$attributeId", params: { attributeId: attribute.id } })
+              }
+            >
+              Edit attribute
+            </Button>
+            <Button
+              primary
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              + Add value
+            </Button>
+          </>
+        }
       />
       <Card>
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -162,20 +296,44 @@ export default function AttributeValuesPage({ attributeId }: { attributeId: stri
             <Chip>{attribute.previewType}</Chip>
             <StatusBadge tone={attribute.status.tone}>{attribute.status.label}</StatusBadge>
           </div>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter values…" className={cn(inputCls, "max-w-[220px]")} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Filter values…"
+            className={cn(inputCls, "max-w-[220px]")}
+          />
         </div>
-        <DataTable columns={columns} rows={rows} rowKey={(v) => v.id} empty={term ? "No values match your search." : "No values added yet."} />
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(v) => v.id}
+          empty={term ? "No values match your search." : "No values added yet."}
+        />
       </Card>
 
-      {formOpen && <ValueFormDialog attribute={attribute} open={formOpen} onOpenChange={setFormOpen} value={editing} />}
+      {formOpen && (
+        <ValueFormDialog
+          attribute={attribute}
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          value={editing}
+        />
+      )}
 
       <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <DialogContent className="max-w-[480px]">
-          <DialogHeader><DialogTitle className="font-head text-[18px] font-normal">Delete value?</DialogTitle></DialogHeader>
-          <p className="text-[13.5px]"><b className="font-semibold">"{deleting?.value}"</b> will be removed from <b className="font-semibold">{attribute.name}</b>. This cannot be undone.</p>
+          <DialogHeader>
+            <DialogTitle className="font-head text-[18px] font-normal">Delete value?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13.5px]">
+            <b className="font-semibold">"{deleting?.value}"</b> will be removed from{" "}
+            <b className="font-semibold">{attribute.name}</b>. This cannot be undone.
+          </p>
           <DialogFooter>
             <Button onClick={() => setDeleting(null)}>Cancel</Button>
-            <Button primary onClick={confirmDelete}>Delete</Button>
+            <Button primary onClick={confirmDelete}>
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

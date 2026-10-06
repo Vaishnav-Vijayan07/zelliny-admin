@@ -6,5 +6,11 @@ import { SimpleSectionPage } from "@/components/admin/SimpleSectionPage";
 export const Route = createFileRoute("/loyalty")({
   head: () => pageHead("Loyalty programme", "Zelliny loyalty points, tiers and member figures."),
   loader: ({ context }) => context.queryClient.ensureQueryData(simplePageQuery("loyalty")),
-  component: () => <SimpleSectionPage sectionKey="loyalty" title="Loyalty programme" subtitle="How customers earn and spend points." />,
+  component: () => (
+    <SimpleSectionPage
+      sectionKey="loyalty"
+      title="Loyalty programme"
+      subtitle="How customers earn and spend points."
+    />
+  ),
 });

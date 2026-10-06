@@ -8,8 +8,13 @@ import InventoryPage from "@/pages/InventoryPage";
 export const Route = createFileRoute("/inventory")({
   // ?tab=Back-in-stock requests | Pre-orders
   validateSearch: z.object({ tab: z.string().max(40).optional() }),
-  head: () => pageHead("Inventory", "Stock levels, back-in-stock waiting lists and pre-orders at Zelliny."),
-  loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(productsQuery()), context.queryClient.ensureQueryData(inventoryQuery())]),
+  head: () =>
+    pageHead("Inventory", "Stock levels, back-in-stock waiting lists and pre-orders at Zelliny."),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(productsQuery()),
+      context.queryClient.ensureQueryData(inventoryQuery()),
+    ]),
   component: InventoryRoute,
 });
 

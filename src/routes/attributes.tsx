@@ -5,7 +5,11 @@ import AttributesPage from "@/pages/AttributesPage";
 
 // Page UI lives in src/pages/AttributesPage.tsx
 export const Route = createFileRoute("/attributes")({
-  head: () => pageHead("Attributes", "Variant options like colour and size, and the values customers can pick on a product."),
+  head: () =>
+    pageHead(
+      "Attributes",
+      "Variant options like colour and size, and the values customers can pick on a product.",
+    ),
   loader: ({ context }) => context.queryClient.ensureQueryData(attributesQuery()),
   component: AttributesPage,
 });

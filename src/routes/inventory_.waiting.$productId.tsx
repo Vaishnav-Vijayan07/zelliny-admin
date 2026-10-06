@@ -5,8 +5,13 @@ import WaitingListPage from "@/pages/WaitingListPage";
 
 // Page UI lives in src/pages/WaitingListPage.tsx
 export const Route = createFileRoute("/inventory_/waiting/$productId")({
-  head: () => pageHead("Waiting list", "Customers waiting for a sold-out Zelliny product to come back."),
-  loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(productsQuery()), context.queryClient.ensureQueryData(inventoryQuery())]),
+  head: () =>
+    pageHead("Waiting list", "Customers waiting for a sold-out Zelliny product to come back."),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(productsQuery()),
+      context.queryClient.ensureQueryData(inventoryQuery()),
+    ]),
   component: WaitingRoute,
 });
 

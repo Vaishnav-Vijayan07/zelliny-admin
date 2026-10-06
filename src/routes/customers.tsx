@@ -5,7 +5,8 @@ import CustomersPage from "@/pages/CustomersPage";
 
 // Page UI lives in src/pages/CustomersPage.tsx
 export const Route = createFileRoute("/customers")({
-  head: () => pageHead("Customers", "Zelliny customers with orders, lifetime spend and contact details."),
+  head: () =>
+    pageHead("Customers", "Zelliny customers with orders, lifetime spend and contact details."),
   loader: ({ context }) => context.queryClient.ensureQueryData(customersQuery()),
   component: CustomersPage,
 });

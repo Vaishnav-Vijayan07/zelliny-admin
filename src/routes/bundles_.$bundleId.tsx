@@ -6,7 +6,11 @@ import BundleEditPage from "@/pages/BundleEditPage";
 // Page UI lives in src/pages/BundleEditPage.tsx
 export const Route = createFileRoute("/bundles_/$bundleId")({
   head: () => pageHead("Edit gift set", "Name the set, pick its products and give it one price."),
-  loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(bundlesQuery()), context.queryClient.ensureQueryData(productsQuery())]),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(bundlesQuery()),
+      context.queryClient.ensureQueryData(productsQuery()),
+    ]),
   component: BundleRoute,
 });
 function BundleRoute() {

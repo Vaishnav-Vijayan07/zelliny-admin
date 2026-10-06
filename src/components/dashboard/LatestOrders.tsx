@@ -12,20 +12,32 @@ export function OrderRow({ order }: { order: OrderSummary }) {
     >
       <div className="min-w-0">
         <b className="block text-[13.5px] font-medium">{order.customer}</b>
-        <span className="text-[12px] text-muted-foreground">{order.id} · {order.placedAt}</span>
+        <span className="text-[12px] text-muted-foreground">
+          {order.id} · {order.placedAt}
+        </span>
       </div>
       <div className="hidden text-[13px] text-muted-foreground md:block">{order.city}</div>
       <div className="hidden text-[12.5px] text-muted-foreground md:block">{order.payment}</div>
-      <div className="hidden md:block"><StatusBadge tone={order.tone}>{order.status}</StatusBadge></div>
-      <div className="text-right text-[13.5px] font-medium">{formatMoney(order.total, order.currency)}</div>
+      <div className="hidden md:block">
+        <StatusBadge tone={order.tone}>{order.status}</StatusBadge>
+      </div>
+      <div className="text-right text-[13.5px] font-medium">
+        {formatMoney(order.total, order.currency)}
+      </div>
     </Link>
   );
 }
 
 export function LatestOrders({ orders, more }: { orders: OrderSummary[]; more: number }) {
   return (
-    <Panel title="Latest orders" action={<SectionLink to="orders">All orders</SectionLink>} className="mb-5">
-      {orders.map((o) => <OrderRow key={o.id} order={o} />)}
+    <Panel
+      title="Latest orders"
+      action={<SectionLink to="orders">All orders</SectionLink>}
+      className="mb-5"
+    >
+      {orders.map((o) => (
+        <OrderRow key={o.id} order={o} />
+      ))}
       <PanelFooter count={more} label="orders" to="orders" />
     </Panel>
   );

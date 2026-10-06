@@ -8,8 +8,16 @@ import ProductDetailPage from "@/pages/ProductDetailPage";
 export const Route = createFileRoute("/products_/$productId")({
   // ?tab=Images opens straight on that tab (used by the thumbnail in the products list).
   validateSearch: z.object({ tab: z.string().max(30).optional() }),
-  head: ({ params }) => pageHead(`Product ${params.productId}`, "Edit a Zelliny product in English and Arabic: price, images, stock, gifting and SEO."),
-  loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(productsQuery()), context.queryClient.ensureQueryData(attributesQuery())]),
+  head: ({ params }) =>
+    pageHead(
+      `Product ${params.productId}`,
+      "Edit a Zelliny product in English and Arabic: price, images, stock, gifting and SEO.",
+    ),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(productsQuery()),
+      context.queryClient.ensureQueryData(attributesQuery()),
+    ]),
   component: ProductRoute,
 });
 

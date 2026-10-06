@@ -7,9 +7,15 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Dashboard — Zelliny Admin" },
-      { name: "description", content: "Today's orders, revenue, stock and corporate enquiries for Zelliny." },
+      {
+        name: "description",
+        content: "Today's orders, revenue, stock and corporate enquiries for Zelliny.",
+      },
       { property: "og:title", content: "Dashboard — Zelliny Admin" },
-      { property: "og:description", content: "Today's orders, revenue, stock and corporate enquiries for Zelliny." },
+      {
+        property: "og:description",
+        content: "Today's orders, revenue, stock and corporate enquiries for Zelliny.",
+      },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(dashboardQuery("30d")),

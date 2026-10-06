@@ -193,8 +193,17 @@ export function Chip({ children, dark }: { children: ReactNode; dark?: boolean }
 /** Initials in a circle, for "who did it" cells. */
 export function Avatar({ name, className }: { name: string; className?: string }) {
   return (
-    <span className={cn("grid size-6 flex-none place-items-center rounded-full bg-hover text-[9.5px] font-semibold", className)}>
-      {name.split(" ").map((w) => w[0]).slice(0, 2).join("")}
+    <span
+      className={cn(
+        "grid size-6 flex-none place-items-center rounded-full bg-hover text-[9.5px] font-semibold",
+        className,
+      )}
+    >
+      {name
+        .split(" ")
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")}
     </span>
   );
 }
