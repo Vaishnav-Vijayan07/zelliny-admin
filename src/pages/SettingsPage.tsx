@@ -291,11 +291,11 @@ export default function SettingsPage() {
                 />
               </Field>
             </div>
-            <Row
+            {/* <Row
               label="Arabic site with full right-to-left layout"
               on={s.rtl}
               onChange={() => setS({ ...s, rtl: !s.rtl })}
-            />
+            /> */}
             <Row
               label="Prices include VAT"
               on={s.vat}
