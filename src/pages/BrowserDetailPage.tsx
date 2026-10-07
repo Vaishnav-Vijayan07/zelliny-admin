@@ -20,14 +20,10 @@ import {
   useSentMails,
 } from "@/components/admin/BrowsingFlow";
 
-const STEPS = ["home", "category", "product", "bag", "checkout", "paid"] as const;
+const STEPS = ["bag", "checkout"] as const;
 const STEP_LABEL: Record<(typeof STEPS)[number], string> = {
-  home: "Homepage",
-  category: "Category page",
-  product: "Product page",
   bag: "Bag",
   checkout: "Checkout",
-  paid: "Paid order",
 };
 
 /** Rebuild plausible visit sessions from the summary (a real API returns the actual page paths). */
@@ -89,9 +85,8 @@ export default function BrowserDetailPage({ id }: { id: string }) {
   const totalViews = b.views.reduce((a, v) => a + v.times, 0);
   const value = b.views.reduce((a, v) => a + (v.price ?? 0), 0);
   const kpis: [string, string][] = [
-    ["Visits (last 14 days)", String(b.visits)],
-    ["Products viewed", `${b.views.length} · ${totalViews} views`],
-    ["Value of what they viewed", egp(value)],
+    ["Products In Cart", `${totalViews}`],
+    ["Value of Cart", egp(value)],
     ["Main interest", b.views[0]!.category],
   ];
   const inBag = b.stop === "bag" || b.stop === "checkout";
@@ -112,11 +107,11 @@ export default function BrowserDetailPage({ id }: { id: string }) {
       ),
     },
     {
-      header: "Times viewed",
+      header: "Quantity",
       align: "right",
       cell: (v) => <b className="font-medium">{v.times}</b>,
     },
-    { header: "Last viewed", cell: () => b.last },
+    { header: "Last added", cell: () => b.last },
     {
       header: "Bag",
       cell: (v) =>
@@ -139,12 +134,6 @@ export default function BrowserDetailPage({ id }: { id: string }) {
       </div>
       <PageHeader
         title={b.name}
-        subtitle={
-          <span className="inline-flex items-center gap-2">
-            <IntentBadge intent={b.intent} />
-            {b.how} · last visit {b.last}
-          </span>
-        }
         actions={
           <div className="flex flex-wrap gap-2">
             {b.optin && !isOut && (
@@ -184,7 +173,7 @@ export default function BrowserDetailPage({ id }: { id: string }) {
           Excluded from follow-ups — this person no longer appears in the follow-up list.
         </p>
       )}
-      <div className="mb-[18px] grid gap-3 sm:grid-cols-2 min-[981px]:grid-cols-4">
+      <div className="mb-[18px] grid gap-3 sm:grid-cols-3 min-[981px]:grid-cols-4">
         {kpis.map(([l, v]) => (
           <div key={l} className="rounded-[10px] border border-border bg-surface px-4 py-3">
             <div className="text-[12px] text-muted-foreground">{l}</div>
@@ -197,31 +186,6 @@ export default function BrowserDetailPage({ id }: { id: string }) {
           <Card>
             <h3 className="mb-3 text-[15px]">What they looked at</h3>
             <DataTable columns={cols} rows={b.views} rowKey={(v) => v.productId} />
-          </Card>
-          <Card>
-            <h3 className="mb-3 text-[15px]">Visit history</h3>
-            {sessions(b).map((s, i) => (
-              <div key={i} className="border-t border-line-soft py-3 first:border-t-0 first:pt-0">
-                <div className="mb-2 flex justify-between gap-2.5 text-[12.5px]">
-                  <b className="font-medium">{s.when}</b>
-                  <span className="text-muted-foreground">
-                    {s.src} · {s.dev}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
-                  {s.pages.map(([p, cls], j) => (
-                    <span key={j} className="contents">
-                      {j > 0 && <i className="not-italic text-muted-foreground">›</i>}
-                      <span
-                        className={`rounded-full border border-border bg-surface px-2.5 py-[3px] ${cls}`}
-                      >
-                        {p}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
           </Card>
           <Card>
             <h3 className="mb-3 text-[15px]">Follow-ups sent</h3>
@@ -267,32 +231,9 @@ export default function BrowserDetailPage({ id }: { id: string }) {
             <h3 className="mb-3 text-[15px]">Contact</h3>
             <KV
               rows={[
+                ["Name", b.name],
                 ["Email", b.email],
-                ["How we know them", b.how],
-                [
-                  "Marketing emails",
-                  b.optin ? (
-                    <span className="text-ok">✓ Opted in</span>
-                  ) : (
-                    <span className="text-muted-foreground">Not opted in — no promotions</span>
-                  ),
-                ],
-                ["Came from", b.src],
-                ["Device", b.device],
-                [
-                  "Customer record",
-                  b.customer ? (
-                    <Link
-                      to="/customers/$customerId"
-                      params={{ customerId: b.customer.id }}
-                      className="underline"
-                    >
-                      {b.customer.orders} orders · {egp(b.customer.spent)}
-                    </Link>
-                  ) : (
-                    "Not a customer yet"
-                  ),
-                ],
+                ["Mobile", b.customer?.mobile ?? "—"],
               ]}
             />
           </Card>

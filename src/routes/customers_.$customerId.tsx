@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { customersQuery, ordersQuery, returnsQuery } from "@/lib/api/sections.functions";
+import {
+  customersQuery,
+  ordersQuery,
+  productsQuery,
+  returnsQuery,
+} from "@/lib/api/sections.functions";
 import { pageHead } from "@/lib/seo";
 import CustomerDetailPage from "@/pages/CustomerDetailPage";
 
@@ -12,6 +17,7 @@ export const Route = createFileRoute("/customers_/$customerId")({
       context.queryClient.ensureQueryData(customersQuery()),
       context.queryClient.ensureQueryData(ordersQuery()),
       context.queryClient.ensureQueryData(returnsQuery()),
+      context.queryClient.ensureQueryData(productsQuery()),
     ]),
   component: CustomerRoute,
 });

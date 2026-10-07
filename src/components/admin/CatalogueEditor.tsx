@@ -336,9 +336,6 @@ export function CatalogueEditor({
             )}
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => toast("Opens this page on the site in a new tab")}>
-              Preview on site
-            </Button>
             <Button primary onClick={save}>
               {isNew ? `Add ${word}` : "Save"}
             </Button>
@@ -421,17 +418,7 @@ export function CatalogueEditor({
             {isCat ? (
               <>
                 <Field label="Default sort">
-                  <select className={cn(inputCls, "cursor-pointer")} defaultValue="Featured">
-                    {[
-                      "Featured",
-                      "Newest",
-                      "Price: low to high",
-                      "Price: high to low",
-                      "Best selling",
-                    ].map((o) => (
-                      <option key={o}>{o}</option>
-                    ))}
-                  </select>
+                  <input type="number" min="0" step="1" value="1" className={inputCls} />
                 </Field>
                 <Row label="Show in main menu" init />
                 <Row label="Show on homepage grid" init />

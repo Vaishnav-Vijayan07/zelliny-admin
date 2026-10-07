@@ -228,9 +228,6 @@ export function BundleEditor({ id }: { id?: string | undefined }) {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => toast("Opens this gift set on the site in a new tab")}>
-              Preview on site
-            </Button>
             <Button primary onClick={save}>
               {isNew ? "Create gift set" : "Save"}
             </Button>

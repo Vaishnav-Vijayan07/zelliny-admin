@@ -5,12 +5,14 @@ import { toast } from "sonner";
 import { browsingQuery } from "@/lib/api/sections.functions";
 import type { BrowserRow } from "@/lib/api/section-types";
 import { Avatar, Thumb } from "@/components/admin/primitives";
+import { downloadCsv } from "@/components/admin/CustomerFlow";
 import {
   Button,
   Card,
   DataTable,
   FilterBar,
   PageHeader,
+  Pager,
   type Column,
 } from "@/components/admin/page";
 import { IntentBadge, STOP_LABEL, SendOfferDialog } from "@/components/admin/BrowsingUi";
@@ -43,6 +45,8 @@ export default function BrowsingPage() {
   const [one, setOne] = useState<BrowserRow | null>(null);
   const [bulk, setBulk] = useState(false);
   const [offer, setOffer] = useState(OFFERS[0]!);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const people = data.rows.filter((b) => !excluded.includes(b.id));
   const rows = people.filter(
@@ -50,6 +54,8 @@ export default function BrowsingPage() {
       (stop === "All" || STOP_LABEL[b.stop] === stop) &&
       (intent === "Any intent" || b.intent === intent),
   );
+  const cur = Math.min(page, Math.max(1, Math.ceil(rows.length / pageSize)));
+  const shown = rows.slice((cur - 1) * pageSize, cur * pageSize);
   const allOn = rows.length > 0 && rows.every((b) => sel.includes(b.id));
   const toggle = (id: string) =>
     setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -93,8 +99,28 @@ export default function BrowsingPage() {
           <Avatar name={b.name} className="size-8" />
           <div>
             <b className="font-medium">{b.name}</b>
-            <div className="text-[12px] text-muted-foreground">{b.email}</div>
           </div>
+        </div>
+      ),
+    },
+    {
+      header: "Email",
+      cell: (b) => b.email,
+    },
+    {
+      header: "Phone",
+      cell: (b) => "+1452654478",
+    },
+    {
+      header: "Cart Items",
+      cell: (b) => (
+        <div className="flex items-center gap-1">
+          {b.views.map((i) => (
+            <Thumb
+              color={i.color}
+              className="group-hover:outline group-hover:outline-2 group-hover:outline-offset-2 group-hover:outline-primary"
+            />
+          ))}
         </div>
       ),
     },
@@ -106,7 +132,6 @@ export default function BrowsingPage() {
         </div>
       ),
     },
-    { header: "Intent", cell: (b) => <IntentBadge intent={b.intent} /> },
     {
       header: "",
       cell: (b) =>
@@ -129,11 +154,41 @@ export default function BrowsingPage() {
     setBulk(false);
   };
 
+  const exportRows = () => {
+    downloadCsv(
+      `zelliny-browsing-${rows.length}.csv`,
+      [
+        "Name",
+        "Email",
+        "Stopped at",
+        "Intent",
+        "Source",
+        "Device",
+        "Visits",
+        "Last seen",
+        "Opted in",
+      ],
+      rows.map((b) => [
+        b.name,
+        b.email,
+        STOP_LABEL[b.stop],
+        b.intent,
+        b.src,
+        b.device,
+        b.visits,
+        b.last,
+        b.optin ? "Yes" : "No",
+      ]),
+    );
+    toast.success(`Excel downloaded · ${rows.length} row${rows.length === 1 ? "" : "s"}`);
+  };
+
   return (
     <>
       <PageHeader
         title="Browsing & follow-up"
         subtitle="What visitors looked at before they left — so you can email the people you know and advertise to the ones you don't."
+        actions={<Button onClick={exportRows}>Export</Button>}
       />
       <p className="mb-[18px] text-[12px] text-muted-foreground">
         Browsing is recorded only after the visitor accepts cookies on the site.
@@ -149,23 +204,16 @@ export default function BrowsingPage() {
               <button
                 key={s}
                 type="button"
-                onClick={() => setStop(s)}
+                onClick={() => {
+                  setStop(s);
+                  setPage(1);
+                }}
                 className={`rounded-full border px-3 py-1 text-[12.5px] ${stop === s ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-hover"}`}
               >
                 {s} <em className="ml-1 not-italic opacity-70">{n}</em>
               </button>
             );
           })}
-          <select
-            value={intent}
-            onChange={(e) => setIntent(e.target.value)}
-            aria-label="Intent"
-            className="ml-auto h-8 rounded-lg border border-border bg-surface px-2 text-[13px]"
-          >
-            {INTENTS.map((i) => (
-              <option key={i}>{i}</option>
-            ))}
-          </select>
         </FilterBar>
         <div
           className={`mb-3 flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-[13px] ${sel.length ? "bg-hover" : "text-muted-foreground"}`}
@@ -194,15 +242,22 @@ export default function BrowsingPage() {
         </div>
         <DataTable
           columns={columns}
-          rows={rows}
+          rows={shown}
           rowKey={(b) => b.id}
           empty="Nobody matches these filters."
           onRowClick={(b) => navigate({ to: "/browsing/$browserId", params: { browserId: b.id } })}
         />
-        <p className="mt-3 text-[12px] text-muted-foreground">
-          <b className="font-medium">Intent:</b> Hot = reached the checkout · Warm = reached the
-          cart
-        </p>
+        <Pager
+          page={cur}
+          pageSize={pageSize}
+          total={rows.length}
+          noun="visitors"
+          onPage={setPage}
+          onPageSize={(n) => {
+            setPageSize(n);
+            setPage(1);
+          }}
+        />
       </Card>
 
       {one && <SendOfferDialog b={one} open onClose={() => setOne(null)} />}

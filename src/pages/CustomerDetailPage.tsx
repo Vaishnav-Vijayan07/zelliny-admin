@@ -2,12 +2,34 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { customersQuery, ordersQuery, returnsQuery } from "@/lib/api/sections.functions";
+import {
+  customersQuery,
+  ordersQuery,
+  productsQuery,
+  returnsQuery,
+} from "@/lib/api/sections.functions";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Avatar, Panel, StatusBadge } from "@/components/admin/primitives";
+import { Avatar, Chip, Panel, StatusBadge, Thumb } from "@/components/admin/primitives";
 import { Button, DataTable, PageHeader } from "@/components/admin/page";
-import { editCustomer, useCustomerActions, useCustomers } from "@/components/admin/CustomerFlow";
+import {
+  ADDRESS_LABELS,
+  CITIES,
+  deleteAddress,
+  editCustomer,
+  makeDefaultAddress,
+  saveAddress,
+  useCustomerActions,
+  useCustomers,
+  type LiveCustomer,
+} from "@/components/admin/CustomerFlow";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { applyEdit, useCreatedOrders, useOrderEdits } from "@/components/admin/OrderFlow";
 import { useReturns } from "@/components/admin/ReturnFlow";
 
@@ -24,10 +46,199 @@ function Kv({ rows }: { rows: [string, ReactNode][] }) {
   );
 }
 
+const inputCls =
+  "h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary";
+type AddrForm = {
+  id: string | null;
+  label: string;
+  address: string;
+  city: string;
+  isDefault: boolean;
+};
+
+/** Saved delivery addresses as a list of cards, with add / edit / delete / make default. */
+function AddressesPanel({ c }: { c: LiveCustomer }) {
+  const [form, setForm] = useState<AddrForm | null>(null);
+  const [del, setDel] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  const link =
+    "text-[12.5px] text-muted-foreground underline underline-offset-[3px] hover:text-foreground";
+  const open = (a?: LiveCustomer["addresses"][number]) => {
+    setErr("");
+    setForm(
+      a
+        ? { id: a.id, label: a.label, address: a.address, city: a.city, isDefault: a.isDefault }
+        : {
+            id: null,
+            label: c.addresses.length ? "Work" : "Home",
+            address: "",
+            city: c.city || CITIES[0]!,
+            isDefault: !c.addresses.length,
+          },
+    );
+  };
+  const save = () => {
+    if (!form) return;
+    if (!form.address.trim()) {
+      setErr("Enter the address.");
+      return;
+    }
+    saveAddress(c, { ...form, address: form.address.trim() });
+    setForm(null);
+    toast(form.id ? "Address saved" : "Address added");
+  };
+  const target = c.addresses.find((a) => a.id === del);
+  return (
+    <>
+      <Panel
+        title={`Addresses · ${c.addresses.length}`}
+        action={
+          <button type="button" onClick={() => open()} className={link}>
+            + Add address
+          </button>
+        }
+      >
+        {c.addresses.length ? (
+          <ul className="flex flex-col gap-2.5">
+            {c.addresses.map((a) => (
+              <li
+                key={a.id}
+                className={cn(
+                  "rounded-lg border px-3.5 py-3 text-[13px]",
+                  a.isDefault ? "border-primary" : "border-border",
+                )}
+              >
+                <div className="mb-1.5 flex items-center gap-2">
+                  <Chip>{a.label}</Chip>
+                  {a.isDefault && <StatusBadge tone="ok">Default</StatusBadge>}
+                </div>
+                <p>{a.address}</p>
+                <p className="text-muted-foreground">{a.city}</p>
+                <div className="mt-2.5 flex flex-wrap gap-3.5">
+                  <button type="button" onClick={() => open(a)} className={link}>
+                    Edit
+                  </button>
+                  {!a.isDefault && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        makeDefaultAddress(c, a.id);
+                        toast("Default address changed");
+                      }}
+                      className={link}
+                    >
+                      Make default
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setDel(a.id)} className={link}>
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[13px] text-muted-foreground">
+            No address yet — add one, or it is saved with their first order.
+          </p>
+        )}
+      </Panel>
+
+      <Dialog open={!!form} onOpenChange={(o) => !o && setForm(null)}>
+        <DialogContent className="max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="font-head text-[18px] font-normal">
+              {form?.id ? "Edit address" : "Add address"}
+            </DialogTitle>
+          </DialogHeader>
+          {form && (
+            <div className="flex flex-col gap-3.5 text-[12px] text-muted-foreground">
+              <label className="flex flex-col gap-1.5">
+                Label
+                <select
+                  value={form.label}
+                  onChange={(e) => setForm({ ...form, label: e.target.value })}
+                  className={inputCls}
+                >
+                  {ADDRESS_LABELS.map((l) => (
+                    <option key={l}>{l}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1.5">
+                Address <em className="not-italic text-bad">*</em>
+                <input
+                  autoFocus
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  placeholder="Building, street, floor, apartment"
+                  className={inputCls}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                City / area
+                <select
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  className={inputCls}
+                >
+                  {[...new Set([...CITIES, form.city])].map((x) => (
+                    <option key={x}>{x}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-[13px] text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.isDefault}
+                  onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
+                />
+                Use as the default delivery address
+              </label>
+              {err && <p className="text-[12.5px] text-bad">{err}</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setForm(null)}>Cancel</Button>
+            <Button primary onClick={save}>
+              {form?.id ? "Save changes" : "Add address"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!target} onOpenChange={(o) => !o && setDel(null)}>
+        <DialogContent className="max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="font-head text-[18px] font-normal">Delete address?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13.5px]">
+            {target?.label} · {target?.address}, {target?.city}
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setDel(null)}>Cancel</Button>
+            <Button
+              primary
+              onClick={() => {
+                if (target) deleteAddress(c, target.id);
+                setDel(null);
+                toast("Address deleted");
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function CustomerDetailPage({ customerId }: { customerId: string }) {
   const { data } = useSuspenseQuery(customersQuery());
   const { data: ordersData } = useSuspenseQuery(ordersQuery());
   const { data: returnsData } = useSuspenseQuery(returnsQuery());
+  const { data: productsData } = useSuspenseQuery(productsQuery());
   const navigate = useNavigate();
   const all = useCustomers(data.rows);
   const created = useCreatedOrders();
@@ -77,11 +288,9 @@ export default function CustomerDetailPage({ customerId }: { customerId: string 
       </div>
       <PageHeader
         title={c.name}
-        subtitle={`Customer since ${c.since} · ${c.city}${c.source ? ` · came to us by ${c.source.toLowerCase()}` : ""}`}
+        subtitle={`Customer since ${c.since}`}
         actions={
           <>
-            <Button onClick={() => act.email([c])}>Send email</Button>
-            <Button onClick={() => act.message([c])}>WhatsApp / SMS</Button>
             <Button onClick={() => act.form(c)}>Edit</Button>
             <Button primary onClick={newOrder}>
               + New order
@@ -165,6 +374,27 @@ export default function CustomerDetailPage({ customerId }: { customerId: string 
               </p>
             )}
           </Panel>
+          <AddressesPanel c={c} />
+          {!c.isNew && (
+            <Panel title="Wishlist">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {productsData.rows
+                  .filter((p) => p.visible && !p.isDraft)
+                  .slice(0, 4)
+                  .map((p) => (
+                    <Link
+                      key={p.id}
+                      to="/products/$productId"
+                      params={{ productId: p.id }}
+                      className="flex flex-col gap-1.5 text-[12px] hover:underline"
+                    >
+                      <Thumb color={p.color} className="aspect-square h-auto w-full" />
+                      <span>{p.name}</span>
+                    </Link>
+                  ))}
+              </div>
+            </Panel>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
@@ -213,37 +443,19 @@ export default function CustomerDetailPage({ customerId }: { customerId: string 
                   </a>,
                 ],
                 ["Language", c.language],
-                [
-                  "Agreed to offers by",
-                  <>
-                    {yes(c.marketing.email && !!c.email, "Email")}
-                    {yes(c.marketing.sms, "SMS")}
-                    {yes(c.marketing.whatsapp, "WhatsApp")}
-                  </>,
-                ],
+                // [
+                //   "Agreed to offers by",
+                //   <>
+                //     {yes(c.marketing.email && !!c.email, "Email")}
+                //     {yes(c.marketing.sms, "SMS")}
+                //     {yes(c.marketing.whatsapp, "WhatsApp")}
+                //   </>,
+                // ],
               ]}
             />
-          </Panel>
-          <Panel title="Address">
-            {c.address ? (
-              <p className="text-[13px]">
-                {c.address}
-                <br />
-                {c.city}
-              </p>
-            ) : (
-              <p className="text-[13px] text-muted-foreground">
-                No address yet — it is added with their first order.
-              </p>
-            )}
           </Panel>
           <Panel title="Important dates">
-            <Kv
-              rows={[
-                ["Birthday", c.birthday || "—"],
-                ["Anniversary", "—"],
-              ]}
-            />
+            <Kv rows={[["Birthday", c.birthday || "—"]]} />
             <p className="mt-2.5 text-[12px] text-muted-foreground">
               Used for gifting reminders & offers.
             </p>

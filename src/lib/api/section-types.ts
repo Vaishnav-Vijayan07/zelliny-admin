@@ -224,6 +224,15 @@ export interface InventoryData {
   features: { backInStock: boolean; preorders: boolean };
 }
 
+/** One saved delivery address. The default one is also mirrored into `address` / `city`. */
+export interface CustomerAddress {
+  id: string;
+  /** Home, Work, Other … */
+  label: string;
+  address: string;
+  city: string;
+  isDefault: boolean;
+}
 export interface CustomerRow {
   id: string;
   name: string;
@@ -238,6 +247,8 @@ export interface CustomerRow {
   marketing: { email: boolean; sms: boolean; whatsapp: boolean };
   language: "English" | "Arabic";
   address: string;
+  /** Every saved delivery address; the default one is mirrored into `address` / `city`. */
+  addresses: CustomerAddress[];
   birthday: string;
   /** How they found us, e.g. "Instagram". */
   source: string;
@@ -377,11 +388,27 @@ export interface StaffRow {
   last: string;
   status: Tagged;
 }
+/** Where an activity row's item links to. */
+export type ActivityLink =
+  | { kind: "order" | "return" | "product" | "enquiry"; id: string }
+  | { kind: "section"; section: string };
 export interface ActivityRow {
+  /** Log reference shown in the detail dialog, e.g. LOG-88420. */
+  id: string;
+  day: string;
   time: string;
+  /** A team member's name, or "System" for automatic entries. */
   who: string;
-  what: string;
-  type: string;
+  area: string;
+  action: string;
+  item: string;
+  link?: ActivityLink;
+  before: string;
+  after: string;
+  /** Device / place the action came from. */
+  from: string;
+  /** Highlighted red, e.g. a failed sign-in. */
+  flag?: boolean;
 }
 export interface ApprovalRow {
   id: string;

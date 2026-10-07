@@ -1123,56 +1123,6 @@ export const STAFF = [
     status: "Active",
   },
 ];
-export const ACTIVITY = [
-  {
-    t: "21:42",
-    who: "System",
-    what: "New order ZL-10494 · 6,450 EGP · Paymob card",
-    type: "order",
-  },
-  {
-    t: "20:15",
-    who: "System",
-    what: "New corporate enquiry ENQ-318 · Meridian Real Estate · 120 pcs",
-    type: "enquiry",
-  },
-  {
-    t: "19:10",
-    who: "System",
-    what: "New order ZL-10493 · Guess watch · delivery by appointment",
-    type: "order",
-  },
-  {
-    t: "18:02",
-    who: "Abdelfattah Mohamed",
-    what: "Marked RMA-2035 as Inspecting",
-    type: "return",
-  },
-  {
-    t: "16:40",
-    who: "Zain",
-    what: "Edited Arabic description · Swarovski Millenia Necklace",
-    type: "product",
-  },
-  {
-    t: "15:12",
-    who: "System",
-    what: "Low stock · Clarins Extra-Firming Night Cream (2 left)",
-    type: "stock",
-  },
-  {
-    t: "14:30",
-    who: "Ramy Bakr",
-    what: 'Changed homepage "Curated for You" row (10 products)',
-    type: "content",
-  },
-  {
-    t: "11:05",
-    who: "System",
-    what: "Refund issued · RMA-2036 · 8,400 EGP to original Paymob wallet",
-    type: "refund",
-  },
-];
 export const BUNDLES = [
   {
     id: "B02",

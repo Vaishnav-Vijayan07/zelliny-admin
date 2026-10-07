@@ -13,9 +13,9 @@ import {
   PRODUCTS,
   RETURNS,
   STAFF,
-  ACTIVITY,
   ZONES,
 } from "./sample-records";
+import { ACTIVITY_LOG } from "./activity-log";
 import { GENERATED_PRODUCTS, SAMPLE_GENDER, type SampleProduct } from "./sample-catalogue";
 
 const TONES: Record<string, Tone> = {
@@ -783,6 +783,37 @@ const EXTRA_CUSTOMERS: [
     "Instagram",
   ],
 ];
+const homeAddress = (id: string, city: string): T.CustomerAddress => ({
+  id: `-a1`,
+  label: "Home",
+  address: `Villa 14, Street 90, ${city}`,
+  city,
+  isDefault: true,
+});
+/** A second saved address for a few sample customers. */
+const SECOND_ADDRESS: Record<string, [string, string, string]> = {
+  C201: ["Work", "Tower B, Floor 7, Smart Village", "Sheikh Zayed"],
+  C202: ["Other", "Villa 3, Beverly Hills", "Sheikh Zayed"],
+  C205: ["Work", "Office 3, 26 July St", "Zamalek"],
+  C210: ["Work", "12 Sidi Gaber St, Floor 2", "Alexandria"],
+};
+const addressesFor = (id: string, city: string): T.CustomerAddress[] => {
+  const second = SECOND_ADDRESS[id];
+  return [
+    homeAddress(id, city),
+    ...(second
+      ? [
+          {
+            id: `${id}-a2`,
+            label: second[0],
+            address: second[1],
+            city: second[2],
+            isDefault: false,
+          },
+        ]
+      : []),
+  ];
+};
 export const mockCustomers = (): T.CustomersData => {
   const base: T.CustomerRow[] = CUSTOMERS.map((c) => ({
     id: c.id,
@@ -796,6 +827,7 @@ export const mockCustomers = (): T.CustomersData => {
     marketing: { email: c.id !== "C206" && c.id !== "C208", sms: true, whatsapp: true }, // C206 unsubscribed from emails
     language: "English",
     address: `Villa 14, Street 90, ${c.city}`,
+    addresses: addressesFor(c.id, c.city),
     birthday: c.id === "C201" ? "14 March" : "",
     source: "Website",
     notes: c.id === "C201" ? "Prefers delivery after 6 pm. Loves woody fragrances." : "",
@@ -813,6 +845,7 @@ export const mockCustomers = (): T.CustomersData => {
       marketing: { email: !!email, sms: true, whatsapp: true, ...mkt },
       language: i === 0 ? "Arabic" : "English",
       address: `Villa 14, Street 90, ${city}`,
+      addresses: addressesFor(`C${209 + i}`, city),
       birthday: "",
       source: source ?? "Website",
       notes: "",
@@ -1139,8 +1172,7 @@ export const mockDelivery = (): T.DeliveryData => ({
 });
 
 export const mockStaff = (): T.StaffRow[] => STAFF.map((s) => ({ ...s, status: tag(s.status) }));
-export const mockActivity = (): T.ActivityRow[] =>
-  ACTIVITY.map((a) => ({ time: a.t, who: a.who, what: a.what, type: a.type }));
+export const mockActivity = (): T.ActivityRow[] => ACTIVITY_LOG;
 
 export const mockApprovals = (): T.ApprovalRow[] => [
   {

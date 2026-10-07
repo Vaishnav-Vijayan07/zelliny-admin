@@ -1,5 +1,5 @@
 // Reusable building blocks for every admin list/settings screen.
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { Tile, SettingsGroup } from "@/lib/api/section-types";
 import { StatusBadge, Panel } from "./primitives";
@@ -151,12 +151,17 @@ export function DataTable<T>({
   rowKey,
   empty = "Nothing to show",
   onRowClick,
+  groupBy,
+  rowClassName,
 }: {
   columns: Column<T>[];
   rows: T[];
   rowKey: (r: T) => string;
   empty?: string;
   onRowClick?: (r: T) => void;
+  /** Adds a heading row whenever this value changes (rows must already be in group order). */
+  groupBy?: (r: T) => string;
+  rowClassName?: (r: T) => string | undefined;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -181,28 +186,40 @@ export function DataTable<T>({
               </td>
             </tr>
           ) : (
-            rows.map((r) => (
-              <tr
-                key={rowKey(r)}
-                onClick={onRowClick ? () => onRowClick(r) : undefined}
-                className={cn(
-                  "border-b border-line-soft last:border-0 hover:bg-hover",
-                  onRowClick && "cursor-pointer",
+            rows.map((r, i) => (
+              <Fragment key={rowKey(r)}>
+                {groupBy && (i === 0 || groupBy(rows[i - 1]!) !== groupBy(r)) && (
+                  <tr className="bg-hover">
+                    <td
+                      colSpan={columns.length}
+                      className="px-3 py-2 text-[10.5px] uppercase tracking-[.2em] text-muted-foreground"
+                    >
+                      {groupBy(r)}
+                    </td>
+                  </tr>
                 )}
-              >
-                {columns.map((c) => (
-                  <td
-                    key={c.header}
-                    className={cn(
-                      "px-3 py-3 align-top",
-                      c.align === "right" && "text-right",
-                      c.className,
-                    )}
-                  >
-                    {c.cell(r)}
-                  </td>
-                ))}
-              </tr>
+                <tr
+                  onClick={onRowClick ? () => onRowClick(r) : undefined}
+                  className={cn(
+                    "border-b border-line-soft last:border-0 hover:bg-hover",
+                    onRowClick && "cursor-pointer",
+                    rowClassName?.(r),
+                  )}
+                >
+                  {columns.map((c) => (
+                    <td
+                      key={c.header}
+                      className={cn(
+                        "px-3 py-3 align-top",
+                        c.align === "right" && "text-right",
+                        c.className,
+                      )}
+                    >
+                      {c.cell(r)}
+                    </td>
+                  ))}
+                </tr>
+              </Fragment>
             ))
           )}
         </tbody>

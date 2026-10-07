@@ -10,6 +10,7 @@ import {
   FilterBar,
   FilterSelect,
   PageHeader,
+  Pager,
   SearchInput,
   type Column,
 } from "@/components/admin/page";
@@ -33,6 +34,8 @@ export default function DiscountsPage() {
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const rows = list
     .filter(
       (p) =>
@@ -41,6 +44,8 @@ export default function DiscountsPage() {
         (!status || statusOf(p).label === status),
     )
     .sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
+  const cur = Math.min(page, Math.max(1, Math.ceil(rows.length / pageSize)));
+  const shown = rows.slice((cur - 1) * pageSize, cur * pageSize);
 
   const columns: Column<Promotion>[] = [
     {
@@ -103,26 +108,50 @@ export default function DiscountsPage() {
       />
       <Card>
         <FilterBar>
-          <SearchInput value={q} onChange={setQ} placeholder="Search by name or code" />
+          <SearchInput
+            value={q}
+            onChange={(v) => {
+              setQ(v);
+              setPage(1);
+            }}
+            placeholder="Search by name or code"
+          />
           <FilterSelect
             value={type}
-            onChange={setType}
+            onChange={(v) => {
+              setType(v);
+              setPage(1);
+            }}
             all="All types"
             options={PROMOTION_TYPES.map((t) => t.label)}
           />
           <FilterSelect
             value={status}
-            onChange={setStatus}
+            onChange={(v) => {
+              setStatus(v);
+              setPage(1);
+            }}
             all="All statuses"
             options={STATUS_FILTERS}
           />
         </FilterBar>
         <DataTable
           columns={columns}
-          rows={rows}
+          rows={shown}
           rowKey={(p) => p.id}
           empty="No promotion matches"
           onRowClick={(p) => navigate({ to: "/discounts/$code", params: { code: p.id } })}
+        />
+        <Pager
+          page={cur}
+          pageSize={pageSize}
+          total={rows.length}
+          noun="promotions"
+          onPage={setPage}
+          onPageSize={(n) => {
+            setPageSize(n);
+            setPage(1);
+          }}
         />
       </Card>
     </>

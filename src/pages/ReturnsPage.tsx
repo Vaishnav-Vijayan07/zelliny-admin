@@ -449,13 +449,13 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
       <Panel
         title="Returns policy (applied automatically)"
         action={
-          <button
+          <Link
+            to="/settings"
             type="button"
-            onClick={soon("Edit policy")}
             className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] hover:bg-hover"
           >
             Edit policy
-          </button>
+          </Link>
         }
       >
         <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">

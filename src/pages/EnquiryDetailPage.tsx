@@ -204,59 +204,6 @@ export default function EnquiryDetailPage({ enquiryId }: { enquiryId: string }) 
                 “{e.message}”
               </div>
             )}
-            <div className="mt-4 border-t border-line-soft pt-3.5">
-              <small className="mb-2 block text-[10.5px] uppercase tracking-[.2em] text-muted-foreground">
-                Where they came from
-              </small>
-              {s.manual ? (
-                <>
-                  <div className="flex flex-wrap gap-x-[18px] gap-y-1.5 text-[13px]">
-                    <span>
-                      <span className="text-muted-foreground">Came in by</span>{" "}
-                      <b className="font-medium">{s.channel}</b>
-                    </span>
-                    <span>
-                      <span className="text-muted-foreground">How</span>{" "}
-                      <b className="font-medium">{s.how || "Added by hand"}</b>
-                    </span>
-                  </div>
-                  <p className="mt-1.5 text-[12px] text-muted-foreground">
-                    Not from the website form, so there is no online source to record.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-wrap gap-x-[18px] gap-y-1.5 text-[13px]">
-                    <span>
-                      <span className="text-muted-foreground">Channel</span>{" "}
-                      <b className="font-medium">{s.channel}</b>
-                      {s.how && ` · ${s.how}`}
-                    </span>
-                    <span>
-                      <span className="text-muted-foreground">Landing page</span>{" "}
-                      <b className="font-medium">{s.page ?? "—"}</b>
-                    </span>
-                    {s.campaign && (
-                      <span>
-                        <span className="text-muted-foreground">Campaign</span>{" "}
-                        <b className="font-medium">{s.campaign}</b>
-                      </span>
-                    )}
-                    <span>
-                      <span className="text-muted-foreground">Device</span>{" "}
-                      <b className="font-medium">{s.device ?? "—"}</b>
-                    </span>
-                    <span>
-                      <span className="text-muted-foreground">Visits before enquiring</span>{" "}
-                      <b className="font-medium">{s.visits ?? 1}</b>
-                    </span>
-                  </div>
-                  <p className="mt-1.5 text-[12px] text-muted-foreground">
-                    Recorded automatically when the website form is sent — nothing to fill in.
-                  </p>
-                </>
-              )}
-            </div>
           </Panel>
 
           <Panel

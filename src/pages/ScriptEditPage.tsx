@@ -135,11 +135,6 @@ export default function ScriptEditPage({ scriptId }: { scriptId?: string | undef
             </p>
           </div>
           <div className="flex gap-2">
-            {!isNew && (
-              <Button onClick={() => toast("Opens the site with this script loaded")}>
-                Preview the site with this script
-              </Button>
-            )}
             <Button primary onClick={save}>
               {isNew ? "Save & switch on" : "Save changes"}
             </Button>
@@ -225,59 +220,9 @@ export default function ScriptEditPage({ scriptId }: { scriptId?: string | undef
                 ))}
               </select>
             </label>
-            <div className="mt-3 flex items-center justify-between gap-3.5">
-              <div>
-                <div className="text-[13.5px]">Wait until the visitor accepts cookies</div>
-                <div className="mt-0.5 text-[12px] text-muted-foreground">
-                  Required for marketing pixels under Egypt's data protection law. Leave on unless a
-                  developer tells you otherwise.
-                </div>
-              </div>
-              <Toggle
-                on={consent}
-                onChange={() => setConsent(!consent)}
-                label="Wait for cookie consent"
-              />
-            </div>
           </Card>
         </div>
         <div className="min-w-0">
-          <Card title="Version history">
-            {isNew ? (
-              <p className="text-[13px] text-muted-foreground">Starts when you save.</p>
-            ) : (
-              s!.versions.map((v, k) => (
-                <div
-                  key={v.v + k}
-                  className="flex items-center gap-3 border-b border-line-soft py-2.5 text-[13px] last:border-b-0"
-                >
-                  <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[12px]">
-                    {v.v}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <b className="font-medium">{v.note}</b>
-                    <div className="text-[12px] text-muted-foreground">
-                      {v.by} · {v.when}
-                    </div>
-                  </div>
-                  {k ? (
-                    <button
-                      type="button"
-                      className="text-[12.5px] underline underline-offset-2"
-                      onClick={() => {
-                        restoreVersion(s!.id, k, me);
-                        toast(`${v.v} restored · live within a minute`);
-                      }}
-                    >
-                      Restore
-                    </button>
-                  ) : (
-                    <span className="text-[12px] text-muted-foreground">Live</span>
-                  )}
-                </div>
-              ))
-            )}
-          </Card>
           {!isNew && (
             <section className="rounded-[10px] border border-bad-bg bg-surface px-5 pb-5 pt-4">
               <h3 className="mb-3 text-[15px] text-bad">Remove</h3>

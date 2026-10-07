@@ -51,18 +51,20 @@ export default function CategoriesPage() {
                 c.visible ? "border-border hover:border-primary" : "border-dashed border-border",
               )}
             >
-              <div
-                className={cn("relative aspect-[4/3]", !c.visible && "opacity-45 grayscale")}
-                style={{
-                  background: `linear-gradient(145deg, ${TILE[(c.order - 1) % TILE.length]}, color-mix(in srgb, ${TILE[(c.order - 1) % TILE.length]} 55%, #000))`,
-                }}
-              >
-                {!c.visible && (
-                  <span className="absolute inset-x-2.5 bottom-2.5 rounded bg-white px-2 py-1 text-center text-[10px] tracking-[.14em] text-black">
-                    HIDDEN FROM SITE
-                  </span>
-                )}
-              </div>
+              <Link to="/categories/$categoryId" params={{ categoryId: c.id }}>
+                <div
+                  className={cn("relative aspect-[4/3]", !c.visible && "opacity-45 grayscale")}
+                  style={{
+                    background: `linear-gradient(145deg, ${TILE[(c.order - 1) % TILE.length]}, color-mix(in srgb, ${TILE[(c.order - 1) % TILE.length]} 55%, #000))`,
+                  }}
+                >
+                  {!c.visible && (
+                    <span className="absolute inset-x-2.5 bottom-2.5 rounded bg-white px-2 py-1 text-center text-[10px] tracking-[.14em] text-black">
+                      HIDDEN FROM SITE
+                    </span>
+                  )}
+                </div>
+              </Link>
               <div className="flex flex-col gap-2.5 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <Link to="/categories/$categoryId" params={{ categoryId: c.id }}>

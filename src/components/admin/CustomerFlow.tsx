@@ -3,7 +3,7 @@
 // Everything is local for now — swap addCustomer / editCustomer / sends for API calls.
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { toast } from "sonner";
-import type { CustomerRow, OrderEvent } from "@/lib/api/section-types";
+import type { CustomerAddress, CustomerRow, OrderEvent } from "@/lib/api/section-types";
 import { cn } from "@/lib/utils";
 import { useSessionUser } from "@/hooks/use-session";
 import { Button } from "./page";
@@ -57,6 +57,39 @@ export function editCustomer(id: string, e: Partial<CustomerRow>) {
   edits = { ...edits, [id]: { ...edits[id], ...e } };
   emit();
 }
+/* ---------- saved addresses ---------- */
+/** Puts the default address (or the first) into `address` / `city`, which the rest of the app reads. */
+const withPrimary = (addresses: CustomerAddress[]): Partial<CustomerRow> => {
+  const list = addresses.some((a) => a.isDefault)
+    ? addresses
+    : addresses.map((a, i) => ({ ...a, isDefault: i === 0 }));
+  const d = list.find((a) => a.isDefault);
+  return { addresses: list, address: d?.address ?? "", ...(d ? { city: d.city } : {}) };
+};
+export const ADDRESS_LABELS = ["Home", "Work", "Other"];
+export function saveAddress(
+  c: CustomerRow,
+  a: { id: string | null; label: string; address: string; city: string; isDefault: boolean },
+) {
+  const id = a.id ?? `${c.id}-a${Date.now().toString(36)}`;
+  const row: CustomerAddress = {
+    id,
+    label: a.label,
+    address: a.address,
+    city: a.city,
+    isDefault: a.isDefault,
+  };
+  const base = a.id ? c.addresses.map((x) => (x.id === a.id ? row : x)) : [...c.addresses, row];
+  const next = base.map((x) => (a.isDefault ? { ...x, isDefault: x.id === id } : x));
+  editCustomer(c.id, withPrimary(next));
+}
+export function deleteAddress(c: CustomerRow, id: string) {
+  editCustomer(c.id, withPrimary(c.addresses.filter((x) => x.id !== id)));
+}
+export function makeDefaultAddress(c: CustomerRow, id: string) {
+  editCustomer(c.id, withPrimary(c.addresses.map((x) => ({ ...x, isDefault: x.id === id }))));
+}
+
 function recordMessage(id: string, m: OrderEvent) {
   const cur = edits[id] ?? {};
   edits = { ...edits, [id]: { ...cur, messages: [...(cur.messages ?? []), m] } };
@@ -450,14 +483,47 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
       marketing: { email: f.me && !!f.email.trim(), sms: f.ms, whatsapp: f.mw },
     };
     if (id) {
-      editCustomer(id, vals);
+      const cur = all.find((c) => c.id === id);
+      const list = cur?.addresses ?? [];
+      const addresses = !vals.address
+        ? list
+        : list.some((a) => a.isDefault)
+          ? list.map((a) => (a.isDefault ? { ...a, address: vals.address, city: vals.city } : a))
+          : [
+              ...list,
+              {
+                id: `${id}-a1`,
+                label: "Home",
+                address: vals.address,
+                city: vals.city,
+                isDefault: true,
+              },
+            ];
+      editCustomer(id, { ...vals, addresses });
       close();
       toast("Customer details saved");
       onSaved?.(id);
       return;
     }
     const nid = `C${Math.max(0, ...all.map((c) => Number(c.id.slice(1)) || 0)) + 1}`;
-    addCustomer({ id: nid, orders: 0, spent: 0, since: "Sep 2026", ...vals });
+    addCustomer({
+      id: nid,
+      orders: 0,
+      spent: 0,
+      since: "Sep 2026",
+      ...vals,
+      addresses: vals.address
+        ? [
+            {
+              id: `${nid}-a1`,
+              label: "Home",
+              address: vals.address,
+              city: vals.city,
+              isDefault: true,
+            },
+          ]
+        : [],
+    });
     close();
     toast(`${vals.name} added as a customer`);
     onSaved?.(nid);
@@ -704,7 +770,7 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
                   className={input}
                 />
               </Field>
-              <Field label="Language for messages">
+              {/* <Field label="Language for messages">
                 <select
                   value={f.language}
                   onChange={(e) => setF({ ...f, language: e.target.value })}
@@ -713,32 +779,7 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
                   <option>English</option>
                   <option>Arabic</option>
                 </select>
-              </Field>
-            </div>
-            <Section>Delivery address</Section>
-            <div className="grid gap-3.5 md:grid-cols-2">
-              <Field label="City / area">
-                <select
-                  value={f.city}
-                  onChange={(e) => setF({ ...f, city: e.target.value })}
-                  className={input}
-                >
-                  {CITIES.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Address">
-                <input
-                  value={f.address}
-                  onChange={(e) => setF({ ...f, address: e.target.value })}
-                  placeholder="Building, street, floor, apartment"
-                  className={input}
-                />
-              </Field>
-            </div>
-            <Section>About them</Section>
-            <div className="grid gap-3.5 md:grid-cols-2">
+              </Field> */}
               <Field label="Birthday">
                 <input
                   value={f.birthday}
@@ -747,7 +788,7 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
                   className={input}
                 />
               </Field>
-              <Field label="How they found us">
+              {/* <Field label="How they found us">
                 <select
                   value={f.source}
                   onChange={(e) => setF({ ...f, source: e.target.value })}
@@ -757,9 +798,9 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
                     <option key={c}>{c}</option>
                   ))}
                 </select>
-              </Field>
+              </Field> */}
             </div>
-            <div className="text-[12px] text-muted-foreground">They agree to receive offers by</div>
+            {/* <div className="text-[12px] text-muted-foreground">They agree to receive offers by</div>
             <div className="flex flex-wrap gap-[18px] text-[13px]">
               {(
                 [
@@ -782,7 +823,7 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
             <p className="text-[11.5px] text-muted-foreground">
               Only people who agreed receive bulk messages. Order and delivery updates are always
               sent.
-            </p>
+            </p> */}
             <Field label="Private notes (team only)">
               <textarea
                 value={f.notes}
@@ -809,7 +850,7 @@ const Section = ({ children }: { children: ReactNode }) => (
     {children}
   </div>
 );
-const CITIES = [
+export const CITIES = [
   "New Cairo",
   "Heliopolis",
   "Nasr City",

@@ -106,7 +106,7 @@ function Bi({
   );
 }
 
-const TABS = ["Store", "Checkout", "Notifications", "Policies"] as const;
+const TABS = ["Store", "Checkout", "Payments", "Notifications", "Policies"] as const;
 type Tab = (typeof TABS)[number];
 const MESSAGES: [string, boolean, boolean, boolean][] = [
   ["Order confirmation", true, true, false],
@@ -142,6 +142,12 @@ export default function SettingsPage() {
     ret: { on: true, to: ["returns@zelliny.com"] },
   });
   const [msgs, setMsgs] = useState(MESSAGES);
+  const [pay, setPay] = useState({
+    paymob: true,
+    paypal: false,
+    cod: true,
+    bank: false,
+  });
   const [pol, setPol] = useState({
     ret: "Fragrance and beauty returnable within 14 days, unopened and sealed…",
     retAr: "يمكن إرجاع العطور ومستحضرات التجميل خلال ١٤ يومًا…",
@@ -331,9 +337,39 @@ export default function SettingsPage() {
         </Card>
       )}
 
+      {tab === "Payments" && (
+        <Card>
+          <h3 className="mb-1 text-[15px]">Payments</h3>
+          <Row
+            label="Paymob"
+            hint="Card and wallet payments settled through Paymob"
+            on={pay.paymob}
+            onChange={() => setPay({ ...pay, paymob: !pay.paymob })}
+          />
+          <Row
+            label="PayPal"
+            hint="International card payments through PayPal"
+            on={pay.paypal}
+            onChange={() => setPay({ ...pay, paypal: !pay.paypal })}
+          />
+          <Row
+            label="Cash on delivery"
+            hint="Pay in cash when the order arrives"
+            on={pay.cod}
+            onChange={() => setPay({ ...pay, cod: !pay.cod })}
+          />
+          <Row
+            label="Bank transfer"
+            hint="For enquiry-only orders"
+            on={pay.bank}
+            onChange={() => setPay({ ...pay, bank: !pay.bank })}
+          />
+        </Card>
+      )}
+
       {tab === "Notifications" && (
         <>
-          <Card>
+          {/* <Card>
             <h3 className="mb-3 text-[15px]">Emails & SMS to customers</h3>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-[13px]">
@@ -377,7 +413,7 @@ export default function SettingsPage() {
                 </tbody>
               </table>
             </div>
-          </Card>
+          </Card> */}
           <Card>
             <h3 className="mb-1 text-[15px]">Alerts to the team</h3>
             <p className="mb-1 text-[12.5px] text-muted-foreground">

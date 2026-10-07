@@ -138,7 +138,7 @@ export default function CustomersPage() {
       cell: (c) => <span className="whitespace-nowrap">{formatMoney(c.spent)}</span>,
     },
     { header: "Since", className: "whitespace-nowrap", cell: (c) => c.since },
-    { header: "Can contact by", cell: (c) => <ReachChips c={c} /> },
+    // { header: "Can contact by", cell: (c) => <ReachChips c={c} /> },
   ];
 
   return (

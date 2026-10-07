@@ -50,15 +50,6 @@ export default function ScriptsPage() {
     },
     { header: "Pages", cell: (s) => s.pages },
     {
-      header: "Cookie consent",
-      cell: (s) =>
-        s.consent ? (
-          <span className="text-good">✓ Waits for consent</span>
-        ) : (
-          <span className="text-warn">Runs straight away</span>
-        ),
-    },
-    {
       header: "Last change",
       cell: (s) => (
         <>

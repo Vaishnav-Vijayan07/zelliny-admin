@@ -34,6 +34,11 @@ import {
 
 const inputCls =
   "h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary";
+const PICKUP_ADDRESS = "12 Dr. Zakaria El Bardisi St., El Nozha El Gedida, Cairo";
+const COURIERS = [
+  { name: "Bosta", connected: true, isDefault: true },
+  { name: "Aramex", connected: false, isDefault: false },
+];
 const yes = (b: boolean) =>
   b ? <StatusBadge tone="ok">Yes</StatusBadge> : <StatusBadge tone="mute">No</StatusBadge>;
 
@@ -60,7 +65,7 @@ function Field({
   );
 }
 
-const TABS = ["Zones", "Areas"] as const;
+const TABS = ["Zones", "Areas", "Couriers"] as const;
 type Tab = (typeof TABS)[number];
 
 type ZoneForm = {
@@ -275,7 +280,7 @@ export default function DeliveryPage() {
         title="Delivery"
         subtitle="Delivery zones and the areas in each. An area belongs to one zone only, so every address has one fee."
         actions={
-          tab === "Zones" ? (
+          tab === "Couriers" ? undefined : tab === "Zones" ? (
             <Button
               primary
               onClick={() => {
@@ -308,7 +313,7 @@ export default function DeliveryPage() {
                 : "border-transparent text-muted-foreground",
             )}
           >
-            {t} · {t === "Zones" ? zones.length : allAreas.length}
+            {t} · {t === "Zones" ? zones.length : t === "Areas" ? allAreas.length : COURIERS.length}
           </button>
         ))}
       </div>
@@ -317,6 +322,58 @@ export default function DeliveryPage() {
         <Card>
           <DataTable columns={zoneCols} rows={zones} rowKey={(z) => z.id} empty="No zones yet" />
         </Card>
+      )}
+      {tab === "Couriers" && (
+        <div className="grid gap-[18px] md:grid-cols-2">
+          {COURIERS.map((c) => (
+            <Card key={c.name} className="mb-0">
+              <h3 className="mb-3 text-[15px]">{c.name}</h3>
+              <dl className="divide-y divide-line-soft text-[13px]">
+                {(
+                  [
+                    [
+                      "Status",
+                      c.connected ? (
+                        <StatusBadge tone="ok">Connected</StatusBadge>
+                      ) : (
+                        <StatusBadge tone="mute">Not connected</StatusBadge>
+                      ),
+                    ],
+                    [
+                      "Use for",
+                      c.isDefault ? "Default for new orders" : "Second option · choose per order",
+                    ],
+                    ["Pickup address", PICKUP_ADDRESS],
+                    [
+                      "Auto-create shipment",
+                      c.connected ? 'When order is "Ready to ship"' : "Starts once connected",
+                    ],
+                    ["Tracking SMS to customer", c.connected ? "On" : "Starts once connected"],
+                  ] as [string, ReactNode][]
+                ).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground">{k}</dt>
+                    <dd className="text-right">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="mt-4">
+                {c.connected ? (
+                  <Button onClick={() => toast(`Editing  settings — connects to your API later`)}>
+                    Edit settings
+                  </Button>
+                ) : (
+                  <Button
+                    primary
+                    onClick={() => toast(` connection started — add the account details from `)}
+                  >
+                    Connect {c.name}
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
       )}
       {tab === "Areas" && (
         <Card>

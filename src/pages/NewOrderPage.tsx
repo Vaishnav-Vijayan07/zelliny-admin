@@ -82,7 +82,6 @@ const ENGRAVE: [string, number][] = [
 ];
 const FULFIL: [Fulfil, string, string][] = [
   ["Courier", "Courier · Bosta", "Delivered to the door"],
-  ["Pickup", "Collect from office", "El Nozha El Gedida · free"],
 ];
 const PAYS: [Pay, string, string][] = [
   ["Paymob payment link", "Send payment link", "By SMS / WhatsApp"],
@@ -566,7 +565,7 @@ export default function NewOrderPage({
                       className={field}
                     />
                   </Field>
-                  <Field label="Email (optional)">
+                  <Field label="Email" req>
                     <input
                       value={f.nc.email}
                       onChange={(e) => set({ nc: { ...f.nc, email: e.target.value } })}
@@ -575,15 +574,6 @@ export default function NewOrderPage({
                     />
                   </Field>
                 </div>
-                <label className="mt-3 flex items-center gap-2 text-[13px]">
-                  <input
-                    type="checkbox"
-                    checked={f.nc.optin}
-                    onChange={(e) => set({ nc: { ...f.nc, optin: e.target.checked } })}
-                    className="accent-[#0a0a0a]"
-                  />{" "}
-                  Customer agrees to receive offers by email
-                </label>
                 <p className="mt-1 text-[12px] text-muted-foreground">
                   A customer record is created when the order is placed.
                 </p>
@@ -808,42 +798,6 @@ export default function NewOrderPage({
               </Step>
             }
           >
-            <div className="grid gap-3.5 md:grid-cols-2">
-              <Field label="Gift wrap">
-                <select
-                  value={f.wrap}
-                  onChange={(e) => set({ wrap: e.target.value })}
-                  className={field}
-                >
-                  {WRAPS.map((w) => (
-                    <option key={w[0]}>{w[0]}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Engraving">
-                <select
-                  value={f.engraving}
-                  onChange={(e) => set({ engraving: e.target.value })}
-                  className={field}
-                >
-                  {ENGRAVE.map((w) => (
-                    <option key={w[0]}>{w[0]}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div className="mt-3.5">
-              <Field label="Gift message card">
-                <textarea
-                  rows={2}
-                  maxLength={200}
-                  value={f.message}
-                  onChange={(e) => set({ message: e.target.value })}
-                  placeholder="Up to 200 characters"
-                  className={cn(field, "h-auto py-2")}
-                />
-              </Field>
-            </div>
             <div className="mt-3 flex items-center justify-between gap-3 text-[13.5px]">
               <span>Hide prices on the invoice</span>
               <Toggle

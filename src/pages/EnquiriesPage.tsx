@@ -193,16 +193,7 @@ export default function EnquiriesPage() {
     {
       header: "Received",
       className: "whitespace-nowrap",
-      cell: (e) => (
-        <>
-          {e.date}
-          <br />
-          <span className="mt-1 inline-block rounded-full border border-border px-2 py-px text-[11px]">
-            {e.src.channel}
-            {!e.src.manual && e.src.how.startsWith("Paid") ? " · ad" : ""}
-          </span>
-        </>
-      ),
+      cell: (e) => <>{e.date}</>,
     },
     { header: "Mobile", className: "whitespace-nowrap", cell: (e) => e.phone },
     { header: "Email", className: "max-w-[190px] break-words", cell: (e) => e.email },
