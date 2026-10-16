@@ -58,6 +58,21 @@ function BulkButton({ children, onClick }: { children: ReactNode; onClick: () =>
     </button>
   );
 }
+type SortKey = "name" | "city" | "orders" | "spent" | "since";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** "Sep 2026" → a sortable number. */
+const sinceKey = (v: string) => {
+  const [m, y] = v.split(" ");
+  return Number(y) * 12 + MONTHS.indexOf(m ?? "");
+};
+const SORTS: Record<SortKey, (c: LiveCustomer) => string | number> = {
+  name: (c) => c.name.toLowerCase(),
+  city: (c) => c.city.toLowerCase(),
+  orders: (c) => c.orders,
+  spent: (c) => c.spent,
+  since: (c) => sinceKey(c.since),
+};
+
 export default function CustomersPage() {
   const { data } = useSuspenseQuery(customersQuery());
   const navigate = useNavigate();
@@ -67,19 +82,26 @@ export default function CustomersPage() {
   const act = useCustomerActions(all, open);
   const [q, setQ] = useState("");
   const [city, setCity] = useState("");
+  const [lang, setLang] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "spent", dir: -1 });
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   const s = q.toLowerCase().trim(),
     digits = s.replace(/\D/g, "");
-  const rows = all.filter(
+  const filteredRows = all.filter(
     (c) =>
       (!city || c.city === city) &&
+      (!lang || c.language === lang) &&
       (!s ||
         `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(s) ||
         (digits.length >= 4 && c.phone.replace(/\D/g, "").includes(digits))),
   );
+  const rows = [...filteredRows].sort((a, b) => {
+    const [x, y] = [SORTS[sort.key](a), SORTS[sort.key](b)];
+    return (x > y ? 1 : x < y ? -1 : 0) * sort.dir;
+  });
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const cur = Math.min(page, pages);
   const shown = rows.slice((cur - 1) * pageSize, cur * pageSize);
@@ -92,7 +114,26 @@ export default function CustomersPage() {
       else n.add(id);
       return n;
     });
-  const filtered = !!(q || city);
+  const filtered = !!(q || city || lang);
+
+  const SortHead = ({ k, label }: { k: SortKey; label: string }) => (
+    <button
+      type="button"
+      onClick={() => {
+        setSort((x) => ({
+          key: k,
+          dir: x.key === k ? (-x.dir as 1 | -1) : k === "name" || k === "city" ? 1 : -1,
+        }));
+        setPage(1);
+      }}
+      className="inline-flex items-center gap-1 uppercase hover:text-foreground"
+    >
+      {label}
+      <span className={sort.key === k ? "text-foreground" : "opacity-40"}>
+        {sort.key === k ? (sort.dir > 0 ? "↑" : "↓") : "↕"}
+      </span>
+    </button>
+  );
 
   const columns: Column<LiveCustomer>[] = [
     {
@@ -117,11 +158,20 @@ export default function CustomersPage() {
     },
     {
       header: "Customer",
+      headerNode: <SortHead k="name" label="Customer" />,
       cell: (c) => (
         <div className="flex items-center gap-3">
           <Avatar name={c.name} className="size-[34px] text-[12px]" />
           <div>
-            <b className="font-medium">{c.name}</b>
+            <b
+              role="link"
+              tabIndex={0}
+              onClick={() => open(c.id)}
+              onKeyDown={(e) => e.key === "Enter" && open(c.id)}
+              className="cursor-pointer font-medium underline-offset-[3px] hover:underline"
+            >
+              {c.name}
+            </b>
             <div className="text-[12px] text-muted-foreground">
               {c.email || <span className="text-warn">No email on file</span>}
             </div>
@@ -130,14 +180,25 @@ export default function CustomersPage() {
       ),
     },
     { header: "Mobile", className: "whitespace-nowrap", cell: (c) => c.phone },
-    { header: "City", cell: (c) => c.city },
-    { header: "Orders", align: "right", cell: (c) => c.orders },
+    { header: "City", headerNode: <SortHead k="city" label="City" />, cell: (c) => c.city },
+    {
+      header: "Orders",
+      headerNode: <SortHead k="orders" label="Orders" />,
+      align: "right",
+      cell: (c) => c.orders,
+    },
     {
       header: "Total spent",
+      headerNode: <SortHead k="spent" label="Total spent" />,
       align: "right",
       cell: (c) => <span className="whitespace-nowrap">{formatMoney(c.spent)}</span>,
     },
-    { header: "Since", className: "whitespace-nowrap", cell: (c) => c.since },
+    {
+      header: "Since",
+      headerNode: <SortHead k="since" label="Since" />,
+      className: "whitespace-nowrap",
+      cell: (c) => c.since,
+    },
     // { header: "Can contact by", cell: (c) => <ReachChips c={c} /> },
   ];
 
@@ -185,6 +246,15 @@ export default function CustomersPage() {
             all="All cities"
             options={[...new Set(all.map((c) => c.city))].sort()}
           />
+          <FilterSelect
+            value={lang}
+            onChange={(v) => {
+              setLang(v);
+              setPage(1);
+            }}
+            all="All languages"
+            options={["English", "Arabic"]}
+          />
         </FilterBar>
         <div
           className={cn(
@@ -201,11 +271,12 @@ export default function CustomersPage() {
                   {selected.filter((c) => canReach(c, "WhatsApp")).length} can get WhatsApp
                 </span>
               </span>
+              <BulkButton onClick={() => act.send(selected, "WhatsApp")}>WhatsApp</BulkButton>
+              <BulkButton onClick={() => act.send(selected, "Email")}>Email</BulkButton>
+              <BulkButton onClick={() => act.send(selected, "SMS")}>SMS</BulkButton>
               <BulkButton onClick={() => act.exportTo(selected, "The customers you ticked.")}>
-                Export to Excel
+                Export
               </BulkButton>
-              <BulkButton onClick={() => act.email(selected)}>Send email</BulkButton>
-              <BulkButton onClick={() => act.message(selected)}>WhatsApp / SMS</BulkButton>
               <button
                 type="button"
                 onClick={() => setSel(new Set())}
@@ -225,7 +296,6 @@ export default function CustomersPage() {
           columns={columns}
           rows={shown}
           rowKey={(c) => c.id}
-          onRowClick={(c) => open(c.id)}
           empty="No customer matches — check the spelling, or search by mobile number."
         />
         <Pager

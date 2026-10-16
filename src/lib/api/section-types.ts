@@ -320,6 +320,9 @@ export interface PaymentRow {
   id: string;
   order: string;
   customer: string;
+  customerId: string;
+  /** The return (RMA) this payment was refunded through, when refunded. */
+  returnId?: string;
   method: string;
   date: string;
   amount: number;

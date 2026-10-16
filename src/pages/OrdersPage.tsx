@@ -20,6 +20,12 @@ import {
   type Column,
 } from "@/components/admin/page";
 import {
+  DateRangeFilter,
+  NO_DATE_FILTER,
+  inDateFilter,
+  type DateFilter,
+} from "@/components/admin/DateRangeFilter";
+import {
   ORDER_STAGES,
   applyEdit,
   bulkKey,
@@ -175,6 +181,7 @@ export default function OrdersPage() {
     navigate({ to: "/orders/new", search: draft ? { draft } : {} });
   const actions = useOrderActions();
   const [f, setF] = useState({ stage: "", q: "", status: "", pay: "", ful: "" });
+  const [dateF, setDateF] = useState<DateFilter>(NO_DATE_FILTER);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -201,6 +208,7 @@ export default function OrdersPage() {
       (!f.status || o.status.label === f.status) &&
       (!f.pay || o.payment === f.pay) &&
       (!f.ful || o.fulfilment === f.ful) &&
+      inDateFilter(o.date, dateF) &&
       (!q || `${o.id} ${o.customer}`.toLowerCase().includes(q)),
   );
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -512,6 +520,13 @@ export default function OrdersPage() {
                 value={f.q}
                 onChange={setFilter("q")}
                 placeholder="Order number or customer"
+              />
+              <DateRangeFilter
+                value={dateF}
+                onChange={(v) => {
+                  setDateF(v);
+                  setPage(1);
+                }}
               />
               <FilterSelect
                 value={f.status}

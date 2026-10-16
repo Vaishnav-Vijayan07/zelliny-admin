@@ -1,9 +1,11 @@
+import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Toggle } from "@/components/admin/primitives";
 import { Button, Card, PageHeader } from "@/components/admin/page";
 import { EmailListEditor } from "@/components/admin/EmailListEditor";
+import { TemplatesTab } from "@/components/admin/TemplatesTab";
 
 const inputCls =
   "h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary";
@@ -106,7 +108,14 @@ function Bi({
   );
 }
 
-const TABS = ["Store", "Checkout", "Payments", "Notifications", "Policies"] as const;
+const TABS = [
+  "Store",
+  "Checkout",
+  "Payments",
+  "Notifications",
+  "Policies",
+  "Message templates",
+] as const;
 type Tab = (typeof TABS)[number];
 const MESSAGES: [string, boolean, boolean, boolean][] = [
   ["Order confirmation", true, true, false],
@@ -120,8 +129,15 @@ const MESSAGES: [string, boolean, boolean, boolean][] = [
   ["Back in stock", true, false, false],
 ];
 
-export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>("Store");
+export default function SettingsPage({
+  initialTab,
+  from,
+}: {
+  initialTab?: Tab | undefined;
+  /** Customer id (or "customers") the person came from via "Manage templates". */
+  from?: string | undefined;
+}) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? "Store");
   const [s, setS] = useState({
     name: "Zelliny",
     legal: "ZELLINY FOR GIFTS AND LUXURY PRODUCTS",
@@ -181,6 +197,27 @@ export default function SettingsPage() {
 
   return (
     <>
+      {from && (
+        <div className="mb-2 text-[12px]">
+          {from === "customers" ? (
+            <Link
+              to="/$section"
+              params={{ section: "customers" }}
+              className="underline underline-offset-[3px]"
+            >
+              ← Back to Customers
+            </Link>
+          ) : (
+            <Link
+              to="/customers/$customerId"
+              params={{ customerId: from }}
+              className="underline underline-offset-[3px]"
+            >
+              ← Back to customer
+            </Link>
+          )}
+        </div>
+      )}
       <PageHeader
         title="Settings"
         actions={
@@ -434,6 +471,8 @@ export default function SettingsPage() {
           </Card>
         </>
       )}
+
+      {tab === "Message templates" && <TemplatesTab />}
 
       {tab === "Policies" && (
         <Card>

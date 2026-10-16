@@ -11,11 +11,19 @@ import {
   Button,
   Card,
   DataTable,
+  FilterBar,
   Muted,
   PageHeader,
   Pager,
+  SearchInput,
   type Column,
 } from "@/components/admin/page";
+import {
+  DateRangeFilter,
+  NO_DATE_FILTER,
+  inDateFilter,
+  type DateFilter,
+} from "@/components/admin/DateRangeFilter";
 import { applyEdit, useCreatedOrders, useOrderEdits } from "@/components/admin/OrderFlow";
 import {
   LogReturnDialog,
@@ -150,6 +158,8 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
   );
   const actions = useReturnActions();
   const [stage, setStage] = useState("");
+  const [q, setQ] = useState("");
+  const [dateF, setDateF] = useState<DateFilter>(NO_DATE_FILTER);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -161,6 +171,11 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
   }));
   const rows = returns
     .filter((r) => !stage || r.status.label === stage)
+    .filter((r) => inDateFilter(r.date, dateF))
+    .filter(
+      (r) =>
+        !q || `${r.id} ${r.order} ${r.customer} ${r.item}`.toLowerCase().includes(q.toLowerCase()),
+    )
     .sort((a, b) => b.id.localeCompare(a.id));
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const cur = Math.min(page, pages);
@@ -426,6 +441,23 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
             </span>
           )}
         </div>
+        <FilterBar>
+          <SearchInput
+            value={q}
+            onChange={(v) => {
+              setQ(v);
+              setPage(1);
+            }}
+            placeholder="Return, order, customer or item"
+          />
+          <DateRangeFilter
+            value={dateF}
+            onChange={(v) => {
+              setDateF(v);
+              setPage(1);
+            }}
+          />
+        </FilterBar>
         <DataTable
           columns={columns}
           rows={shown}

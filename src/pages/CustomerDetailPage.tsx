@@ -11,11 +11,14 @@ import {
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Avatar, Chip, Panel, StatusBadge, Thumb } from "@/components/admin/primitives";
-import { Button, DataTable, PageHeader } from "@/components/admin/page";
+import { Button, DataTable, PageHeader, Pager } from "@/components/admin/page";
+import type { ProductRow } from "@/lib/api/section-types";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   ADDRESS_LABELS,
   CITIES,
   deleteAddress,
+  downloadCsv,
   editCustomer,
   makeDefaultAddress,
   saveAddress,
@@ -91,7 +94,7 @@ function AddressesPanel({ c }: { c: LiveCustomer }) {
   return (
     <>
       <Panel
-        title={`Addresses · ${c.addresses.length}`}
+        title="Addresses"
         action={
           <button type="button" onClick={() => open()} className={link}>
             + Add address
@@ -234,7 +237,29 @@ function AddressesPanel({ c }: { c: LiveCustomer }) {
   );
 }
 
-export default function CustomerDetailPage({ customerId }: { customerId: string }) {
+/** Wishlist isn't in the API yet — a stable pick of live products per customer. */
+function wishlistFor(customerId: string, products: ProductRow[]) {
+  const live = products.filter((p) => p.visible && !p.isDraft);
+  if (!live.length) return [];
+  const n = Number(customerId.replace(/\D/g, "")) || 0;
+  const count = Math.min(live.length, 3 + (n % 8));
+  return Array.from({ length: count }, (_, i) => live[(n * 3 + i * 2) % live.length]!).filter(
+    (p, i, a) => a.findIndex((x) => x.id === p.id) === i,
+  );
+}
+
+const linkBtn =
+  "text-[12.5px] text-muted-foreground underline underline-offset-[3px] hover:text-foreground";
+
+type SidePanel = { kind: "order"; id: string } | { kind: "product"; id: string } | null;
+
+export default function CustomerDetailPage({
+  customerId,
+  showOrders = false,
+}: {
+  customerId: string;
+  showOrders?: boolean;
+}) {
   const { data } = useSuspenseQuery(customersQuery());
   const { data: ordersData } = useSuspenseQuery(ordersQuery());
   const { data: returnsData } = useSuspenseQuery(returnsQuery());
@@ -249,6 +274,11 @@ export default function CustomerDetailPage({ customerId }: { customerId: string 
   );
   const c = all.find((x) => x.id === customerId);
   const [notes, setNotes] = useState(c?.notes ?? "");
+  const [editNotes, setEditNotes] = useState(false);
+  const [panel, setPanel] = useState<SidePanel>(null);
+  const [wPage, setWPage] = useState(1);
+  const [oPage, setOPage] = useState(1);
+  const [oSize, setOSize] = useState(10);
 
   if (!c) {
     return (
@@ -266,31 +296,241 @@ export default function CustomerDetailPage({ customerId }: { customerId: string 
   const orders = [...created, ...ordersData.rows]
     .filter((o) => o.customer === c.name)
     .map((o) => applyEdit(o, oEdits[o.id]));
+  // Orders placed in this session (manual orders) on top of the stored totals.
+  const placed = created.filter((o) => o.customer === c.name);
+  const orderCount = c.orders + placed.length;
+  const spent = c.spent + placed.reduce((s, o) => s + o.total, 0);
   const rets = returns.filter((r) => r.customer === c.name);
+  const first = c.name.split(" ")[0] ?? c.name;
   const newOrder = () => navigate({ to: "/orders/new", search: { customer: c.id } });
-  const yes = (on: boolean, l: string) => (
-    <span key={l} className={cn("block", on ? "text-good" : "text-bad")}>
-      {on ? "✓" : "✕"} {l}
-    </span>
+  const openOrder = (id: string) => navigate({ to: "/orders/$orderId", params: { orderId: id } });
+  const toOrders = (view: boolean) =>
+    navigate({
+      to: "/customers/$customerId",
+      params: { customerId: c.id },
+      search: view ? { view: "orders" } : {},
+    });
+  const mailOrToast = () =>
+    c.email ? act.send([c], "Email") : toast("No email on file — add one with Edit");
+  const wish = wishlistFor(c.id, productsData.rows);
+  const wPages = Math.max(1, Math.ceil(wish.length / 8));
+  const wCur = Math.min(wPage, wPages);
+  const addr = c.addresses.find((a) => a.isDefault) ?? c.addresses[0];
+
+  const crumb = (last: ReactNode) => (
+    <div className="mb-2 text-[12px] text-muted-foreground">
+      <Link
+        to="/$section"
+        params={{ section: "customers" }}
+        className="underline underline-offset-[3px]"
+      >
+        Customers
+      </Link>{" "}
+      /{" "}
+      {last === "Orders" ? (
+        <>
+          <button
+            type="button"
+            onClick={() => toOrders(false)}
+            className="underline underline-offset-[3px]"
+          >
+            {c.name}
+          </button>{" "}
+          / Orders
+        </>
+      ) : (
+        last
+      )}
+    </div>
   );
+
+  /* ---------- side panels (order / wishlist product) ---------- */
+  const sidePanels = () => {
+    const o = panel?.kind === "order" ? orders.find((x) => x.id === panel.id) : undefined;
+    const p =
+      panel?.kind === "product" ? productsData.rows.find((x) => x.id === panel.id) : undefined;
+    const out = !!p && p.stock <= 0;
+    const eyebrow = "text-[11px] uppercase tracking-[.18em] text-muted-foreground";
+    const sec = "border-b border-border py-4 last:border-0";
+    return (
+      <Sheet open={!!panel} onOpenChange={(v) => !v && setPanel(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-[560px]">
+          {o && (
+            <>
+              <SheetHeader>
+                <p className={eyebrow}>Order</p>
+                <SheetTitle className="font-head text-[26px] font-normal">{o.id}</SheetTitle>
+                <div className="flex items-center gap-2 text-[13.5px] text-muted-foreground">
+                  <StatusBadge tone={o.status.tone}>{o.status.label}</StatusBadge>
+                  {o.date}
+                </div>
+              </SheetHeader>
+              <section className={sec}>
+                <h5 className={cn(eyebrow, "mb-2")}>Items</h5>
+                {o.lines.map((l) => (
+                  <div key={l.sku} className="flex justify-between gap-3 py-1.5 text-[13.5px]">
+                    <span>
+                      {l.name}
+                      <em className="block text-[12px] not-italic text-muted-foreground">
+                        {l.sku}
+                      </em>
+                    </span>
+                    <span className="whitespace-nowrap">× {l.qty}</span>
+                  </div>
+                ))}
+              </section>
+              <section className={sec}>
+                <h5 className={cn(eyebrow, "mb-2")}>Summary</h5>
+                <Kv
+                  rows={[
+                    ["Payment", o.payment],
+                    ["Fulfilment", o.fulfilment],
+                    ["Total", <b key="t">{formatMoney(o.total)}</b>],
+                  ]}
+                />
+              </section>
+              <section className={sec}>
+                <h5 className={cn(eyebrow, "mb-2")}>Deliver to</h5>
+                <p className="text-[13.5px]">{addr ? `${addr.address}, ${addr.city}` : "—"}</p>
+                <p className="text-[12.5px] text-muted-foreground">{c.phone}</p>
+              </section>
+              <div className="flex flex-wrap gap-2 pt-4">
+                <Button primary onClick={() => openOrder(o.id)}>
+                  Open full order →
+                </Button>
+                <Button
+                  onClick={() => {
+                    setPanel(null);
+                    act.send([c], "WhatsApp", { tpl: "order", order: o.id });
+                  }}
+                >
+                  Send order update
+                </Button>
+              </div>
+            </>
+          )}
+          {p && (
+            <>
+              <SheetHeader>
+                <p className={eyebrow}>Product · {p.sku}</p>
+                <SheetTitle className="font-head text-[26px] font-normal">{p.name}</SheetTitle>
+                <p className="text-[13.5px] text-muted-foreground">
+                  {p.brand} · {p.category}
+                </p>
+              </SheetHeader>
+              <section className={sec}>
+                <Thumb color={p.color} className="aspect-[16/10] h-auto w-full rounded-[14px]" />
+              </section>
+              <section className={sec}>
+                <Kv
+                  rows={[
+                    ["Price", p.price ? formatMoney(p.offer ?? p.price) : "On request"],
+                    ["Stock", out ? "Out of stock" : p.stock <= 5 ? "Low stock" : "In stock"],
+                  ]}
+                />
+              </section>
+              <div className="flex flex-wrap gap-2 pt-4">
+                <Button
+                  primary
+                  onClick={() =>
+                    navigate({ to: "/products/$productId", params: { productId: p.id } })
+                  }
+                >
+                  Open product →
+                </Button>
+                <Button
+                  onClick={() => {
+                    setPanel(null);
+                    act.send([c], "WhatsApp", { tpl: out ? "back" : "wish", product: p.name });
+                  }}
+                >
+                  {out ? `Tell ${first} when back in stock` : `Send ${first} an offer`}
+                </Button>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    );
+  };
+
+  /* ---------- all orders of this customer ---------- */
+  if (showOrders) {
+    const pages = Math.max(1, Math.ceil(orders.length / oSize));
+    const cur = Math.min(oPage, pages);
+    return (
+      <>
+        {crumb("Orders")}
+        <PageHeader
+          title={`Orders · ${c.name}`}
+          subtitle={`${orders.length} order${orders.length === 1 ? "" : "s"} · ${formatMoney(orders.reduce((s, o) => s + o.total, 0))}`}
+          actions={
+            <>
+              <Button onClick={() => toOrders(false)}>← Back to customer</Button>
+              <Button
+                onClick={() => {
+                  downloadCsv(
+                    `zelliny-orders-${c.id}.csv`,
+                    ["Order", "Date", "Payment", "Status", "Total (EGP)"],
+                    orders.map((o) => [o.id, o.date, o.payment, o.status.label, o.total]),
+                  );
+                  toast.success(`Excel downloaded · ${orders.length} orders`);
+                }}
+              >
+                Export
+              </Button>
+            </>
+          }
+        />
+        <Panel title="All orders">
+          <DataTable
+            rows={orders.slice((cur - 1) * oSize, cur * oSize)}
+            rowKey={(o) => o.id}
+            empty="No orders yet."
+            onRowClick={(o) => setPanel({ kind: "order", id: o.id })}
+            columns={[
+              { header: "Order", cell: (o) => <b className="font-medium">{o.id}</b> },
+              { header: "Date", className: "whitespace-nowrap", cell: (o) => o.date },
+              {
+                header: "Items",
+                cell: (o) => `${o.itemCount} item${o.itemCount === 1 ? "" : "s"}`,
+              },
+              { header: "Payment", cell: (o) => o.payment },
+              {
+                header: "Status",
+                cell: (o) => <StatusBadge tone={o.status.tone}>{o.status.label}</StatusBadge>,
+              },
+              { header: "Total", align: "right", cell: (o) => formatMoney(o.total) },
+            ]}
+          />
+          <Pager
+            page={cur}
+            pageSize={oSize}
+            total={orders.length}
+            noun="orders"
+            onPage={setOPage}
+            onPageSize={(n) => {
+              setOSize(n);
+              setOPage(1);
+            }}
+          />
+        </Panel>
+        {sidePanels()}
+        {act.dialog}
+      </>
+    );
+  }
 
   return (
     <>
-      <div className="mb-2 text-[12px] text-muted-foreground">
-        <Link
-          to="/$section"
-          params={{ section: "customers" }}
-          className="underline underline-offset-[3px]"
-        >
-          Customers
-        </Link>{" "}
-        / {c.name}
-      </div>
+      {crumb(c.name)}
       <PageHeader
         title={c.name}
         subtitle={`Customer since ${c.since}`}
         actions={
           <>
+            <Button onClick={() => act.send([c], "WhatsApp")}>WhatsApp</Button>
+            <Button onClick={mailOrToast}>Email</Button>
             <Button onClick={() => act.form(c)}>Edit</Button>
             <Button primary onClick={newOrder}>
               + New order
@@ -312,9 +552,9 @@ export default function CustomerDetailPage({ customerId }: { customerId: string 
       <div className="mb-5 grid grid-cols-2 gap-[18px] md:grid-cols-4">
         {(
           [
-            ["Total spent", formatMoney(c.spent)],
-            ["Orders", c.orders],
-            ["Average order", c.orders ? formatMoney(Math.round(c.spent / c.orders)) : "—"],
+            ["Total spent", formatMoney(spent)],
+            ["Orders", orderCount],
+            ["Average order", orderCount ? formatMoney(Math.round(spent / orderCount)) : "—"],
             ["Returns", rets.length],
           ] as [string, ReactNode][]
         ).map(([k, v]) => (
@@ -325,160 +565,208 @@ export default function CustomerDetailPage({ customerId }: { customerId: string 
         ))}
       </div>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="flex min-w-0 flex-col gap-5">
-          <Panel title="Orders">
-            {orders.length ? (
-              <DataTable
-                rows={orders}
-                rowKey={(o) => o.id}
-                onRowClick={(o) => navigate({ to: "/orders/$orderId", params: { orderId: o.id } })}
-                columns={[
-                  { header: "Order", cell: (o) => <b className="font-medium">{o.id}</b> },
-                  { header: "Date", cell: (o) => o.date },
-                  {
-                    header: "Status",
-                    cell: (o) => <StatusBadge tone={o.status.tone}>{o.status.label}</StatusBadge>,
-                  },
-                  { header: "Total", align: "right", cell: (o) => formatMoney(o.total) },
-                ]}
-              />
-            ) : (
-              <>
-                <p className="pb-3.5 text-[13.5px] text-muted-foreground">No orders yet.</p>
-                <Button onClick={newOrder}>+ Create an order for {c.name.split(" ")[0]}</Button>
-              </>
-            )}
-          </Panel>
-          <Panel title="Messages sent">
-            {c.messages.length ? (
-              <ol className="flex flex-col">
-                {c.messages
-                  .slice()
-                  .reverse()
-                  .map((m, i) => (
-                    <li key={i} className="flex gap-3 py-2">
-                      <i className="mt-[5px] size-[9px] flex-none rounded-full bg-primary" />
-                      <div>
-                        <b className="block text-[13px] font-normal">{m.text}</b>
-                        <span className="text-[12px] text-muted-foreground">
-                          {m.when} · {m.who}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-              </ol>
-            ) : (
-              <p className="text-[13.5px] text-muted-foreground">
-                Nothing sent yet. Emails, WhatsApp and SMS sent from the panel are listed here.
-              </p>
-            )}
-          </Panel>
-          <AddressesPanel c={c} />
-          {!c.isNew && (
-            <Panel title="Wishlist">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {productsData.rows
-                  .filter((p) => p.visible && !p.isDraft)
-                  .slice(0, 4)
-                  .map((p) => (
-                    <Link
-                      key={p.id}
-                      to="/products/$productId"
-                      params={{ productId: p.id }}
-                      className="flex flex-col gap-1.5 text-[12px] hover:underline"
-                    >
-                      <Thumb color={p.color} className="aspect-square h-auto w-full" />
-                      <span>{p.name}</span>
-                    </Link>
-                  ))}
-              </div>
-            </Panel>
+      {/* Orders = Contact + Important dates (bottoms line up); Addresses = Private notes. */}
+      <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:[grid-template-areas:'orders_contact''orders_dates''addr_notes']">
+        <Panel
+          title="Orders"
+          className="lg:[grid-area:orders]"
+          action={
+            orders.length ? (
+              <button type="button" onClick={() => toOrders(true)} className={linkBtn}>
+                View all
+              </button>
+            ) : undefined
+          }
+        >
+          {orders.length ? (
+            <DataTable
+              rows={orders.slice(0, 6)}
+              rowKey={(o) => o.id}
+              onRowClick={(o) => setPanel({ kind: "order", id: o.id })}
+              columns={[
+                { header: "Order", cell: (o) => <b className="font-medium">{o.id}</b> },
+                { header: "Date", className: "whitespace-nowrap", cell: (o) => o.date },
+                {
+                  header: "Status",
+                  cell: (o) => <StatusBadge tone={o.status.tone}>{o.status.label}</StatusBadge>,
+                },
+                { header: "Total", align: "right", cell: (o) => formatMoney(o.total) },
+              ]}
+            />
+          ) : (
+            <>
+              <p className="pb-3.5 text-[13.5px] text-muted-foreground">No orders yet.</p>
+              <Button onClick={newOrder}>+ Create an order for {first}</Button>
+            </>
           )}
+        </Panel>
+
+        <Panel
+          title="Contact"
+          className="lg:[grid-area:contact]"
+          action={
+            <button type="button" onClick={() => act.form(c)} className={linkBtn}>
+              Edit
+            </button>
+          }
+        >
+          <div className="mb-3 flex items-center gap-3">
+            <Avatar name={c.name} className="size-[34px] text-[12px]" />
+            <b className="font-medium">{c.name}</b>
+          </div>
+          <Kv
+            rows={[
+              [
+                "Email",
+                c.email ? (
+                  <button
+                    key="e"
+                    type="button"
+                    onClick={() => act.send([c], "Email")}
+                    className="underline underline-offset-[3px]"
+                  >
+                    {c.email}
+                  </button>
+                ) : (
+                  <button key="e" type="button" onClick={() => act.form(c)} className="underline">
+                    Add email
+                  </button>
+                ),
+              ],
+              [
+                "Mobile",
+                <button
+                  key="m"
+                  type="button"
+                  onClick={() => act.send([c], "WhatsApp")}
+                  className="underline underline-offset-[3px]"
+                >
+                  {c.phone}
+                </button>,
+              ],
+              ["City", c.city],
+              ["Language", c.language],
+            ]}
+          />
+        </Panel>
+
+        <Panel title="Important dates" className="lg:[grid-area:dates]">
+          <Kv rows={[["Birthday", c.birthday || "—"]]} />
+          <p className="mt-2.5 text-[12px] text-muted-foreground">
+            Used for gifting reminders & offers.
+          </p>
+        </Panel>
+
+        <div className="min-w-0 lg:[grid-area:addr] [&>section]:h-full">
+          <AddressesPanel c={c} />
         </div>
 
-        <div className="flex min-w-0 flex-col gap-5">
-          <Panel
-            title="Contact"
-            action={
+        <Panel
+          title="Private notes"
+          className="lg:[grid-area:notes]"
+          action={
+            editNotes ? undefined : (
               <button
                 type="button"
-                onClick={() => act.form(c)}
-                className="text-[12.5px] text-muted-foreground underline underline-offset-[3px]"
+                onClick={() => {
+                  setNotes(c.notes);
+                  setEditNotes(true);
+                }}
+                className={linkBtn}
               >
                 Edit
               </button>
-            }
-          >
-            <div className="mb-3 flex items-center gap-3">
-              <Avatar name={c.name} className="size-[34px] text-[12px]" />
-              <b className="font-medium">{c.name}</b>
-            </div>
-            <Kv
-              rows={[
-                [
-                  "Email",
-                  c.email ? (
-                    <a
-                      key="e"
-                      href={`mailto:${c.email}`}
-                      className="underline underline-offset-[3px]"
-                    >
-                      {c.email}
-                    </a>
-                  ) : (
-                    <button key="e" type="button" onClick={() => act.form(c)} className="underline">
-                      Add email
-                    </button>
-                  ),
-                ],
-                [
-                  "Mobile",
-                  <a
-                    key="m"
-                    href={`tel:${c.phone.replace(/\s/g, "")}`}
-                    className="underline underline-offset-[3px]"
-                  >
-                    {c.phone}
-                  </a>,
-                ],
-                ["Language", c.language],
-                // [
-                //   "Agreed to offers by",
-                //   <>
-                //     {yes(c.marketing.email && !!c.email, "Email")}
-                //     {yes(c.marketing.sms, "SMS")}
-                //     {yes(c.marketing.whatsapp, "WhatsApp")}
-                //   </>,
-                // ],
-              ]}
-            />
-          </Panel>
-          <Panel title="Important dates">
-            <Kv rows={[["Birthday", c.birthday || "—"]]} />
-            <p className="mt-2.5 text-[12px] text-muted-foreground">
-              Used for gifting reminders & offers.
-            </p>
-          </Panel>
-          <Panel title="Private notes">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Team only"
-              className="mb-2.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary"
-            />
-            <Button
-              onClick={() => {
-                editCustomer(c.id, { notes: notes.trim() });
-                toast("Notes saved");
-              }}
-            >
-              Save notes
-            </Button>
-          </Panel>
-        </div>
+            )
+          }
+        >
+          {editNotes ? (
+            <>
+              <textarea
+                autoFocus
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={7}
+                placeholder="Team only"
+                className="mb-2.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-primary"
+              />
+              <div className="flex gap-2">
+                <Button
+                  primary
+                  onClick={() => {
+                    editCustomer(c.id, { notes: notes.trim() });
+                    setEditNotes(false);
+                    toast("Notes saved");
+                  }}
+                >
+                  Save notes
+                </Button>
+                <Button onClick={() => setEditNotes(false)}>Cancel</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="min-h-[160px] whitespace-pre-wrap rounded-lg border border-border bg-hover px-3.5 py-3 text-[13.5px] leading-relaxed">
+                {c.notes || (
+                  <span className="text-muted-foreground">
+                    No notes yet — click Edit to add one.
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 text-[12px] text-muted-foreground">
+                Team only · not visible to the customer
+              </p>
+            </>
+          )}
+        </Panel>
       </div>
+
+      {!c.isNew && (
+        <Panel
+          className="mt-5"
+          title={
+            <>
+              Wishlist{" "}
+              <span className="ml-1 text-[12.5px] text-muted-foreground">
+                {wish.length} item{wish.length === 1 ? "" : "s"}
+              </span>
+            </>
+          }
+        >
+          {wish.length ? (
+            <>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+                {wish.slice((wCur - 1) * 8, wCur * 8).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPanel({ kind: "product", id: p.id })}
+                    className="group flex min-w-0 flex-col gap-1.5 text-left"
+                  >
+                    <Thumb color={p.color} className="aspect-[4/3] h-auto w-full" />
+                    <span className="text-[13px] group-hover:underline">{p.name}</span>
+                    <span className="text-[12px] text-muted-foreground">
+                      {p.brand}
+                      {p.price ? ` · ${formatMoney(p.offer ?? p.price)}` : ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <Pager
+                page={wCur}
+                pageSize={8}
+                total={wish.length}
+                noun="items"
+                onPage={setWPage}
+                onPageSize={() => {}}
+                sizes={[8]}
+              />
+            </>
+          ) : (
+            <p className="text-[13.5px] text-muted-foreground">Nothing on the wishlist.</p>
+          )}
+        </Panel>
+      )}
+      {sidePanels()}
       {act.dialog}
     </>
   );

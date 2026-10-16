@@ -91,6 +91,23 @@ export default function SellingPage() {
   );
   const cur = Math.min(page, Math.max(1, Math.ceil(rows.length / pageSize)));
   const shown = rows.slice((cur - 1) * pageSize, cur * pageSize);
+  // Maison and category tabs page through their own list.
+  const groups = tab === "By maison" ? live.brands : live.categories;
+  const gCur = Math.min(page, Math.max(1, Math.ceil(groups.length / pageSize)));
+  const gShown = groups.slice((gCur - 1) * pageSize, gCur * pageSize);
+  const groupPager = (noun: string) => (
+    <Pager
+      page={gCur}
+      pageSize={pageSize}
+      total={groups.length}
+      noun={noun}
+      onPage={setPage}
+      onPageSize={(n) => {
+        setPageSize(n);
+        setPage(1);
+      }}
+    />
+  );
   const allOn = rows.length > 0 && rows.every((p) => sel.has(p.id));
   const toggleAll = () =>
     setSel((s) => {
@@ -317,16 +334,14 @@ export default function SellingPage() {
 
       {tab === "By maison" && (
         <Card>
-          <DataTable columns={groupColumns("maison")} rows={live.brands} rowKey={(o) => o.id} />
+          <DataTable columns={groupColumns("maison")} rows={gShown} rowKey={(o) => o.id} />
+          {groupPager("maisons")}
         </Card>
       )}
       {tab === "By category" && (
         <Card>
-          <DataTable
-            columns={groupColumns("category")}
-            rows={live.categories}
-            rowKey={(o) => o.id}
-          />
+          <DataTable columns={groupColumns("category")} rows={gShown} rowKey={(o) => o.id} />
+          {groupPager("categories")}
         </Card>
       )}
       {tab === "By product" && (

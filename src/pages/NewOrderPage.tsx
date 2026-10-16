@@ -317,6 +317,12 @@ export default function NewOrderPage({
       when: v === "Appointment" ? "26 Sep 2026 · 12:00 – 14:00" : "As soon as possible",
     });
 
+  // Opened from a customer's page: Cancel, Place order and Save as draft all go back to them.
+  const fromCustomer = customerId ? allCustomers.find((x) => x.id === customerId) : undefined;
+  const leave = () =>
+    fromCustomer
+      ? navigate({ to: "/customers/$customerId", params: { customerId: fromCustomer.id } })
+      : navigate({ to: "/$section", params: { section: "orders" } });
   const custName = () => (cust ? cust.name : f.nc.name.trim());
   const draft = () => {
     if (!hasCust && !f.lines.length) {
@@ -338,7 +344,7 @@ export default function NewOrderPage({
       form: f,
     });
     toast(`Draft saved · ${id}`);
-    navigate({ to: "/$section", params: { section: "orders" } });
+    leave();
   };
 
   const place = () => {
@@ -437,19 +443,40 @@ export default function NewOrderPage({
       );
     }
     toast(`Order ${id} created`);
-    navigate({ to: "/orders/$orderId", params: { orderId: id } });
+    if (fromCustomer) leave();
+    else navigate({ to: "/orders/$orderId", params: { orderId: id } });
   };
 
   return (
     <>
       <div className="mb-2 text-[12px] text-muted-foreground">
-        <Link
-          to="/$section"
-          params={{ section: "orders" }}
-          className="underline underline-offset-[3px]"
-        >
-          Orders
-        </Link>{" "}
+        {fromCustomer ? (
+          <>
+            <Link
+              to="/$section"
+              params={{ section: "customers" }}
+              className="underline underline-offset-[3px]"
+            >
+              Customers
+            </Link>{" "}
+            /{" "}
+            <Link
+              to="/customers/$customerId"
+              params={{ customerId: fromCustomer.id }}
+              className="underline underline-offset-[3px]"
+            >
+              {fromCustomer.name}
+            </Link>
+          </>
+        ) : (
+          <Link
+            to="/$section"
+            params={{ section: "orders" }}
+            className="underline underline-offset-[3px]"
+          >
+            Orders
+          </Link>
+        )}{" "}
         / New order
       </div>
       <PageHeader
@@ -461,11 +488,7 @@ export default function NewOrderPage({
               : "Create manual order"
         }
         subtitle="For orders taken by phone, WhatsApp, Instagram or in person. It joins the same flow as website orders."
-        actions={
-          <Button onClick={() => navigate({ to: "/$section", params: { section: "orders" } })}>
-            Cancel
-          </Button>
-        }
+        actions={<Button onClick={leave}>Cancel</Button>}
       />
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -810,7 +833,7 @@ export default function NewOrderPage({
         </div>
 
         {/* Side: details + summary */}
-        <div className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-[84px]">
+        <div className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-[84px] lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
           <Panel title="Order details">
             <div className="flex flex-col gap-3.5">
               <Field label="Order came from">

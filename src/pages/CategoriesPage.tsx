@@ -1,8 +1,9 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { brandsQuery, categoriesQuery, productsQuery } from "@/lib/api/sections.functions";
 import { cn } from "@/lib/utils";
-import { Button, PageHeader } from "@/components/admin/page";
+import { Button, PageHeader, Pager } from "@/components/admin/page";
 import { useCatalogue } from "@/components/admin/CatalogueFlow";
 import { MixBar, useVisibility } from "@/components/admin/CatalogueUi";
 
@@ -23,6 +24,10 @@ export default function CategoriesPage() {
   const { data: prods } = useSuspenseQuery(productsQuery());
   const live = useCatalogue(cats, brands, prods.rows);
   const vis = useVisibility();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
+  const cur = Math.min(page, Math.max(1, Math.ceil(live.categories.length / pageSize)));
+  const shown = live.categories.slice((cur - 1) * pageSize, cur * pageSize);
 
   return (
     <>
@@ -41,7 +46,7 @@ export default function CategoriesPage() {
         }
       />
       <div className="grid gap-[18px] sm:grid-cols-2 lg:grid-cols-3 min-[1300px]:grid-cols-4">
-        {live.categories.map((c) => {
+        {shown.map((c) => {
           const list = live.products.filter((p) => p.category === c.name);
           return (
             <div
@@ -90,6 +95,18 @@ export default function CategoriesPage() {
           );
         })}
       </div>
+      <Pager
+        page={cur}
+        pageSize={pageSize}
+        total={live.categories.length}
+        noun="categories"
+        sizes={[8, 12, 24, 48]}
+        onPage={setPage}
+        onPageSize={(n) => {
+          setPageSize(n);
+          setPage(1);
+        }}
+      />
       {vis.dialog}
     </>
   );

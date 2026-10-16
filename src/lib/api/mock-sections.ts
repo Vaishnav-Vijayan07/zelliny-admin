@@ -1099,27 +1099,23 @@ export function mockEnquiries(): T.EnquiriesData {
 }
 
 export function mockPayments(): T.PaymentsData {
-  const rows = ORDERS.map((o, i) => ({
-    id: `TX-${88120 - i}`,
-    order: o.id,
-    customer: cust(o.cust),
-    method: o.pay,
-    date: o.date,
-    amount: o.total + o.ship,
-    status: tag(o.payStatus),
-  }));
-  const sum = (s: string) =>
-    rows
-      .filter((r) => r.status.label === s)
-      .reduce((a, r) => a + r.amount, 0)
-      .toLocaleString("en-US");
+  const rows = ORDERS.map((o, i): T.PaymentRow => {
+    const returnId = RETURNS.find((r) => r.order === o.id)?.id;
+    return {
+      id: `TX-${88120 - i}`,
+      order: o.id,
+      customer: cust(o.cust),
+      customerId: o.cust,
+      ...(returnId ? { returnId } : {}),
+      method: o.pay,
+      date: o.date,
+      amount: o.total + o.ship,
+      status: tag(o.payStatus),
+    };
+  });
   return {
-    summary: [
-      { label: "Collected", value: `${sum("Paid")} EGP` },
-      { label: "Cash on delivery due", value: `${sum("Unpaid")} EGP` },
-      { label: "Refunded", value: `${sum("Refunded")} EGP` },
-      { label: "Next Paymob payout", value: "Mon 28 Sep" },
-    ],
+    // Collected / COD due / Refunded depend on the date range, so the page computes them from `rows`.
+    summary: [{ label: "Next Paymob payout", value: "Mon 28 Sep" }],
     rows,
   };
 }

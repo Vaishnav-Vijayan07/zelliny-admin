@@ -326,7 +326,7 @@ export default function ReturnDetailPage({ returnId }: { returnId: string }) {
           </Panel>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-[84px] lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
           <Panel title="Customer">
             <div className="flex items-center gap-3">
               <span className="grid size-[34px] place-items-center rounded-full bg-hover text-[12px] font-semibold">

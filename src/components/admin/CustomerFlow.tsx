@@ -2,11 +2,15 @@
 // Shared by the Customers list and the single-customer page.
 // Everything is local for now — swap addCustomer / editCustomer / sends for API calls.
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import type { CustomerAddress, CustomerRow, OrderEvent } from "@/lib/api/section-types";
 import { cn } from "@/lib/utils";
 import { useSessionUser } from "@/hooks/use-session";
 import { Button } from "./page";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { fillTemplate, useMessageTemplates } from "./MessageTemplates";
 import {
   Dialog,
   DialogContent,
@@ -168,32 +172,6 @@ export const EXPORT_COLUMNS: [string, string, (c: CustomerRow) => string | numbe
   ],
 ];
 
-/* ---------- templates ---------- */
-const EMAIL_TPL: Record<string, [string, string]> = {
-  "Write my own": ["", ""],
-  "New arrivals": [
-    "New at Zelliny this week",
-    "Dear {first name},\n\nA few new pieces have just arrived at Zelliny and we thought of you.\n\nDiscover them at zelliny.com.\n\nWarm regards,\nZelliny",
-  ],
-  "Private offer": [
-    "A private offer for you",
-    "Dear {first name},\n\nAs one of our valued clients, we would like to offer you a private privilege on your next order.\n\nReply to this email or visit zelliny.com.\n\nWarm regards,\nZelliny",
-  ],
-  "Thank you": [
-    "Thank you from Zelliny",
-    "Dear {first name},\n\nThank you for choosing Zelliny. We hope you are enjoying your piece.\n\nWarm regards,\nZelliny",
-  ],
-};
-const WA_TPL: Record<string, string> = {
-  "New arrivals":
-    "Hello {first name}, new pieces have just arrived at Zelliny. See them at zelliny.com",
-  "Private offer":
-    "Hello {first name}, a private offer is waiting for you at Zelliny. Reply to this message to hear more.",
-  "Order follow-up":
-    "Hello {first name}, thank you for your order from Zelliny. Is everything as you expected?",
-};
-const fill = (t: string, c: CustomerRow) => t.replace(/\{first name\}/g, first(c.name));
-
 /* ---------- small pieces ---------- */
 const input =
   "h-9 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground outline-none focus:border-primary";
@@ -278,11 +256,14 @@ function Reach({ list, via }: { list: CustomerRow[]; via: Channel }) {
 
 /* ---------- dialogs, opened through one hook ---------- */
 type Open =
-  | { kind: "email" | "message" | "export"; list: LiveCustomer[]; scope?: string }
+  | { kind: "send"; list: LiveCustomer[]; channel: Channel; ref: SendRef }
+  | { kind: "export"; list: LiveCustomer[]; scope?: string }
   | { kind: "form"; customer: LiveCustomer | null };
 
+export type SendRef = { tpl?: string; product?: string; order?: string };
+
 /**
- * `email(list)`, `message(list)`, `exportTo(list, scope)` and `form(customer | null)` open the dialogs.
+ * `send(list, channel, ref?)`, `exportTo(list, scope)` and `form(customer | null)` open the dialogs.
  * Render `dialog` once on the page.
  */
 export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) => void) {
@@ -291,15 +272,14 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
   const [open, setOpen] = useState<Open | null>(null);
   const close = () => setOpen(null);
 
-  /* email */
-  const [tpl, setTpl] = useState("Write my own");
-  const [subject, setSubject] = useState("");
+  /* send */
+  const [tplId, setTplId] = useState("thanks");
+  const [subject, setSubject] = useState("A note from Zelliny");
   const [body, setBody] = useState("");
-  const [test, setTest] = useState(false);
-  /* message */
-  const [via, setVia] = useState<"WhatsApp" | "SMS">("WhatsApp");
-  const [waTpl, setWaTpl] = useState(Object.keys(WA_TPL)[0]!);
-  const [sms, setSms] = useState(Object.values(WA_TPL)[0]!);
+  const [when, setWhen] = useState("Now");
+  const [at, setAt] = useState("");
+  const templates = useMessageTemplates();
+  const navigate = useNavigate();
   /* export */
   const [cols, setCols] = useState<string[]>(EXPORT_COLUMNS.map((c) => c[0]));
   /* form */
@@ -320,18 +300,21 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
   const [bad, setBad] = useState<string[]>([]);
   const [err, setErr] = useState<ReactNode>("");
 
-  const email = (list: LiveCustomer[]) => {
-    setTpl("Write my own");
-    setSubject("");
-    setBody("");
-    setTest(false);
+  const send = (list: LiveCustomer[], channel: Channel, ref: SendRef = {}) => {
+    const tpl = templates.find((t) => t.id === (ref.tpl ?? (list.length > 1 ? "promo" : "thanks")));
+    const t = tpl ?? templates[0]!;
+    setTplId(t.id);
+    setBody(
+      fillTemplate(t.text, {
+        ...(ref.product ? { product: ref.product } : {}),
+        ...(ref.order ? { order: ref.order } : {}),
+      }),
+    );
+    setSubject("A note from Zelliny");
+    setWhen("Now");
+    setAt("");
     setErr("");
-    setOpen({ kind: "email", list });
-  };
-  const message = (list: LiveCustomer[]) => {
-    setVia("WhatsApp");
-    setErr("");
-    setOpen({ kind: "message", list });
+    setOpen({ kind: "send", list, channel, ref });
   };
   const exportTo = (list: LiveCustomer[], scope: string) => {
     setCols(EXPORT_COLUMNS.map((c) => c[0]));
@@ -374,44 +357,39 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
     setOpen({ kind: "form", customer: c });
   };
 
-  const sendEmail = () => {
-    if (open?.kind !== "email") return;
-    if (!subject.trim() || !body.trim()) {
-      setErr("Add a subject and a message.");
+  const doSend = () => {
+    if (open?.kind !== "send") return;
+    const { channel } = open;
+    if (!body.trim() || (channel === "Email" && !subject.trim())) {
+      setErr(channel === "Email" ? "Add a subject and a message." : "Write the message.");
       return;
     }
-    const list = open.list.filter((c) => canReach(c, "Email"));
+    if (when === "pick" && !at) {
+      setErr("Pick the date and time to send.");
+      return;
+    }
+    const list = open.list.filter((c) => canReach(c, channel));
+    const whenTxt =
+      when === "pick"
+        ? new Date(at).toLocaleString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : when;
     list.forEach((c) =>
       recordMessage(c.id, {
-        text: `Email · “${subject.trim()}”`,
-        when: "Today, just now",
+        text: `${channel} · “${(channel === "Email" ? subject : body).trim().slice(0, 60)}”`,
+        when: when === "Now" ? "Today, just now" : `Scheduled · ${whenTxt}`,
         who: me,
       }),
     );
     close();
     toast(
-      `Email sent to ${plural(list.length, "customer")}${test ? " · test copy sent to you" : ""}`,
+      `${channel} ${when === "Now" ? "sent" : `scheduled for ${whenTxt}`} to ${plural(list.length, "customer")}`,
     );
-  };
-  const sendMessage = () => {
-    if (open?.kind !== "message") return;
-    if (via === "SMS" && !sms.trim()) {
-      setErr("Write the SMS text.");
-      return;
-    }
-    const list = open.list.filter((c) => canReach(c, via));
-    list.forEach((c) =>
-      recordMessage(c.id, {
-        text:
-          via === "WhatsApp"
-            ? `WhatsApp · template “${waTpl}”`
-            : `SMS · “${sms.slice(0, 60)}${sms.length > 60 ? "…" : ""}”`,
-        when: "Today, just now",
-        who: me,
-      }),
-    );
-    close();
-    toast(`${via} sent to ${plural(list.length, "customer")}`);
   };
   const doExport = () => {
     if (open?.kind !== "export") return;
@@ -531,171 +509,138 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
 
   const list = open && open.kind !== "form" ? open.list : [];
   const one = list.length === 1 ? list[0]! : null;
-  const okN =
-    open?.kind === "email"
-      ? list.filter((c) => canReach(c, "Email")).length
-      : open?.kind === "message"
-        ? list.filter((c) => canReach(c, via)).length
-        : 0;
+  const okN = open?.kind === "send" ? list.filter((c) => canReach(c, open.channel)).length : 0;
 
   const dialog = (
     <Dialog open={!!open} onOpenChange={(v) => !v && close()}>
       <DialogContent className="max-h-[88vh] max-w-[760px] overflow-y-auto">
-        {open?.kind === "email" && (
+        {open?.kind === "send" && (
           <>
-            <Title>{one ? `Email ${one.name}` : `Email ${list.length} customers`}</Title>
-            <Reach list={list} via="Email" />
+            <Title>
+              {open.channel} to {one ? one.name : `${list.length} customers`}
+            </Title>
+            <Reach list={list} via={open.channel} />
             <div className="grid gap-3.5 md:grid-cols-2">
-              <Field label="From">
-                <select className={input}>
-                  <option>Zelliny &lt;info@zelliny.com&gt;</option>
-                  <option>{me}</option>
-                </select>
-              </Field>
-              <Field label="Start from">
+              <Field
+                label="Template"
+                hint={
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => {
+                      close();
+                      navigate({
+                        to: "/settings",
+                        search: { tab: "templates", from: one?.id ?? "customers" },
+                      });
+                    }}
+                  >
+                    Manage templates
+                  </button>
+                }
+              >
                 <select
-                  value={tpl}
+                  value={tplId}
                   className={input}
                   onChange={(e) => {
-                    const t = EMAIL_TPL[e.target.value]!;
-                    setTpl(e.target.value);
-                    setSubject(t[0]);
-                    setBody(t[1]);
+                    const t = templates.find((x) => x.id === e.target.value);
+                    if (!t) return;
+                    setTplId(t.id);
+                    setBody(
+                      fillTemplate(t.text, {
+                        ...(open.ref.product ? { product: open.ref.product } : {}),
+                        ...(open.ref.order ? { order: open.ref.order } : {}),
+                      }),
+                    );
                   }}
                 >
-                  {Object.keys(EMAIL_TPL).map((t) => (
-                    <option key={t}>{t}</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
                   ))}
                 </select>
               </Field>
+              <Field label="Send">
+                <select
+                  value={when}
+                  className={input}
+                  onChange={(e) => {
+                    setWhen(e.target.value);
+                    setErr("");
+                  }}
+                >
+                  <option value="Now">Now</option>
+                  <option value="Tomorrow 10:00">Tomorrow 10:00</option>
+                  <option value="pick">Pick date &amp; time…</option>
+                </select>
+              </Field>
             </div>
-            <Field label="Subject">
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Subject line"
-                className={input}
-              />
-            </Field>
+            {when === "pick" && (
+              <Field label="Date & time">
+                <input
+                  type="datetime-local"
+                  value={at}
+                  min={new Date().toISOString().slice(0, 16)}
+                  onChange={(e) => setAt(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch {
+                      /* not supported */
+                    }
+                  }}
+                  className={input}
+                />
+              </Field>
+            )}
+            {open.channel === "Email" && (
+              <Field label="Subject">
+                <input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Subject line"
+                  className={input}
+                />
+              </Field>
+            )}
             <Field
               label="Message"
               hint={
                 <>
-                  <b>{"{first name}"}</b> becomes each person's first name. Every bulk email carries
-                  an unsubscribe link.
+                  <b>{"{first_name}"}</b> is replaced by each customer's first name.
+                  {open.channel === "Email" && " Every bulk email carries an unsubscribe link."}
                 </>
               }
             >
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                rows={7}
-                placeholder="Write your message"
+                rows={open.channel === "Email" ? 7 : 4}
                 className={cn(input, "h-auto py-2")}
               />
             </Field>
-            <label className="flex items-center gap-2 text-[13px]">
-              <input
-                type="checkbox"
-                checked={test}
-                onChange={(e) => setTest(e.target.checked)}
-                className="accent-[#0a0a0a]"
-              />{" "}
-              Send me a test copy first
-            </label>
-            {err && <p className="text-[12.5px] text-bad">{err}</p>}
-            <DialogFooter>
-              <Button onClick={close}>Cancel</Button>
-              <Primary disabled={!okN} onClick={sendEmail}>
-                {okN ? `Send to ${okN}` : "Nobody to send to"}
-              </Primary>
-            </DialogFooter>
-          </>
-        )}
-
-        {open?.kind === "message" && (
-          <>
-            <Title>{one ? `Message ${one.name}` : `Message ${list.length} customers`}</Title>
-            <div className="flex gap-1.5">
-              {(["WhatsApp", "SMS"] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setVia(v)}
-                  className={cn(
-                    "h-[34px] rounded-full border px-3.5 text-[12.5px]",
-                    via === v
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-surface",
-                  )}
-                >
-                  {v}
-                </button>
-              ))}
+            <div
+              className={cn(
+                "rounded-lg p-3.5",
+                open.channel === "Email" ? "bg-hover" : "bg-[#efe7dd]",
+              )}
+            >
+              <small className="mb-1.5 block text-[10.5px] uppercase tracking-[.1em] text-muted-foreground">
+                Preview{list[0] ? ` · ${list[0].name}` : ""}
+              </small>
+              <div className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-white px-3 py-2.5 text-[13px] leading-normal shadow-sm">
+                {open.channel === "Email" && <b className="mb-1 block">{subject}</b>}
+                {fillTemplate(body, { firstName: list[0] ? first(list[0].name) : "" })}
+              </div>
             </div>
-            <Reach list={list} via={via} />
-            {via === "WhatsApp" ? (
-              <>
-                <Field
-                  label="Message template"
-                  hint="WhatsApp only allows messages from templates approved by Meta. They are set up once through the WhatsApp Business API, then chosen here."
-                >
-                  <select
-                    value={waTpl}
-                    onChange={(e) => setWaTpl(e.target.value)}
-                    className={input}
-                  >
-                    {Object.keys(WA_TPL).map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                </Field>
-                <div className="rounded-lg bg-[#efe7dd] p-3.5">
-                  <small className="mb-1.5 block text-[10.5px] uppercase tracking-[.1em] text-muted-foreground">
-                    Preview{list[0] ? ` · ${list[0].name}` : ""}
-                  </small>
-                  <div className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-white px-3 py-2.5 text-[13px] leading-normal shadow-sm">
-                    {list[0] ? fill(WA_TPL[waTpl]!, list[0]) : WA_TPL[waTpl]}
-                  </div>
-                </div>
-                {one?.phone && (
-                  <p className="text-[12px] text-muted-foreground">
-                    For a personal one-to-one chat instead,{" "}
-                    <a
-                      href={`https://wa.me/${one.phone.replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline"
-                    >
-                      open WhatsApp with {first(one.name)}
-                    </a>
-                    .
-                  </p>
-                )}
-              </>
-            ) : (
-              <Field
-                label="SMS text"
-                hint={
-                  <>
-                    Sent from the sender name <b>ZELLINY</b>. {"{first name}"} becomes each person's
-                    first name. {sms.length}/160
-                  </>
-                }
-              >
-                <textarea
-                  value={sms}
-                  onChange={(e) => setSms(e.target.value.slice(0, 160))}
-                  rows={3}
-                  className={cn(input, "h-auto py-2")}
-                />
-              </Field>
-            )}
             {err && <p className="text-[12.5px] text-bad">{err}</p>}
             <DialogFooter>
               <Button onClick={close}>Cancel</Button>
-              <Primary disabled={!okN} onClick={sendMessage}>
-                {okN ? `Send ${via} to ${okN}` : "Nobody to send to"}
+              <Primary disabled={!okN} onClick={doSend}>
+                {okN
+                  ? `${when === "Now" ? "Send" : "Schedule"} ${open.channel === "Email" ? "email" : open.channel} to ${okN}`
+                  : "Nobody to send to"}
               </Primary>
             </DialogFooter>
           </>
@@ -770,7 +715,18 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
                   className={input}
                 />
               </Field>
-              {/* <Field label="Language for messages">
+              <Field label="City">
+                <select
+                  value={f.city}
+                  onChange={(e) => setF({ ...f, city: e.target.value })}
+                  className={input}
+                >
+                  {CITIES.map((x) => (
+                    <option key={x}>{x}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Language">
                 <select
                   value={f.language}
                   onChange={(e) => setF({ ...f, language: e.target.value })}
@@ -779,14 +735,9 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
                   <option>English</option>
                   <option>Arabic</option>
                 </select>
-              </Field> */}
+              </Field>
               <Field label="Birthday">
-                <input
-                  value={f.birthday}
-                  onChange={(e) => setF({ ...f, birthday: e.target.value })}
-                  placeholder="e.g. 14 March"
-                  className={input}
-                />
+                <BirthdayPicker value={f.birthday} onChange={(v) => setF({ ...f, birthday: v })} />
               </Field>
               {/* <Field label="How they found us">
                 <select
@@ -843,7 +794,7 @@ export function useCustomerActions(all: LiveCustomer[], onSaved?: (id: string) =
       </DialogContent>
     </Dialog>
   );
-  return { email, message, exportTo, form, dialog };
+  return { send, exportTo, form, dialog };
 }
 const Section = ({ children }: { children: ReactNode }) => (
   <div className="border-b border-line-soft pb-2 text-[10.5px] uppercase tracking-[.16em] text-muted-foreground">
@@ -876,3 +827,51 @@ const FOUND = [
   "Website",
   "Other",
 ];
+
+/** Birthday is picked, never typed. Always shown (and stored) as day-month-year, e.g. 02 Jun 1990. */
+const BDAY = /^(d{1,2}) ([A-Za-z]{3,9}) (d{4})$/;
+const fmtBirthday = (d: Date) =>
+  `${String(d.getDate()).padStart(2, "0")} ${d.toLocaleDateString("en-GB", { month: "short" })} ${d.getFullYear()}`;
+function BirthdayPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const m = BDAY.exec(value);
+  const parsed = m ? new Date(`${m[1]} ${m[2]} ${m[3]}`) : undefined;
+  const sel = parsed && !isNaN(parsed.getTime()) ? parsed : undefined;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn(input, "text-left", !value && "text-muted-foreground")}>
+          {value || "Pick a date"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-0">
+        <Calendar
+          mode="single"
+          captionLayout="dropdown"
+          startMonth={new Date(1930, 0)}
+          endMonth={new Date()}
+          {...(sel ? { selected: sel, defaultMonth: sel } : { defaultMonth: new Date(1990, 0) })}
+          disabled={{ after: new Date() }}
+          onSelect={(d) => {
+            if (d) onChange(fmtBirthday(d));
+            setOpen(false);
+          }}
+        />
+        {value && (
+          <div className="border-t border-border p-2 text-right">
+            <button
+              type="button"
+              className="text-[12.5px] underline"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
