@@ -1,10 +1,36 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import type { NavGroup, NavItem } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 
-function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: (() => void) | undefined }) {
-  const cls =
-    "flex items-center gap-3 rounded-lg px-4 py-2 text-[13.5px] transition-colors hover:bg-hover";
-  const active = { className: "bg-primary text-primary-foreground hover:bg-primary" };
+/**
+ * Which menu item is lit. Normally the first part of the URL, except a page that belongs to
+ * another section: "Create manual order" opened from a customer stays under Customers.
+ */
+function useActiveKey() {
+  return useRouterState({
+    select: (s) => {
+      const { pathname, search } = s.location;
+      const seg = pathname.split("/")[1] ?? "";
+      const q = search as { customer?: string };
+      if (pathname === "/orders/new" && q.customer) return "customers";
+      return seg || "dashboard";
+    },
+  });
+}
+
+function NavLink({
+  item,
+  on,
+  onNavigate,
+}: {
+  item: NavItem;
+  on: boolean;
+  onNavigate?: (() => void) | undefined;
+}) {
+  const cls = cn(
+    "flex items-center gap-3 rounded-lg px-4 py-2 text-[13.5px] transition-colors",
+    on ? "bg-primary text-primary-foreground" : "hover:bg-hover",
+  );
   const inner = (
     <>
       <span className="w-4 text-center text-xs opacity-70">{item.icon}</span>
@@ -18,25 +44,13 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: (() => void
   );
   if (item.key === "dashboard") {
     return (
-      <Link
-        to="/"
-        className={cls}
-        activeProps={active}
-        activeOptions={{ exact: true }}
-        onClick={onNavigate}
-      >
+      <Link to="/" className={cls} onClick={onNavigate}>
         {inner}
       </Link>
     );
   }
   return (
-    <Link
-      to="/$section"
-      params={{ section: item.key }}
-      className={cls}
-      activeProps={active}
-      onClick={onNavigate}
-    >
+    <Link to="/$section" params={{ section: item.key }} className={cls} onClick={onNavigate}>
       {inner}
     </Link>
   );
@@ -51,6 +65,7 @@ export function Sidebar({
   mobile?: boolean;
   onNavigate?: (() => void) | undefined;
 }) {
+  const activeKey = useActiveKey();
   return (
     <aside
       className={
@@ -71,7 +86,7 @@ export function Sidebar({
             </div>
             <div className="space-y-0.5">
               {g.items.map((i) => (
-                <NavLink key={i.key} item={i} onNavigate={onNavigate} />
+                <NavLink key={i.key} item={i} on={i.key === activeKey} onNavigate={onNavigate} />
               ))}
             </div>
           </div>
