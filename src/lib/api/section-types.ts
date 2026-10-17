@@ -194,8 +194,8 @@ export interface BrandRow {
   url?: string | undefined;
 }
 
-/** TEXT, COLOR (swatch), ICON (small picture) or NUMBER (a number with a unit, e.g. 50 ml). */
-export type AttributePreviewType = "COLOR" | "ICON" | "TEXT" | "NUMBER";
+/** TEXT, COLOR (swatch) or ICON (small picture). */
+export type AttributePreviewType = "COLOR" | "ICON" | "TEXT";
 /** `color` is a hex string (COLOR type), `icon` a data/image URL (ICON type) — both null otherwise. */
 export interface AttributeValueRow {
   id: string;
@@ -212,8 +212,6 @@ export interface AttributeRow {
   id: string;
   name: string;
   nameAr: string;
-  /** Unit for a Number + unit attribute: ml, g, cm, mm or pcs. */
-  unit: string;
   /** Categories the attribute applies to. Empty = offered everywhere. */
   categories: string[];
   previewType: AttributePreviewType;

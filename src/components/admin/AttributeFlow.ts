@@ -12,11 +12,9 @@ export const PREVIEW_LABEL: Record<AttributePreviewType, string> = {
   TEXT: "Text",
   COLOR: "Colour",
   ICON: "Icon / image",
-  NUMBER: "Number + unit",
 };
-/** A value as customers see it, e.g. "100 ml" for a Number + unit attribute. */
-export const valueLabel = (a: AttributeRow, v: AttributeValueRow) =>
-  a.previewType === "NUMBER" ? `${v.value} ${a.unit}` : v.value;
+/** A value as customers see it. */
+export const valueLabel = (a: AttributeRow, v: AttributeValueRow) => v.value;
 /** Products using an attribute (sum over its values). */
 export const attributeUsedBy = (a: AttributeRow) => a.values.reduce((s, v) => s + v.usedBy, 0);
 

@@ -80,7 +80,7 @@ function ValueFormDialog({
     const trimmed = text.trim();
     if (!trimmed) {
       setBad(true);
-      toast(type === "NUMBER" ? "Type the number first" : "Type the value first");
+      toast("Type the value first");
       return;
     }
     if (type === "COLOR" && !isHexColor) {
@@ -122,44 +122,24 @@ function ValueFormDialog({
         <div className="grid gap-3.5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-              <Lang t="EN" dark /> {type === "NUMBER" ? "Number" : "Value"}{" "}
-              <em className="not-italic text-bad">*</em>
+              <Lang t="EN" dark /> Value <em className="not-italic text-bad">*</em>
             </span>
-            {type === "NUMBER" ? (
-              <div className="flex">
-                <input
-                  autoFocus
-                  type="number"
-                  value={text}
-                  onChange={(e) => {
-                    setText(e.target.value);
-                    setBad(false);
-                  }}
-                  placeholder="e.g. 100"
-                  className={cn(inputCls, "rounded-r-none", bad && "border-bad bg-bad-bg")}
-                />
-                <span className="grid place-items-center rounded-r-lg border border-l-0 border-border bg-hover px-3 text-[13px]">
-                  {attribute.unit}
-                </span>
-              </div>
-            ) : (
-              <input
-                autoFocus
-                value={text}
-                onChange={(e) => {
-                  setText(e.target.value);
-                  setBad(false);
-                }}
-                placeholder={
-                  type === "COLOR"
-                    ? "e.g. Navy"
-                    : type === "ICON"
-                      ? "e.g. Suede"
-                      : "e.g. Extrait de Parfum"
-                }
-                className={cn(inputCls, bad && "border-bad bg-bad-bg")}
-              />
-            )}
+            <input
+              autoFocus
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                setBad(false);
+              }}
+              placeholder={
+                type === "COLOR"
+                  ? "e.g. Navy"
+                  : type === "ICON"
+                    ? "e.g. Suede"
+                    : "e.g. Extrait de Parfum"
+              }
+              className={cn(inputCls, bad && "border-bad bg-bad-bg")}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
@@ -173,12 +153,6 @@ function ValueFormDialog({
             />
           </div>
         </div>
-
-        {type === "NUMBER" && (
-          <p className="text-[12px] text-muted-foreground">
-            Shown to customers as “{text.trim() || "100"} {attribute.unit}”.
-          </p>
-        )}
 
         {type === "COLOR" && (
           <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
@@ -327,10 +301,7 @@ export default function AttributeValuesPage({ attributeId }: { attributeId: stri
       <Card>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Chip>
-              {PREVIEW_LABEL[type]}
-              {type === "NUMBER" ? ` · ${attribute.unit}` : ""}
-            </Chip>
+            <Chip>{PREVIEW_LABEL[type]}</Chip>
             <StatusBadge tone={attribute.status.tone}>{attribute.status.label}</StatusBadge>
           </div>
           <input
@@ -353,13 +324,7 @@ export default function AttributeValuesPage({ attributeId }: { attributeId: stri
                 <th className={th}>Value</th>
                 <th className={th}>Arabic</th>
                 <th className={th}>
-                  {type === "COLOR"
-                    ? "Colour"
-                    : type === "ICON"
-                      ? "Image"
-                      : type === "NUMBER"
-                        ? "Shown as"
-                        : ""}
+                  {type === "COLOR" ? "Colour" : type === "ICON" ? "Image" : ""}
                 </th>
                 <th className={th}>Used by</th>
                 <th className={th} />
@@ -429,8 +394,6 @@ export default function AttributeValuesPage({ attributeId }: { attributeId: stri
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )
-                    ) : type === "NUMBER" ? (
-                      <Chip>{valueLabel(attribute, v)}</Chip>
                     ) : null}
                   </td>
                   <td className="px-3 py-3">

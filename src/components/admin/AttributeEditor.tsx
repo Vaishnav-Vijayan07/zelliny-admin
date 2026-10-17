@@ -8,7 +8,6 @@ import { categoriesQuery } from "@/lib/api/sections.functions";
 import type { AttributePreviewType, AttributeRow } from "@/lib/api/section-types";
 import { cn } from "@/lib/utils";
 import { Toggle } from "@/components/admin/primitives";
-import { Dropdown } from "@/components/admin/Dropdown";
 import {
   addAttribute,
   attributeUsedBy,
@@ -27,9 +26,7 @@ const PREVIEW_TYPES: { value: AttributePreviewType; label: string; hint: string 
   { value: "TEXT", label: "Text", hint: "Plain words, e.g. EDT, EDP, Parfum" },
   { value: "COLOR", label: "Colour", hint: "A colour swatch, e.g. Black, Gold" },
   { value: "ICON", label: "Icon / image", hint: "A small picture, e.g. leather texture" },
-  { value: "NUMBER", label: "Number + unit", hint: "A size with a unit, e.g. 50 ml, 100 ml" },
 ];
-const UNITS = ["ml", "g", "cm", "mm", "pcs"];
 
 const inputCls =
   "h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary";
@@ -91,7 +88,7 @@ const Lang = ({ t, dark }: { t: string; dark?: boolean }) => (
 );
 
 /** "How it looks on the product page" — sample options in the chosen style. */
-function Preview({ name, type, unit }: { name: string; type: AttributePreviewType; unit: string }) {
+function Preview({ name, type }: { name: string; type: AttributePreviewType }) {
   const pill =
     "inline-flex items-center gap-2 rounded-full border border-[#cfcfcf] bg-surface px-3.5 py-1.5 text-foreground";
   const opts: ReactNode[] =
@@ -123,10 +120,7 @@ function Preview({ name, type, unit }: { name: string; type: AttributePreviewTyp
               {n}
             </span>
           ))
-        : (type === "NUMBER"
-            ? ["30", "50", "100"].map((n) => `${n} ${unit}`)
-            : ["Eau de Toilette", "Eau de Parfum", "Parfum"]
-          ).map((n) => (
+        : ["Eau de Toilette", "Eau de Parfum", "Parfum"].map((n) => (
             <span key={n} className={pill}>
               {n}
             </span>
@@ -151,7 +145,6 @@ export function AttributeEditor({ attribute }: { attribute: AttributeRow | null 
   const [previewType, setPreviewType] = useState<AttributePreviewType>(
     attribute?.previewType ?? "TEXT",
   );
-  const [unit, setUnit] = useState(attribute?.unit ?? "ml");
   const [cats, setCats] = useState<string[]>(attribute?.categories ?? []);
   const [active, setActive] = useState(attribute ? attribute.status.label !== "Inactive" : true);
   const [bad, setBad] = useState(false);
@@ -172,7 +165,6 @@ export function AttributeEditor({ attribute }: { attribute: AttributeRow | null 
       name: trimmed,
       nameAr: nameAr.trim(),
       previewType,
-      unit,
       categories: cats,
       status,
     };
@@ -284,7 +276,7 @@ export function AttributeEditor({ attribute }: { attribute: AttributeRow | null 
         <div className="mb-1.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
           Preview type <em className="not-italic text-bad">*</em>
         </div>
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {PREVIEW_TYPES.map((t) => (
             <button
               key={t.value}
@@ -304,20 +296,7 @@ export function AttributeEditor({ attribute }: { attribute: AttributeRow | null 
             </button>
           ))}
         </div>
-        {previewType === "NUMBER" && (
-          <div className="mt-3.5 max-w-[260px]">
-            <div className="mb-1.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
-              Unit <em className="not-italic text-bad">*</em>
-            </div>
-            <Dropdown
-              value={unit}
-              onChange={setUnit}
-              className="h-9 w-full text-[14px] text-foreground"
-              options={UNITS.map((u) => ({ value: u, label: u }))}
-            />
-          </div>
-        )}
-        <Preview name={name} type={previewType} unit={unit} />
+        <Preview name={name} type={previewType} />
 
         <div className="mb-1.5 mt-5 text-[12px] text-muted-foreground">Used in categories</div>
         <div className="flex flex-wrap gap-2">

@@ -563,7 +563,6 @@ type AttrSample = {
   name: string;
   nameAr: string;
   previewType: T.AttributePreviewType;
-  unit?: string;
   categories: string[];
   status: string;
   /** [id, value, Arabic, products using it, colour?] */
@@ -588,8 +587,7 @@ const ATTRIBUTES: AttrSample[] = [
     id: "size",
     name: "Size",
     nameAr: "الحجم",
-    previewType: "NUMBER",
-    unit: "ml",
+    previewType: "TEXT",
     categories: ["Fragrance", "Beauty"],
     status: "Active",
     values: [
@@ -661,7 +659,6 @@ export const mockAttributes = (): T.AttributeRow[] =>
     id: a.id,
     name: a.name,
     nameAr: a.nameAr,
-    unit: a.unit ?? "ml",
     categories: a.categories,
     previewType: a.previewType,
     status: tag(a.status),
