@@ -4,7 +4,8 @@ import { useState } from "react";
 import { brandsQuery, categoriesQuery, productsQuery } from "@/lib/api/sections.functions";
 import { cn } from "@/lib/utils";
 import { Button, PageHeader, Pager } from "@/components/admin/page";
-import { useCatalogue } from "@/components/admin/CatalogueFlow";
+import { toast } from "sonner";
+import { setCategoryOrder, useCatalogue } from "@/components/admin/CatalogueFlow";
 import { MixBar, useVisibility } from "@/components/admin/CatalogueUi";
 
 const TILE = [
@@ -26,6 +27,17 @@ export default function CategoriesPage() {
   const vis = useVisibility();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(8);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  /** Moves a card to where another one is; the menu and homepage follow this order. */
+  const move = (from: string, to: string) => {
+    if (from === to) return;
+    const ids = live.categories.map((c) => c.id);
+    ids.splice(ids.indexOf(from), 1);
+    ids.splice(ids.indexOf(to), 0, from);
+    setCategoryOrder(ids);
+    toast("Order saved — the website menu and homepage follow it");
+  };
   const cur = Math.min(page, Math.max(1, Math.ceil(live.categories.length / pageSize)));
   const shown = live.categories.slice((cur - 1) * pageSize, cur * pageSize);
 
@@ -45,17 +57,55 @@ export default function CategoriesPage() {
           </>
         }
       />
+      <p className="mb-3 text-[12.5px] text-muted-foreground">
+        ⋮⋮ Drag a card by its handle onto another to change the order. The website menu and homepage
+        follow this order.
+      </p>
       <div className="grid gap-[18px] sm:grid-cols-2 lg:grid-cols-3 min-[1300px]:grid-cols-4">
         {shown.map((c) => {
           const list = live.products.filter((p) => p.category === c.name);
           return (
             <div
               key={c.id}
+              data-card
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                setOverId(c.id);
+              }}
+              onDrop={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                move(dragId, c.id);
+                setDragId(null);
+                setOverId(null);
+              }}
               className={cn(
-                "overflow-hidden rounded-[10px] border bg-surface transition",
+                "relative overflow-hidden rounded-[10px] border bg-surface transition",
                 c.visible ? "border-border hover:border-primary" : "border-dashed border-border",
+                dragId === c.id && "opacity-40",
+                overId === c.id &&
+                  dragId !== c.id &&
+                  "outline-2 outline-dashed outline-offset-2 outline-primary",
               )}
             >
+              <span
+                draggable
+                title="Drag to change the order"
+                onDragStart={(e) => {
+                  setDragId(c.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  const card = e.currentTarget.closest("[data-card]");
+                  if (card) e.dataTransfer.setDragImage(card as HTMLElement, 24, 24);
+                }}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setOverId(null);
+                }}
+                className="absolute left-2.5 top-2.5 z-10 grid size-7 cursor-grab place-items-center rounded-md bg-white/90 text-[14px] leading-none text-black shadow active:cursor-grabbing"
+              >
+                ⋮⋮
+              </span>
               <Link to="/categories/$categoryId" params={{ categoryId: c.id }}>
                 <div
                   className={cn("relative aspect-[4/3]", !c.visible && "opacity-45 grayscale")}

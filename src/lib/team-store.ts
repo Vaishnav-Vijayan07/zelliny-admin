@@ -37,7 +37,15 @@ export const ACTIONS: { key: string; label: string; hint: string }[] = [
     hint: "When off, they are hidden — the Email and Call buttons still work",
   },
   { key: "export", label: "Download to Excel", hint: "When off, there are no download buttons" },
+  {
+    key: "values",
+    label: "See deal values",
+    hint: "When off, closed deals show the number of deals but no money amounts",
+  },
 ];
+/** Whether the signed-in role may take this action (see the Role page in Team & permissions). */
+export const canDo = (roleName: string | null | undefined, key: string) =>
+  !!roles.find((r) => r.name === roleName)?.actions[key];
 /** Sections a role can be given, grouped like the menu. */
 export const SECTION_GROUPS = APP_PAGES.map((g) => ({
   title: g.title,
@@ -92,7 +100,7 @@ let roles: Role[] = [
       ],
       ["reports", "activity", "payments", "delivery"],
     ),
-    actions: acts("contact"),
+    actions: acts("contact", "values"),
   },
   {
     id: "desk",

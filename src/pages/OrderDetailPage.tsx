@@ -2,13 +2,14 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { orderQuery, returnsQuery } from "@/lib/api/sections.functions";
+import { enquiriesQuery, orderQuery, returnsQuery } from "@/lib/api/sections.functions";
 import { useReturns } from "@/components/admin/ReturnFlow";
 import type { OrderDetail, OrderEvent } from "@/lib/api/section-types";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Chip, Panel, StatusBadge } from "@/components/admin/primitives";
 import { Button, PageHeader } from "@/components/admin/page";
+import { useStickyFit } from "@/components/admin/useStickyFit";
 import {
   applyEdit,
   isAppt,
@@ -337,8 +338,38 @@ function History({ events, onNote }: { events: OrderEvent[]; onNote: (t: string)
   );
 }
 
-export default function OrderDetailPage({ orderId }: { orderId: string }) {
+export default function OrderDetailPage({
+  orderId,
+  from,
+}: {
+  orderId: string;
+  from?: string | undefined;
+}) {
   const { data: fromApi } = useSuspenseQuery(orderQuery(orderId));
+  const { data: enq } = useSuspenseQuery(enquiriesQuery());
+  const fromEnq = from ? enq.rows.find((x) => x.id === from) : undefined;
+  const sideRef = useStickyFit(84);
+  // Opened from a corporate enquiry: Corporate enquiries / ENQ-314 · Company / Order …
+  const crumb = fromEnq ? (
+    <div className="mb-2 text-[12px] text-muted-foreground">
+      <Link
+        to="/$section"
+        params={{ section: "enquiries" }}
+        className="underline underline-offset-[3px]"
+      >
+        Corporate enquiries
+      </Link>{" "}
+      /{" "}
+      <Link
+        to="/enquiries/$enquiryId"
+        params={{ enquiryId: fromEnq.id }}
+        className="underline underline-offset-[3px]"
+      >
+        {fromEnq.id} · {fromEnq.company}
+      </Link>{" "}
+      / Order {orderId}
+    </div>
+  ) : null;
   const { data: returnsData } = useSuspenseQuery(returnsQuery());
   const returns = useReturns(returnsData.rows);
   const data = useCreatedOrders().find((x) => x.id === orderId) ?? fromApi;
@@ -348,15 +379,18 @@ export default function OrderDetailPage({ orderId }: { orderId: string }) {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-md py-24 text-center">
-        <h1 className="text-[28px]">Order not found</h1>
-        <p className="mt-2 text-muted-foreground">
-          There is no order {orderId}.{" "}
-          <Link to="/$section" params={{ section: "orders" }} className="underline">
-            Back to Orders
-          </Link>
-        </p>
-      </div>
+      <>
+        {crumb}
+        <div className="mx-auto max-w-md py-24 text-center">
+          <h1 className="text-[28px]">Order not found</h1>
+          <p className="mt-2 text-muted-foreground">
+            There is no order {orderId}.{" "}
+            <Link to="/$section" params={{ section: "orders" }} className="underline">
+              Back to Orders
+            </Link>
+          </p>
+        </div>
+      </>
     );
   }
   const e = edits[data.id];
@@ -370,16 +404,18 @@ export default function OrderDetailPage({ orderId }: { orderId: string }) {
 
   return (
     <>
-      <div className="mb-2 text-[12px] text-muted-foreground">
-        <Link
-          to="/$section"
-          params={{ section: "orders" }}
-          className="underline underline-offset-[3px]"
-        >
-          Orders
-        </Link>{" "}
-        / {o.id}
-      </div>
+      {crumb ?? (
+        <div className="mb-2 text-[12px] text-muted-foreground">
+          <Link
+            to="/$section"
+            params={{ section: "orders" }}
+            className="underline underline-offset-[3px]"
+          >
+            Orders
+          </Link>{" "}
+          / {o.id}
+        </div>
+      )}
       <PageHeader
         title={`Order ${o.id}`}
         subtitle={
@@ -406,7 +442,7 @@ export default function OrderDetailPage({ orderId }: { orderId: string }) {
       />
       <Flow o={o} />
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-5">
           <Panel title="Items">
             {o.lines.map((l) => (
@@ -450,7 +486,7 @@ export default function OrderDetailPage({ orderId }: { orderId: string }) {
               }}
             />
           </Panel>
-          <Panel title="Payment">
+          <Panel title="Payment" className="lg:flex-1">
             <Kv
               rows={[
                 ["Method", o.payment],
@@ -475,127 +511,130 @@ export default function OrderDetailPage({ orderId }: { orderId: string }) {
           </Panel>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-5">
-          <Panel title="Customer">
-            <Link
-              to="/customers/$customerId"
-              params={{ customerId: c.id }}
-              className="mb-3 flex items-center gap-3 hover:underline"
-            >
-              <span className="grid size-[34px] place-items-center rounded-full bg-hover text-[12px] font-semibold">
-                {c.name
-                  .split(" ")
-                  .map((w) => w[0])
-                  .slice(0, 2)
-                  .join("")}
-              </span>
-              <div>
-                <b className="font-medium">{c.name}</b>
-                <span className="block text-[12px] text-muted-foreground">
-                  {c.orders} orders · {formatMoney(c.spent)}
+        {/* Stretches to the full height of the row; the inner column stays in view while the left side scrolls. */}
+        <div className="min-w-0">
+          <div ref={sideRef} className="flex flex-col gap-5 lg:sticky lg:top-[84px]">
+            <Panel title="Customer">
+              <Link
+                to="/customers/$customerId"
+                params={{ customerId: c.id }}
+                className="mb-3 flex items-center gap-3 hover:underline"
+              >
+                <span className="grid size-[34px] place-items-center rounded-full bg-hover text-[12px] font-semibold">
+                  {c.name
+                    .split(" ")
+                    .map((w) => w[0])
+                    .slice(0, 2)
+                    .join("")}
                 </span>
-              </div>
-            </Link>
-            <Kv
-              rows={[
-                ["Email", c.email],
-                ["Phone", c.phone],
-              ]}
-            />
-          </Panel>
-          <Panel title="Delivery">
-            <Kv
-              rows={[
-                [
-                  "Method",
-                  isAppt(o)
-                    ? "By appointment · our team"
-                    : o.fulfilment === "Pickup"
-                      ? "Collect from Zelliny office"
-                      : "Courier",
-                ],
-                ["Zone", o.fulfilment === "Pickup" ? "—" : o.zone],
-                [
-                  "Address",
-                  o.fulfilment === "Pickup"
-                    ? "12 Dr. Zakaria El Bardisi St., El Nozha El Gedida"
-                    : o.address,
-                ],
-                ["Appointment", isAppt(o) ? (o.appointment ?? "Not booked yet") : "—"],
-              ]}
-            />
-          </Panel>
-          {o.fulfilment === "Courier" && (
-            <Panel title="Courier · Bosta">
-              {o.awb ? (
-                <>
-                  <div className="mb-3">
-                    <div className="text-[11px] uppercase tracking-[.14em] text-muted-foreground">
-                      Airway bill (AWB)
-                    </div>
-                    <span className="font-head text-[20px]">{o.awb}</span>
-                    <span className="ml-1.5 rounded-full bg-info-bg px-2 py-0.5 text-[10.5px] text-info">
-                      From Bosta · automatic
-                    </span>
-                  </div>
-                  <Kv
-                    rows={[
-                      [
-                        "Tracking link",
-                        <button
-                          key="l"
-                          type="button"
-                          onClick={soon("Bosta tracking")}
-                          className="underline"
-                        >
-                          bosta.co/track/{o.awb.replace("BST-", "")}
-                        </button>,
-                      ],
-                      ["Cash to collect", isCOD(o) ? formatMoney(o.total) : "None — prepaid"],
-                    ]}
-                  />
-                  <div className="mt-2.5 border-t border-line-soft pt-2.5">
-                    {bosta.length ? (
-                      bosta
-                        .slice()
-                        .reverse()
-                        .map((x, i) => (
-                          <div key={i} className="flex gap-2.5 py-1 text-[12.5px]">
-                            <i className="mt-1.5 size-[7px] flex-none rounded-full bg-info" />
-                            {x.text}
-                            <span className="ml-auto whitespace-nowrap text-[11.5px] text-muted-foreground">
-                              {x.when}
-                            </span>
-                          </div>
-                        ))
-                    ) : (
-                      <div className="text-[12.5px] text-muted-foreground">
-                        No updates from Bosta yet.
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="rounded-lg border border-dashed border-line2 p-3.5 text-center text-[13px] text-muted-foreground">
-                  No tracking number yet.
-                  <br />
-                  It arrives from Bosta when the pickup is booked.
+                <div>
+                  <b className="font-medium">{c.name}</b>
+                  <span className="block text-[12px] text-muted-foreground">
+                    {c.orders} orders · {formatMoney(c.spent)}
+                  </span>
                 </div>
-              )}
-              <p className="mt-2.5 text-[12px] text-muted-foreground">
-                Filled in automatically by the Bosta connection.
-              </p>
+              </Link>
+              <Kv
+                rows={[
+                  ["Email", c.email],
+                  ["Phone", c.phone],
+                ]}
+              />
             </Panel>
-          )}
-          <Panel title="Gift options">
-            <Kv
-              rows={[
-                ["Gift wrap", o.gift.wrap],
-                ["Gift message", `"${o.gift.message}"`],
-                ["Hide prices on invoice", o.gift.hidePrices ? "Yes" : "No"],
-              ]}
-            />
-          </Panel>
+            <Panel title="Delivery">
+              <Kv
+                rows={[
+                  [
+                    "Method",
+                    isAppt(o)
+                      ? "By appointment · our team"
+                      : o.fulfilment === "Pickup"
+                        ? "Collect from Zelliny office"
+                        : "Courier",
+                  ],
+                  ["Zone", o.fulfilment === "Pickup" ? "—" : o.zone],
+                  [
+                    "Address",
+                    o.fulfilment === "Pickup"
+                      ? "12 Dr. Zakaria El Bardisi St., El Nozha El Gedida"
+                      : o.address,
+                  ],
+                  ["Appointment", isAppt(o) ? (o.appointment ?? "Not booked yet") : "—"],
+                ]}
+              />
+            </Panel>
+            {o.fulfilment === "Courier" && (
+              <Panel title="Courier · Bosta">
+                {o.awb ? (
+                  <>
+                    <div className="mb-3">
+                      <div className="text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+                        Airway bill (AWB)
+                      </div>
+                      <span className="font-head text-[20px]">{o.awb}</span>
+                      <span className="ml-1.5 rounded-full bg-info-bg px-2 py-0.5 text-[10.5px] text-info">
+                        From Bosta · automatic
+                      </span>
+                    </div>
+                    <Kv
+                      rows={[
+                        [
+                          "Tracking link",
+                          <button
+                            key="l"
+                            type="button"
+                            onClick={soon("Bosta tracking")}
+                            className="underline"
+                          >
+                            bosta.co/track/{o.awb.replace("BST-", "")}
+                          </button>,
+                        ],
+                        ["Cash to collect", isCOD(o) ? formatMoney(o.total) : "None — prepaid"],
+                      ]}
+                    />
+                    <div className="mt-2.5 border-t border-line-soft pt-2.5">
+                      {bosta.length ? (
+                        bosta
+                          .slice()
+                          .reverse()
+                          .map((x, i) => (
+                            <div key={i} className="flex gap-2.5 py-1 text-[12.5px]">
+                              <i className="mt-1.5 size-[7px] flex-none rounded-full bg-info" />
+                              {x.text}
+                              <span className="ml-auto whitespace-nowrap text-[11.5px] text-muted-foreground">
+                                {x.when}
+                              </span>
+                            </div>
+                          ))
+                      ) : (
+                        <div className="text-[12.5px] text-muted-foreground">
+                          No updates from Bosta yet.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-line2 p-3.5 text-center text-[13px] text-muted-foreground">
+                    No tracking number yet.
+                    <br />
+                    It arrives from Bosta when the pickup is booked.
+                  </div>
+                )}
+                <p className="mt-2.5 text-[12px] text-muted-foreground">
+                  Filled in automatically by the Bosta connection.
+                </p>
+              </Panel>
+            )}
+            <Panel title="Gift options">
+              <Kv
+                rows={[
+                  ["Gift wrap", o.gift.wrap],
+                  ["Gift message", `"${o.gift.message}"`],
+                  ["Hide prices on invoice", o.gift.hidePrices ? "Yes" : "No"],
+                ]}
+              />
+            </Panel>
+          </div>
         </div>
       </div>
 

@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 export type RangeKey =
-  "" | "today" | "7d" | "30d" | "90d" | "ytd" | "month" | "lastMonth" | "custom";
+  "" | "today" | "week" | "7d" | "30d" | "90d" | "ytd" | "month" | "lastMonth" | "custom";
 
 export interface DateFilter {
   key: RangeKey;
@@ -34,6 +34,8 @@ function presetRange(key: RangeKey): { from: Date; to: Date } | null {
   switch (key) {
     case "today":
       return { from: today, to: today };
+    case "week":
+      return { from: new Date(y, m, today.getDate() - ((today.getDay() + 6) % 7)), to: today };
     case "7d":
       return { from: new Date(y, m, today.getDate() - 6), to: today };
     case "30d":
@@ -69,24 +71,42 @@ export function inDateFilter(dateText: string, f: DateFilter): boolean {
   return d >= day(r.from).getTime() && d <= day(r.to ?? r.from).getTime();
 }
 
+const EXTRA_PRESETS: { key: Exclude<RangeKey, "" | "custom">; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "week", label: "This week" },
+  { key: "month", label: "This month" },
+  { key: "lastMonth", label: "Last month" },
+  { key: "7d", label: "Last 7 days" },
+  { key: "30d", label: "Last 30 days" },
+  { key: "90d", label: "Last 90 days" },
+  { key: "ytd", label: "Year to date" },
+];
+
 export function DateRangeFilter({
   value,
   onChange,
+  allLabel = "All dates",
+  extended,
 }: {
   value: DateFilter;
   onChange: (v: DateFilter) => void;
+  /** Text for "no date limit", e.g. "All time". */
+  allLabel?: string;
+  /** Offers this week, 90 days and year to date as well. */
+  extended?: boolean;
 }) {
+  const presets = extended ? EXTRA_PRESETS : PRESETS;
   const [open, setOpen] = useState(false);
   const [showCal, setShowCal] = useState(false);
   const [draft, setDraft] = useState<DateRange | undefined>();
 
   const label = !value.key
-    ? "All dates"
+    ? allLabel
     : value.key === "custom"
       ? value.from
         ? `${fmt(value.from)}${value.to ? ` – ${fmt(value.to)}` : ""}`
         : "Custom range"
-      : (PRESETS.find((p) => p.key === value.key)?.label ?? rangeLabel(value));
+      : (presets.find((p) => p.key === value.key)?.label ?? rangeLabel(value));
 
   const pick = (v: DateFilter) => {
     onChange(v);
@@ -117,7 +137,7 @@ export function DateRangeFilter({
       <PopoverContent align="start" className="w-auto p-0">
         <div className="flex flex-col sm:flex-row">
           <div className="flex flex-row flex-wrap gap-1 border-b border-border p-2 sm:w-[150px] sm:flex-col sm:border-b-0 sm:border-r">
-            {[{ key: "" as const, label: "All dates" }, ...PRESETS].map((p) => (
+            {[{ key: "" as const, label: allLabel }, ...presets].map((p) => (
               <button
                 key={p.key}
                 type="button"
@@ -188,16 +208,19 @@ const TABS: { key: "today" | "7d" | "30d" | "90d" | "ytd"; label: string }[] = [
 export function rangeLabel(f: DateFilter): string {
   if (f.key === "custom")
     return f.from ? `${fmt(f.from)}${f.to ? ` – ${fmt(f.to)}` : ""}` : "Custom";
-  return TABS.find((t) => t.key === f.key)?.label ?? "All dates";
+  return TABS.find((t) => t.key === f.key)?.label ?? "All time";
 }
 
 /** Segmented Today · 7d · 30d · 90d · YTD · Custom control (same look as the Dashboard). */
 export function RangeTabs({
   value,
   onChange,
+  allTime,
 }: {
   value: DateFilter;
   onChange: (v: DateFilter) => void;
+  /** Adds an "All time" button in front (no date limit). */
+  allTime?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<DateRange | undefined>();
@@ -207,6 +230,15 @@ export function RangeTabs({
   const custom = value.key === "custom";
   return (
     <div className="flex rounded-[10px] border border-border bg-surface p-1">
+      {allTime && (
+        <button
+          type="button"
+          onClick={() => onChange(NO_DATE_FILTER)}
+          className={cn(tab, "whitespace-nowrap", !value.key ? on : off)}
+        >
+          All time
+        </button>
+      )}
       {TABS.map((t) => (
         <button
           key={t.key}

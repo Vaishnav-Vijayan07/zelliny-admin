@@ -13,6 +13,7 @@ import { formatMoney, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Chip, Panel, Thumb, Toggle } from "@/components/admin/primitives";
 import { Button, PageHeader } from "@/components/admin/page";
+import { useStickyFit } from "@/components/admin/useStickyFit";
 import { useCustomers } from "@/components/admin/CustomerFlow";
 import { editEnquiry, quoteTotal, setStage, useEnquiries } from "@/components/admin/EnquiryFlow";
 import {
@@ -204,6 +205,7 @@ export default function NewOrderPage({
   const user = useSessionUser();
   const navigate = useNavigate();
   const zone0 = data.zones[0]?.name ?? "";
+  const sideRef = useStickyFit(84);
 
   const [f, setF] = useState<Form>(() => {
     const local = localDrafts.find((d) => d.id === draftId);
@@ -833,7 +835,7 @@ export default function NewOrderPage({
         </div>
 
         {/* Side: details + summary */}
-        <div className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-[84px] lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
+        <div ref={sideRef} className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-[84px]">
           <Panel title="Order details">
             <div className="flex flex-col gap-3.5">
               <Field label="Order came from">

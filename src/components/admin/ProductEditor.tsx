@@ -5,12 +5,14 @@ import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { attributesQuery } from "@/lib/api/sections.functions";
-import { useAttributes } from "@/components/admin/AttributeFlow";
+import { PREVIEW_LABEL, useAttributes, valueLabel } from "@/components/admin/AttributeFlow";
 import type { ProductRow } from "@/lib/api/section-types";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ModeSwitch, StatusBadge, Toggle } from "@/components/admin/primitives";
 import { addProduct, deleteProduct, editProduct, statusOf } from "@/components/admin/ProductFlow";
+import { SearchSelect } from "@/components/admin/SearchSelect";
+import { useStickyFit } from "@/components/admin/useStickyFit";
 import {
   Dialog,
   DialogContent,
@@ -126,6 +128,11 @@ function Input({
   placeholder,
   rtl,
   readOnly,
+  id,
+  type,
+  min,
+  bad,
+  noSpin,
 }: {
   value?: string;
   defaultValue?: string;
@@ -133,16 +140,32 @@ function Input({
   placeholder?: string;
   rtl?: boolean;
   readOnly?: boolean;
+  id?: string;
+  type?: string;
+  min?: number;
+  /** Red border — a required field that was missing. */
+  bad?: boolean;
+  /** Hides the up/down arrows of a number field. */
+  noSpin?: boolean;
 }) {
   return (
     <input
+      id={id}
+      type={type}
+      min={min}
       value={value}
       defaultValue={defaultValue}
       readOnly={readOnly}
       onChange={onChange && ((e) => onChange(e.target.value))}
       placeholder={placeholder}
       dir={rtl ? "rtl" : undefined}
-      className={cn(inputCls, rtl && "text-right")}
+      className={cn(
+        inputCls,
+        rtl && "text-right",
+        bad && "border-bad bg-bad-bg",
+        noSpin &&
+          "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+      )}
     />
   );
 }
@@ -180,6 +203,9 @@ function Bilingual({
   rows,
   onEn,
   onAr,
+  req,
+  keys,
+  flag,
 }: {
   label: string;
   en: string;
@@ -187,6 +213,11 @@ function Bilingual({
   rows?: number;
   onEn?: (v: string) => void;
   onAr?: (v: string) => void;
+  /** The English text is required. */
+  req?: boolean;
+  /** Field names, used as ids so a "missing" link can jump to the field. */
+  keys?: [string, string];
+  flag?: string[];
 }) {
   const lang = (t: string, dark: boolean) => (
     <span
@@ -198,9 +229,12 @@ function Bilingual({
       {t}
     </span>
   );
-  const box = (v: string, on: ((v: string) => void) | undefined, ar: boolean) => {
+  const box = (v: string, on: ((v: string) => void) | undefined, isAr: boolean) => {
+    const key = keys?.[isAr ? 1 : 0];
+    const bad = !!key && !!flag?.includes(key);
     const common = {
-      dir: ar ? "rtl" : undefined,
+      ...(key && { id: `f_${key}` }),
+      dir: isAr ? "rtl" : undefined,
       ...(on
         ? { value: v, onChange: (e: { target: { value: string } }) => on(e.target.value) }
         : { defaultValue: v }),
@@ -211,16 +245,23 @@ function Bilingual({
         {...common}
         className={cn(
           "w-full min-w-0 resize-y rounded-lg border border-border bg-surface px-3 py-2.5 text-[14px] leading-normal outline-none focus:border-primary",
-          ar && "text-right",
+          isAr && "text-right",
+          bad && "border-bad bg-bad-bg",
         )}
       />
     ) : (
-      <input {...common} className={cn(inputCls, ar && "text-right")} />
+      <input
+        {...common}
+        className={cn(inputCls, isAr && "text-right", bad && "border-bad bg-bad-bg")}
+      />
     );
   };
   return (
     <div className="mb-1.5">
-      <div className="mb-2 text-[13px] font-medium">{label}</div>
+      <div className="mb-2 text-[13px] font-medium">
+        {label}
+        {req && <em className="ml-1 not-italic text-bad">*</em>}
+      </div>
       <div className="grid gap-3.5 sm:grid-cols-2">
         <Field label={<>{lang("EN", true)} English</>}>{box(en, onEn, false)}</Field>
         <Field label={<>{lang("AR", false)} العربية</>}>{box(ar, onAr, true)}</Field>
@@ -242,6 +283,43 @@ function ToggleRow({ label, hint, initial }: { label: string; hint?: string; ini
     </div>
   );
 }
+
+/** Like ToggleRow, but the page owns the state (so switches can affect each other). */
+function SwitchRow({
+  label,
+  hint,
+  on,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  on: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3.5 border-b border-line-soft py-2.5 last:border-b-0">
+      <div>
+        <div className="text-[13.5px]">{label}</div>
+        {hint && (
+          <div className="mt-0.5 max-w-[520px] text-[12px] text-muted-foreground">{hint}</div>
+        )}
+      </div>
+      <Toggle on={on} onChange={onChange} label={label} />
+    </div>
+  );
+}
+
+const slugify = (n: string) =>
+  n
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[’'`]/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "new-product";
+
+type Gap = { key: string; label: string; tab: ProductTab };
 
 /** "Gift wrapping is live / switched off on the whole site" — the switch itself is only in Gift services. */
 function FeatureNote({ name, live }: { name: string; live: boolean }) {
@@ -306,25 +384,60 @@ export function ProductEditor({
   const navigate = useNavigate();
   const isNew = !product;
   const [tab, setTab] = useState<ProductTab>(initialTab);
-  const [p, setP] = useState(() =>
-    product
+  const sideRef = useStickyFit(84);
+  const [p, setP] = useState(() => {
+    const common = {
+      weight: "450",
+      length: "",
+      width: "",
+      height: "",
+      minQty: "1",
+      corp: false,
+      hideOut: false,
+      toEnq: false,
+      seoTitleEn: "",
+      seoTitleAr: "",
+      metaEn: "",
+      metaAr: "",
+      url: "",
+      urlEdited: false,
+    };
+    return product
       ? {
+          ...common,
           en: product.name,
           ar: product.nameAr,
+          shortEn: "A warm, woody signature — vetiver, orange and flint.",
+          shortAr: "توقيع دافئ خشبي — نجيل الهند والبرتقال والصوان.",
+          fullEn: `${product.name} — authentic, from ${product.brand}.`,
+          fullAr: "",
+          notesEn: "Authentic, sealed",
+          notesAr: "",
+          altEn: product.name,
+          altAr: product.nameAr,
           brand: product.brand,
           category: product.category,
           gender: product.gender as string,
           mode: (product.mode === "Add to Cart" ? "cart" : "enq") as Mode,
-          price: product.price ? formatNumber(product.price) : "",
-          offer: product.offer ? formatNumber(product.offer) : "",
+          price: product.price ? String(product.price) : "",
+          offer: product.offer ? String(product.offer) : "",
           sku: product.sku,
           stock: String(product.stock),
           visible: product.visible,
-          status: product.isDraft ? "Draft" : "Published",
+          draft: product.isDraft,
         }
       : {
+          ...common,
           en: "",
           ar: "",
+          shortEn: "",
+          shortAr: "",
+          fullEn: "",
+          fullAr: "",
+          notesEn: "",
+          notesAr: "",
+          altEn: "",
+          altAr: "",
           brand: brands.includes("Hermès") ? "Hermès" : (brands[0] ?? ""),
           category: categories.includes("Fragrance") ? "Fragrance" : (categories[0] ?? ""),
           gender: "Unisex",
@@ -334,25 +447,34 @@ export function ProductEditor({
           sku: "",
           stock: "0",
           visible: false,
-          status: "Draft",
-        },
-  );
+          draft: true,
+        };
+  });
+  /** Fields shown in red after a "required missing" link was followed. */
+  const [flag, setFlag] = useState<string[]>([]);
   const set =
     <K extends keyof typeof p>(k: K) =>
-    (v: (typeof p)[K]) =>
+    (v: (typeof p)[K]) => {
       setP((x) => ({ ...x, [k]: v }));
+      setFlag((f) => (f.includes(k as string) ? f.filter((y) => y !== k) : f));
+    };
   const [imgs, setImgs] = useState<Img[]>(() =>
     product ? Array.from({ length: product.imageCount }, (_, v) => ({ c: product.color, v })) : [],
   );
   const { data: attrData } = useSuspenseQuery(attributesQuery());
+  // Only attributes meant for this product's category (none ticked = offered everywhere).
   const attributes = useAttributes(attrData).filter(
-    (a) => a.status.label !== "Inactive" && a.values.length > 0,
+    (a) =>
+      a.status.label !== "Inactive" &&
+      a.values.length > 0 &&
+      (a.categories.length === 0 || a.categories.includes(p.category)),
   );
   const [productType, setProductType] = useState<"simple" | "variable">("simple");
   /** attribute id → ticked value ids */
   const [attrSel, setAttrSel] = useState<Record<string, string[]>>({});
   const [variants, setVariants] = useState<Variant[]>([]);
-  const [publishDate, setPublishDate] = useState("");
+  const [gate, setGate] = useState<{ kind: "req" | "opt"; list: Gap[] } | null>(null);
+  const [published, setPublished] = useState<string | null>(null);
   const [askPrice, setAskPrice] = useState(false);
   const [priceInput, setPriceInput] = useState("");
   const [askDelete, setAskDelete] = useState(false);
@@ -395,7 +517,7 @@ export function ProductEditor({
       combos = combos.flatMap((c) =>
         vals.map((v) => ({
           key: c.key ? `${c.key}|${v.id}` : v.id,
-          label: c.label ? `${c.label} / ${v.value}` : v.value,
+          label: c.label ? `${c.label} / ${valueLabel(a, v)}` : valueLabel(a, v),
         })),
       );
     });
@@ -456,11 +578,11 @@ export function ProductEditor({
 
   /* save / publish / duplicate / delete */
   const fields = (publish: boolean): Omit<ProductRow, "id"> => {
-    const isDraft = publish ? false : p.status === "Draft";
+    const isDraft = publish ? false : p.draft;
     const stock = totalStock;
     return {
       sku: (isVariable ? (variants[0]?.sku ?? p.sku) : p.sku).trim(),
-      name: p.en.trim(),
+      name: p.en.trim() || "Untitled product",
       nameAr: p.ar.trim(),
       brand: p.brand,
       category: p.category,
@@ -473,56 +595,86 @@ export function ProductEditor({
       enquiries: product?.enquiries ?? 0,
       status: statusOf(stock, isDraft),
       color: product?.color ?? "#e8e8e8",
-      visible: publish ? true : p.visible,
+      // A draft never goes on the site; Publish always does.
+      visible: publish ? true : isDraft ? false : p.visible,
       imageCount: imgs.length,
       hiddenBy: product?.hiddenBy ?? null,
       isDraft,
     };
   };
-  const save = (publish: boolean) => {
-    if (!p.en.trim()) {
-      setTab("General");
-      toast("Add the English product name first");
-      return;
-    }
-    if (publish && !isVariable && !p.sku.trim()) {
-      setTab("General");
-      toast("Add the SKU before publishing");
-      return;
-    }
-    if (p.status === "Scheduled" && !publishDate) {
-      toast("Choose the date this product goes live");
-      return;
-    }
-    if (isVariable && !variants.length) {
-      setTab("Price & action");
-      toast("Generate the combinations for this variable product");
-      return;
-    }
-    if (isVariable && variants.some((v) => !v.sku.trim())) {
-      setTab("Price & action");
-      toast("Every combination needs a SKU");
-      return;
-    }
-    if (publish && isCart && (isVariable ? variants.some((v) => !toNum(v.price)) : !price)) {
-      setTab("Price & action");
-      toast(
-        isVariable
-          ? "Every combination needs a price"
-          : "Add to Cart needs a price — set one, or switch to Enquiry",
-      );
-      return;
-    }
+  /** What is still empty: required (blocks Publish) and optional (just a reminder). */
+  const gaps = (): { req: Gap[]; opt: Gap[] } => {
+    const g = (key: string, label: string, tab: ProductTab): Gap => ({ key, label, tab });
+    const req: Gap[] = [];
+    if (!p.en.trim()) req.push(g("en", "Product name (English)", "General"));
+    if (!p.shortEn.trim()) req.push(g("shortEn", "Short description (English)", "General"));
+    if (!p.fullEn.trim()) req.push(g("fullEn", "Full description (English)", "General"));
+    if (!p.notesEn.trim()) req.push(g("notesEn", "Notes / key details (English)", "General"));
+    if (!isVariable && !p.sku.trim()) req.push(g("sku", "SKU", "General"));
+    if (isVariable && (!variants.length || variants.some((v) => !v.sku.trim())))
+      req.push(g("variants", "SKU for every combination", "Price & action"));
+    if (!p.brand) req.push(g("brand", "Maison", "General"));
+    if (!p.category) req.push(g("category", "Category", "General"));
+    if (!p.gender) req.push(g("gender", "Gender", "General"));
+    if (isCart && (isVariable ? !variants.length || variants.some((v) => !toNum(v.price)) : !price))
+      req.push(g(isVariable ? "variants" : "price", "Price", "Price & action"));
+    if (!isVariable && !p.stock.trim()) req.push(g("stock", "Stock on hand", "Price & action"));
+    if (!(toNum(p.minQty) >= 1))
+      req.push(g("minQty", "Enquiry minimum quantity", "Price & action"));
+    if (!imgs.length) req.push(g("hero", "Hero image", "Images"));
+    if (!p.altEn.trim()) req.push(g("altEn", "Alt text (EN)", "Images"));
+    if (!p.weight.trim()) req.push(g("weight", "Weight", "Shipping"));
+    const opt: Gap[] = [];
+    if (!p.ar.trim()) opt.push(g("ar", "Product name (Arabic)", "General"));
+    if (!p.shortAr.trim()) opt.push(g("shortAr", "Short description (Arabic)", "General"));
+    if (!p.fullAr.trim()) opt.push(g("fullAr", "Full description (Arabic)", "General"));
+    if (!p.notesAr.trim()) opt.push(g("notesAr", "Notes / key details (Arabic)", "General"));
+    if (!p.altAr.trim()) opt.push(g("altAr", "Alt text (AR)", "Images"));
+    if (!p.ar.trim() && !p.seoTitleAr.trim() && !p.metaAr.trim())
+      opt.push(g("seoTitleAr", "Page title & meta description (Arabic)", "SEO"));
+    if (!p.length.trim()) opt.push(g("length", "Length", "Shipping"));
+    if (!p.width.trim()) opt.push(g("width", "Width", "Shipping"));
+    if (!p.height.trim()) opt.push(g("height", "Height", "Shipping"));
+    return { req, opt };
+  };
+  /** Follows a "missing" link: opens its tab, marks the empty fields red and scrolls to the field. */
+  const goField = (tab: ProductTab, key: string) => {
+    const { req, opt } = gaps();
+    setGate(null);
+    setTab(tab);
+    setFlag([...req, ...opt].filter((x) => x.tab === tab).map((x) => x.key));
+    setTimeout(() => {
+      const el = document.getElementById(`f_${key}`);
+      el?.scrollIntoView({ block: "center" });
+      el?.focus();
+    }, 60);
+  };
+  const commit = (publish: boolean) => {
     if (product) {
       editProduct(product.id, fields(publish));
-      if (publish) setP((x) => ({ ...x, status: "Published", visible: true }));
-      toast(publish ? "Product published" : "Saved");
+      if (publish) setP((x) => ({ ...x, draft: false, visible: true }));
+      else if (p.draft) setP((x) => ({ ...x, visible: false }));
+      if (publish) setPublished(product.id);
+      else toast("Saved");
       return;
     }
     const id = `P${9000 + Math.floor(Math.random() * 999)}`;
     addProduct({ id, ...fields(publish) });
-    toast(publish ? "Product published" : "Saved as draft");
+    if (publish) {
+      setPublished(id);
+      return;
+    }
+    toast("Saved as draft — not on the website");
     navigate({ to: "/products/$productId", params: { productId: id } });
+  };
+  /** Publish: required missing blocks it; optional missing is a reminder; then success. */
+  const save = (publish: boolean) => {
+    if (publish) {
+      const { req, opt } = gaps();
+      if (req.length) return setGate({ kind: "req", list: req });
+      if (opt.length) return setGate({ kind: "opt", list: opt });
+    }
+    commit(publish);
   };
   const duplicate = () => {
     if (!product) return;
@@ -667,21 +819,56 @@ export function ProductEditor({
   ) : (
     "—"
   );
-  const live = statusOf(totalStock, p.status === "Draft");
+  const live = statusOf(totalStock, p.draft);
+  const soldOut = isCart && !isVariable && toNum(p.stock) === 0 && !!price;
 
   const bodies: Record<ProductTab, ReactNode> = {
     General: (
       <>
         <Card title="Name & description">
-          <Bilingual label="Product name" en={p.en} ar={p.ar} onEn={set("en")} onAr={set("ar")} />
+          <Bilingual
+            label="Product name"
+            req
+            keys={["en", "ar"]}
+            flag={flag}
+            en={p.en}
+            ar={p.ar}
+            onEn={set("en")}
+            onAr={set("ar")}
+          />
           <Bilingual
             label="Short description (under the title)"
-            en={isNew ? "" : "A warm, woody signature — vetiver, orange and flint."}
-            ar={isNew ? "" : "توقيع دافئ خشبي — نجيل الهند والبرتقال والصوان."}
+            req
+            keys={["shortEn", "shortAr"]}
+            flag={flag}
+            en={p.shortEn}
+            ar={p.shortAr}
+            onEn={set("shortEn")}
+            onAr={set("shortAr")}
             rows={2}
           />
-          <Bilingual label="Full description" en="" ar="" rows={5} />
-          <Bilingual label="Notes / key details (bullet list)" en="" ar="" rows={3} />
+          <Bilingual
+            label="Full description"
+            req
+            keys={["fullEn", "fullAr"]}
+            flag={flag}
+            en={p.fullEn}
+            ar={p.fullAr}
+            onEn={set("fullEn")}
+            onAr={set("fullAr")}
+            rows={5}
+          />
+          <Bilingual
+            label="Notes / key details (bullet list)"
+            req
+            keys={["notesEn", "notesAr"]}
+            flag={flag}
+            en={p.notesEn}
+            ar={p.notesAr}
+            onEn={set("notesEn")}
+            onAr={set("notesAr")}
+            rows={3}
+          />
         </Card>
         <Card title="Identification">
           <Grid cols={2}>
@@ -690,7 +877,7 @@ export function ProductEditor({
               req={!isVariable}
               hint={isVariable ? "Each combination gets its own SKU in Price & action" : undefined}
             >
-              <Input value={p.sku} onChange={set("sku")} />
+              <Input id="f_sku" bad={flag.includes("sku")} value={p.sku} onChange={set("sku")} />
             </Field>
             <Field label="Barcode (EAN)">
               <Input defaultValue="3346131400423" />
@@ -700,15 +887,30 @@ export function ProductEditor({
         <Card title="Organisation">
           <Grid cols={2}>
             <Field label="Maison" req>
-              <Select value={p.brand} onChange={set("brand")} options={brands} />
+              <SearchSelect
+                id="f_brand"
+                value={p.brand}
+                onChange={set("brand")}
+                options={brands}
+                placeholder="Choose maison"
+                invalid={flag.includes("brand")}
+              />
             </Field>
             <Field label="Category" req>
-              <Select value={p.category} onChange={set("category")} options={categories} />
+              <SearchSelect
+                id="f_category"
+                value={p.category}
+                onChange={set("category")}
+                options={categories}
+                placeholder="Choose category"
+                invalid={flag.includes("category")}
+              />
             </Field>
           </Grid>
           <Grid cols={2}>
             <Field
               label="Gender"
+              req
               hint="Unisex products appear under both Women and Men on the site"
             >
               <Select
@@ -729,44 +931,6 @@ export function ProductEditor({
     ),
     "Price & action": (
       <>
-        <Card title="How this product sells">
-          <div className="mb-2.5 grid gap-3 lg:grid-cols-2">
-            {(
-              [
-                ["cart", "Add to Cart", "Price shown · customers buy online"],
-                [
-                  "enq",
-                  "Enquiry",
-                  "“Price on request” and a “Make an Enquiry” button · arrives in Corporate enquiries",
-                ],
-              ] as const
-            ).map(([m, t, d]) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={cn(
-                  "relative flex flex-col gap-1.5 rounded-[10px] border px-[18px] py-4 text-left transition",
-                  p.mode === m
-                    ? "border-primary shadow-[inset_0_0_0_1px_#0a0a0a]"
-                    : "border-border",
-                )}
-              >
-                <b className="font-head text-[18px] font-normal">{t}</b>
-                <span className="text-[12.5px] text-muted-foreground">{d}</span>
-                {p.mode === m && (
-                  <span className="absolute right-4 top-3.5 rounded-full bg-primary px-2 py-0.5 text-[11px] text-primary-foreground">
-                    ✓ Current
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          <p className="text-[12px] text-muted-foreground">
-            Set per product. To switch a whole maison or category at once, use Selling control — you
-            can always flip one product back here.
-          </p>
-        </Card>
         <Card title="Product type">
           <div className="mb-2.5 grid gap-3 lg:grid-cols-2">
             {(
@@ -804,17 +968,40 @@ export function ProductEditor({
         {!isVariable ? (
           <Card title="Price">
             <Grid cols={2}>
-              <Field label="Price" hint={"Shown as “7,850 EGP”"}>
-                <Input value={p.price} onChange={set("price")} />
+              <Field
+                label="Price"
+                req={isCart}
+                hint={
+                  toNum(p.price)
+                    ? `Shown as “${formatNumber(toNum(p.price))} EGP”`
+                    : "Shown to customers in EGP"
+                }
+              >
+                <Input
+                  id="f_price"
+                  type="number"
+                  min={0}
+                  noSpin
+                  bad={flag.includes("price")}
+                  value={p.price}
+                  onChange={set("price")}
+                />
               </Field>
               <Field label="Offer price" hint="Empty = no offer">
-                <Input value={p.offer} onChange={set("offer")} />
+                <Input type="number" min={0} noSpin value={p.offer} onChange={set("offer")} />
               </Field>
             </Grid>
             <ToggleRow initial label="Eligible for discount codes" />
             <ToggleRow initial label="Allow cash on delivery" />
-            <Field label="Stock on hand">
-              <Input value={p.stock} onChange={set("stock")} />
+            <Field label="Stock on hand" req>
+              <Input
+                id="f_stock"
+                type="number"
+                min={0}
+                bad={flag.includes("stock")}
+                value={p.stock}
+                onChange={set("stock")}
+              />
             </Field>
           </Card>
         ) : (
@@ -846,7 +1033,7 @@ export function ProductEditor({
                           />
                           {a.name}
                           <span className="text-[11px] font-normal text-muted-foreground">
-                            {a.previewType.toLowerCase()}
+                            {PREVIEW_LABEL[a.previewType].toLowerCase()}
                           </span>
                         </label>
                         {on && (
@@ -871,7 +1058,7 @@ export function ProductEditor({
                                       style={{ background: v.color }}
                                     />
                                   )}
-                                  {v.value}
+                                  {valueLabel(a, v)}
                                 </button>
                               );
                             })}
@@ -886,6 +1073,7 @@ export function ProductEditor({
                 </>
               )}
             </Card>
+            <div id="f_variants" />
             <Card title={`Variants${variants.length ? ` · ${variants.length}` : ""}`}>
               {variants.length === 0 ? (
                 <p className="text-[13px] text-muted-foreground">
@@ -967,23 +1155,48 @@ export function ProductEditor({
           </>
         )}
         <Card title="When stock runs out">
-          <ToggleRow initial={false} label="Allow orders when out of stock (pre-order)" />
-          <ToggleRow initial label="Hide from site when out of stock" />
-        </Card>
-        <Card title="Automatic switching">
-          <ToggleRow
-            initial
-            label="When stock hits 0 → switch to Enquiry"
-            hint={"Keeps the product live and collects demand instead of showing “Out of stock”"}
+          <div className="mb-2.5 rounded-lg bg-hover px-3.5 py-3 text-[13px] leading-relaxed">
+            By default the product stays on the site as <b className="font-semibold">Sold out</b>{" "}
+            with a <b className="font-semibold">Notify me</b> button. Clients who press it are
+            emailed automatically when it is back in stock.
+          </div>
+          <SwitchRow
+            label="Hide from site when out of stock"
+            on={p.hideOut}
+            onChange={() => {
+              if (!p.hideOut && p.toEnq)
+                toast("“Switch to Enquiry” turned off — only one can be on");
+              setP((x) => ({ ...x, hideOut: !x.hideOut, toEnq: x.hideOut ? x.toEnq : false }));
+            }}
           />
-          <ToggleRow initial label="When restocked → switch back to Add to Cart" />
-          <Field label="Enquiry minimum quantity">
-            <Input defaultValue="1" />
+          <SwitchRow
+            label="When stock hits 0 → switch to Enquiry"
+            hint="Keeps the product live and collects demand instead of showing “Sold out”. Switches back to Add to Cart when restocked."
+            on={p.toEnq}
+            onChange={() => {
+              if (!p.toEnq && p.hideOut) toast("“Hide from site” turned off — only one can be on");
+              setP((x) => ({ ...x, toEnq: !x.toEnq, hideOut: x.toEnq ? x.hideOut : false }));
+            }}
+          />
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            Only one of these can be on at a time.
+          </p>
+        </Card>
+        <Card title="Enquiry">
+          <Field label="Enquiry minimum quantity" req>
+            <Input
+              id="f_minQty"
+              type="number"
+              min={1}
+              bad={flag.includes("minQty")}
+              value={p.minQty}
+              onChange={set("minQty")}
+            />
           </Field>
-          <ToggleRow
-            key={p.mode}
-            initial={!isCart}
+          <SwitchRow
             label="Also show on the Corporate Gifting page"
+            on={p.corp}
+            onChange={() => setP((x) => ({ ...x, corp: !x.corp }))}
           />
         </Card>
       </>
@@ -992,9 +1205,11 @@ export function ProductEditor({
       <>
         <Card title="Product images" extra={<Btn onClick={imgAdd}>Upload images</Btn>}>
           <div className="grid gap-[22px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
-            <div>
+            <div id="f_hero">
               <div className="mb-2.5 flex flex-col">
-                <b className="text-[13.5px] font-medium">Hero image</b>
+                <b className="text-[13.5px] font-medium">
+                  Hero image<em className="ml-1 not-italic text-bad">*</em>
+                </b>
                 <span className="text-[12px] text-muted-foreground">
                   Shown on the product card, listings and search
                 </span>
@@ -1012,7 +1227,15 @@ export function ProductEditor({
                   )}
                 </div>
               ) : (
-                <button type="button" onClick={imgAdd} className={cn(emptyBox, "w-full")}>
+                <button
+                  type="button"
+                  onClick={imgAdd}
+                  className={cn(
+                    emptyBox,
+                    "w-full",
+                    flag.includes("hero") && "border-bad bg-bad-bg",
+                  )}
+                >
                   + Upload hero image
                 </button>
               )}
@@ -1074,11 +1297,22 @@ export function ProductEditor({
         </Card>
         <Card title="Image text (for Google & accessibility)">
           <Grid cols={2}>
-            <Field label="Alt text (EN)">
-              <Input key={`en-${p.en}`} defaultValue={p.en} />
+            <Field label="Alt text (EN)" req>
+              <Input
+                id="f_altEn"
+                bad={flag.includes("altEn")}
+                value={p.altEn}
+                onChange={set("altEn")}
+              />
             </Field>
             <Field label="Alt text (AR)">
-              <Input key={`ar-${p.ar}`} defaultValue={p.ar} rtl />
+              <Input
+                id="f_altAr"
+                bad={flag.includes("altAr")}
+                value={p.altAr}
+                onChange={set("altAr")}
+                rtl
+              />
             </Field>
           </Grid>
           <Field label="Product video (optional)">
@@ -1091,19 +1325,42 @@ export function ProductEditor({
       <>
         <Card title="Size & weight">
           <Grid cols={2}>
-            <Field label="Weight (g)">
-              <Input defaultValue="450" />
+            <Field label="Weight (g)" req>
+              <Input
+                id="f_weight"
+                bad={flag.includes("weight")}
+                value={p.weight}
+                onChange={set("weight")}
+              />
             </Field>
             <Field label="Length (cm)">
-              <Input placeholder="e.g. 12" />
+              <Input
+                id="f_length"
+                bad={flag.includes("length")}
+                value={p.length}
+                onChange={set("length")}
+                placeholder="e.g. 12"
+              />
             </Field>
           </Grid>
           <Grid cols={2}>
             <Field label="Width (cm)">
-              <Input placeholder="e.g. 8" />
+              <Input
+                id="f_width"
+                bad={flag.includes("width")}
+                value={p.width}
+                onChange={set("width")}
+                placeholder="e.g. 8"
+              />
             </Field>
             <Field label="Height (cm)">
-              <Input placeholder="e.g. 15" />
+              <Input
+                id="f_height"
+                bad={flag.includes("height")}
+                value={p.height}
+                onChange={set("height")}
+                placeholder="e.g. 15"
+              />
             </Field>
           </Grid>
           <p className="text-[12px] text-muted-foreground">
@@ -1120,31 +1377,44 @@ export function ProductEditor({
     SEO: (
       <Card title="Search engines & sharing">
         <Bilingual
-          key={`t-${p.en}-${p.ar}`}
           label="Page title"
-          en={`${p.en} | Zelliny`}
-          ar={`${p.ar} | زيليني`}
+          keys={["seoTitleEn", "seoTitleAr"]}
+          flag={flag}
+          en={p.seoTitleEn || `${p.en} | Zelliny`}
+          ar={p.seoTitleAr || `${p.ar} | زيليني`}
+          onEn={set("seoTitleEn")}
+          onAr={set("seoTitleAr")}
         />
         <Bilingual
-          key={`d-${p.en}-${p.ar}`}
           label="Meta description"
           rows={2}
-          en={`Shop ${p.en} at Zelliny — authentic luxury, delivered across Egypt.`}
-          ar={`تسوق ${p.ar} من زيليني — فخامة أصلية تصلك في جميع أنحاء مصر.`}
+          keys={["metaEn", "metaAr"]}
+          flag={flag}
+          en={p.metaEn || `Shop ${p.en} at Zelliny — authentic luxury, delivered across Egypt.`}
+          ar={p.metaAr || `تسوق ${p.ar} من زيليني — فخامة أصلية تصلك في جميع أنحاء مصر.`}
+          onEn={set("metaEn")}
+          onAr={set("metaAr")}
         />
-        <Field label="URL">
+        <Field
+          label="URL"
+          hint="Created automatically from the English product name — edit only if needed."
+        >
           <Input
-            key={p.sku}
-            defaultValue={`zelliny.com/en/${(p.sku || "new-product").toLowerCase()}`}
+            value={`zelliny.com/en/${p.urlEdited ? p.url : slugify(p.en)}`}
+            onChange={(v) => {
+              setP((x) => ({ ...x, urlEdited: true, url: v.replace(/^zelliny\.com\/en\//, "") }));
+            }}
           />
         </Field>
         <div className="rounded-lg border border-border bg-hover p-3.5">
           <div className="text-[12px] text-muted-foreground">
             zelliny.com › {p.category.toLowerCase()}
           </div>
-          <div className="my-0.5 text-[17px] text-[#1a0dab]">{p.en} | Zelliny</div>
+          <div className="my-0.5 text-[17px] text-[#1a0dab]">
+            {p.seoTitleEn || `${p.en} | Zelliny`}
+          </div>
           <div className="text-[13px] text-muted-foreground">
-            Shop {p.en} at Zelliny — authentic luxury, delivered across Egypt.
+            {p.metaEn || `Shop ${p.en} at Zelliny — authentic luxury, delivered across Egypt.`}
           </div>
         </div>
       </Card>
@@ -1199,7 +1469,7 @@ export function ProductEditor({
         </div>
       </div>
 
-      <div className="mb-[18px] flex gap-1 overflow-x-auto border-b border-border">
+      <div className="mb-[18px] flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border">
         {PRODUCT_TABS.map((t) => (
           <button
             key={t}
@@ -1217,138 +1487,208 @@ export function ProductEditor({
         ))}
       </div>
 
-      <div className="grid items-start gap-[18px] min-[981px]:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0">{bodies[tab]}</div>
+      <div className="grid gap-[18px] min-[981px]:grid-cols-[minmax(0,1fr)_320px]">
+        {/* The last card on the left stretches, so both columns end at the same level. */}
+        <div className="flex min-w-0 flex-col [&>section:last-child]:mb-0 [&>section:last-child]:flex-1">
+          {bodies[tab]}
+        </div>
         <div className="min-w-0">
-          <Card title="Visibility">
-            <div className="flex items-center justify-between gap-3.5 border-b border-line-soft py-2.5">
-              <div>
-                <div className="text-[13.5px]">Visible on site</div>
-                <div className="mt-0.5 text-[12px] text-muted-foreground">
-                  Off hides it from the website — nothing is deleted
+          <div
+            ref={sideRef}
+            className="min-[981px]:sticky min-[981px]:top-[84px] [&>section:last-child]:mb-0"
+          >
+            <Card title="Visibility">
+              <div className="flex items-center justify-between gap-3.5 border-b border-line-soft py-2.5">
+                <div>
+                  <div className="text-[13.5px]">Visible on site</div>
+                  <div className="mt-0.5 text-[12px] text-muted-foreground">
+                    Off hides it from the website — nothing is deleted
+                  </div>
+                </div>
+                <Toggle
+                  on={p.visible}
+                  onChange={setVisible}
+                  label={p.visible ? "Visible on site — click to hide" : "Hidden — click to show"}
+                />
+              </div>
+              {product?.hiddenBy && (
+                <p className="mt-2 text-[12px] text-warn">Not on site — {product.hiddenBy}</p>
+              )}
+            </Card>
+            <Card title="Sells as">
+              <ModeSwitch<Mode>
+                title="Change how this product sells"
+                value={p.mode}
+                onChange={setMode}
+                options={[
+                  { value: "cart", label: "Add to Cart" },
+                  { value: "enq", label: "Enquiry" },
+                ]}
+              />
+              <p className="mt-2 text-[12px] text-muted-foreground">
+                One click to switch. Shortcuts in Selling control never lock this.
+              </p>
+            </Card>
+            <Card
+              title="Card preview"
+              extra={
+                <button
+                  type="button"
+                  onClick={() => setTab("Images")}
+                  className="text-[12.5px] text-muted-foreground underline underline-offset-[3px]"
+                >
+                  Images
+                </button>
+              }
+            >
+              <div className="text-center">
+                <span
+                  className="mb-3 block aspect-square w-full rounded-lg bg-cover bg-center"
+                  style={imgStyle(imgs[0] ?? { c: "#eee", v: 0 })}
+                />
+                <div className="text-[10.5px] tracking-[.16em] text-muted-foreground">
+                  {p.brand.toUpperCase()}
+                </div>
+                <div className="my-1 font-head">{p.en || "Product name"}</div>
+                <div className="text-[13px]">{pricePreview}</div>
+                <div
+                  className={cn(
+                    "mt-2.5 p-2.5 text-[11px] tracking-[.14em]",
+                    soldOut && !p.hideOut && !p.toEnq
+                      ? "border border-primary text-foreground"
+                      : "bg-primary text-primary-foreground",
+                  )}
+                >
+                  {!isCart || (soldOut && p.toEnq)
+                    ? "MAKE AN ENQUIRY"
+                    : soldOut
+                      ? p.hideOut
+                        ? "HIDDEN FROM SITE"
+                        : "NOTIFY ME"
+                      : "ADD TO BAG"}
                 </div>
               </div>
-              <Toggle
-                on={p.visible}
-                onChange={setVisible}
-                label={p.visible ? "Visible on site — click to hide" : "Hidden — click to show"}
-              />
-            </div>
-            {product?.hiddenBy && (
-              <p className="mt-2 text-[12px] text-warn">Not on site — {product.hiddenBy}</p>
-            )}
-            <div className="mt-2.5" />
-            <Field label="Status">
-              <Select
-                value={p.status}
-                onChange={set("status")}
-                options={["Published", "Draft", "Scheduled"]}
-              />
-            </Field>
-            {p.status === "Scheduled" && (
-              <Field label="Publish on" req hint="Goes live on the site automatically on this date">
-                <input
-                  type="date"
-                  value={publishDate}
-                  min={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => setPublishDate(e.target.value)}
-                  className={cn(inputCls, "cursor-pointer")}
-                />
-              </Field>
-            )}
-          </Card>
-          <Card title="Sells as">
-            <ModeSwitch<Mode>
-              title="Change how this product sells"
-              value={p.mode}
-              onChange={setMode}
-              options={[
-                { value: "cart", label: "Add to Cart" },
-                { value: "enq", label: "Enquiry" },
-              ]}
-            />
-            <p className="mt-2 text-[12px] text-muted-foreground">
-              One click to switch. Shortcuts in Selling control never lock this.
-            </p>
-          </Card>
-          <Card
-            title="Card preview"
-            extra={
-              <button
-                type="button"
-                onClick={() => setTab("Images")}
-                className="text-[12.5px] text-muted-foreground underline underline-offset-[3px]"
-              >
-                Images
-              </button>
-            }
-          >
-            <div className="text-center">
-              <span
-                className="mb-3 block aspect-square w-full rounded-lg bg-cover bg-center"
-                style={imgStyle(imgs[0] ?? { c: "#eee", v: 0 })}
-              />
-              <div className="text-[10.5px] tracking-[.16em] text-muted-foreground">
-                {p.brand.toUpperCase()}
-              </div>
-              <div className="my-1 font-head">{p.en || "Product name"}</div>
-              <div className="text-[13px]">{pricePreview}</div>
-              <div className="mt-2.5 bg-primary p-2.5 text-[11px] tracking-[.14em] text-primary-foreground">
-                {isCart ? "ADD TO BAG" : "MAKE AN ENQUIRY"}
-              </div>
-            </div>
-          </Card>
-          {product && (
-            <Card title="Performance · 30 days">
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-[13px]">
-                {(
-                  [
-                    ["Page views", "1,284"],
-                    [
-                      isCart ? "Units sold" : "Enquiries",
-                      String(isCart ? product.sold : product.enquiries),
-                    ],
-                    [isCart ? "Conversion" : "Enquiry rate", isCart ? "3.3%" : "1.1%"],
-                    ["Revenue", isCart ? `${formatNumber(unitPrice * product.sold)} EGP` : "—"],
-                  ] as [string, string][]
-                ).map(([k, v]) => (
-                  <div key={k} className="contents">
-                    <dt className="text-muted-foreground">{k}</dt>
-                    <dd className="text-right">{v}</dd>
-                  </div>
-                ))}
-              </dl>
             </Card>
-          )}
+            {product && (
+              <Card title="Performance · 30 days">
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-[13px]">
+                  {(
+                    [
+                      ["Page views", "1,284"],
+                      [
+                        isCart ? "Units sold" : "Enquiries",
+                        String(isCart ? product.sold : product.enquiries),
+                      ],
+                      [isCart ? "Conversion" : "Enquiry rate", isCart ? "3.3%" : "1.1%"],
+                      ["Revenue", isCart ? `${formatNumber(unitPrice * product.sold)} EGP` : "—"],
+                    ] as [string, string][]
+                  ).map(([k, v]) => (
+                    <div key={k} className="contents">
+                      <dt className="text-muted-foreground">{k}</dt>
+                      <dd className="text-right">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
 
-      {product && (
-        <section className="mt-[18px] rounded-[10px] border border-bad-bg bg-surface">
-          <div className="border-b border-bad-bg px-5 py-3.5 text-[10.5px] uppercase tracking-[.16em] text-bad">
-            Danger zone
+      <Dialog open={!!gate} onOpenChange={(o) => !o && setGate(null)}>
+        <DialogContent className="max-w-[480px]">
+          {gate && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-head text-[18px] font-normal">
+                  {gate.kind === "req"
+                    ? `${gate.list.length} required field${gate.list.length > 1 ? "s are" : " is"} missing`
+                    : "Publish without these?"}
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-[13.5px]">
+                {gate.kind === "req"
+                  ? "This product can't be published yet. Fill these in, then press Publish again."
+                  : "These fields are empty. You can publish now and add them later."}
+              </p>
+              <div className="rounded-lg border border-border bg-surface px-3.5 py-1">
+                {gate.list.map((g) => (
+                  <div
+                    key={g.key + g.label}
+                    className="flex justify-between gap-3 border-t border-line-soft py-2 text-[13px] first:border-0"
+                  >
+                    <span>{g.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => goField(g.tab, g.key)}
+                      className="whitespace-nowrap text-muted-foreground underline underline-offset-[3px]"
+                    >
+                      {g.tab} →
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                {gate.kind === "req" ? (
+                  <Btn primary onClick={() => goField(gate.list[0]!.tab, gate.list[0]!.key)}>
+                    Go to the first one
+                  </Btn>
+                ) : (
+                  <>
+                    <Btn onClick={() => setGate(null)}>Go back</Btn>
+                    <Btn
+                      primary
+                      onClick={() => {
+                        setGate(null);
+                        commit(true);
+                      }}
+                    >
+                      Publish anyway
+                    </Btn>
+                  </>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!published}
+        onOpenChange={(o) => {
+          if (o) return;
+          const id = published;
+          setPublished(null);
+          if (isNew && id) navigate({ to: "/products/$productId", params: { productId: id } });
+        }}
+      >
+        <DialogContent className="max-w-[420px] text-center">
+          <div className="mx-auto grid size-12 place-items-center rounded-full bg-good-bg text-[20px] text-good">
+            ✓
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-5 px-5 py-4">
-            <p className="max-w-[640px] text-[13px] text-muted-foreground">
-              <b className="font-medium text-foreground">Delete this product permanently.</b> Only
-              for products added by mistake or duplicated.{" "}
-              {used
-                ? `This product has ${product.sold ? `${product.sold} past orders` : `${product.enquiries} enquiries`} — it can't be deleted, because that would break your records. Switch "Visible on site" off instead.`
-                : 'For anything you may sell again, just switch "Visible on site" off — it stays in your catalogue.'}
-            </p>
+          <DialogHeader>
+            <DialogTitle className="text-center font-head text-[19px] font-normal">
+              Product published successfully
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[13.5px] text-muted-foreground">
+            {p.en.trim() || "This product"} is now live on the website.
+          </p>
+          <DialogFooter className="sm:justify-center">
             <Btn
-              danger
-              disabled={used}
+              primary
               onClick={() => {
-                setConfirmText("");
-                setAskDelete(true);
+                const id = published;
+                setPublished(null);
+                if (isNew && id)
+                  navigate({ to: "/products/$productId", params: { productId: id } });
               }}
             >
-              Delete product
+              OK
             </Btn>
-          </div>
-        </section>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={askPrice} onOpenChange={setAskPrice}>
         <DialogContent className="max-w-[480px]">

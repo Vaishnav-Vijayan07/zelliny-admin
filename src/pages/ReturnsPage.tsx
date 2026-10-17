@@ -2,7 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { ordersQuery, returnsQuery } from "@/lib/api/sections.functions";
+import { customersQuery, ordersQuery, returnsQuery } from "@/lib/api/sections.functions";
 import type { Tile } from "@/lib/api/section-types";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -19,11 +19,13 @@ import {
   type Column,
 } from "@/components/admin/page";
 import {
-  DateRangeFilter,
   NO_DATE_FILTER,
+  RangeTabs,
   inDateFilter,
+  rangeLabel,
   type DateFilter,
 } from "@/components/admin/DateRangeFilter";
+import { downloadCsv } from "@/components/admin/CustomerFlow";
 import { applyEdit, useCreatedOrders, useOrderEdits } from "@/components/admin/OrderFlow";
 import {
   LogReturnDialog,
@@ -35,10 +37,9 @@ import {
   useReturns,
   type LiveReturn,
 } from "@/components/admin/ReturnFlow";
-import { soon } from "@/hooks/use-toast-lite";
 
 const BULK: Record<string, (n: number, owner: boolean) => string> = {
-  Requested: (n) => `Approve ${n} returns`,
+  Requested: (n) => `Approve ${n} return${n === 1 ? "" : "s"}`,
   Approved: (n) => `Mark ${n} received`,
   Received: (n) => `Mark ${n} inspected`,
   Inspected: (n, owner) =>
@@ -148,6 +149,7 @@ function StageTiles({
 export default function ReturnsPage({ logOrder }: { logOrder?: string | undefined }) {
   const { data } = useSuspenseQuery(returnsQuery());
   const { data: ordersData } = useSuspenseQuery(ordersQuery());
+  const { data: customers } = useSuspenseQuery(customersQuery());
   const navigate = useNavigate();
   const returns = useReturns(data.rows);
   const created = useCreatedOrders();
@@ -165,13 +167,16 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
   const [pageSize, setPageSize] = useState(10);
   const [logOpen, setLogOpen] = useState(!!logOrder);
 
+  // Tile counts follow the selected period; the list also follows the tile and the search.
+  const inPeriod = returns.filter((r) => inDateFilter(r.date, dateF));
   const tiles = data.tiles.map((t) => ({
     ...t,
-    count: returns.filter((r) => r.status.label === t.key).length,
+    count: inPeriod.filter((r) => r.status.label === t.key).length,
   }));
-  const rows = returns
+  const customerId = (r: LiveReturn) =>
+    r.customerInfo.id || customers.rows.find((c) => c.name === r.customer)?.id || "";
+  const rows = inPeriod
     .filter((r) => !stage || r.status.label === stage)
-    .filter((r) => inDateFilter(r.date, dateF))
     .filter(
       (r) =>
         !q || `${r.id} ${r.order} ${r.customer} ${r.item}`.toLowerCase().includes(q.toLowerCase()),
@@ -218,6 +223,41 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
     ["Avg. time to refund", "3.2 days"],
   ];
 
+  const exportRows = () => {
+    downloadCsv(
+      `zelliny-returns-${rows.length}.csv`,
+      [
+        "Return",
+        "Date",
+        "Order",
+        "Customer",
+        "Item",
+        "Reason",
+        "Status",
+        "Amount (EGP)",
+        "Refunded (EGP)",
+        "Refunded by",
+        "Reference",
+      ],
+      rows.map((r) => [
+        r.id,
+        r.date,
+        r.order,
+        r.customer,
+        r.item + (r.lines.length > 1 ? ` + ${r.lines.length - 1} more` : ""),
+        `${r.kind} — ${r.reason}`,
+        r.status.label,
+        r.amount,
+        r.refund?.amount ?? "",
+        r.refund?.method ?? "",
+        r.refund?.ref ?? "",
+      ]),
+    );
+    toast.success(
+      `Excel downloaded · ${rows.length} return${rows.length === 1 ? "" : "s"} · ${rangeLabel(dateF)}`,
+    );
+  };
+
   const columns: Column<LiveReturn>[] = [
     {
       header: "select",
@@ -252,7 +292,13 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
       header: "Return",
       cell: (r) => (
         <>
-          <b className="font-medium">{r.id}</b>
+          <Link
+            to="/returns/$returnId"
+            params={{ returnId: r.id }}
+            className="whitespace-nowrap font-medium underline underline-offset-[3px]"
+          >
+            {r.id}
+          </Link>
           <Muted>{r.date}</Muted>
         </>
       ),
@@ -263,14 +309,27 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
         <Link
           to="/orders/$orderId"
           params={{ orderId: r.order }}
-          onClick={(e) => e.stopPropagation()}
           className="whitespace-nowrap underline underline-offset-[3px]"
         >
           {r.order}
         </Link>
       ),
     },
-    { header: "Customer", cell: (r) => r.customer },
+    {
+      header: "Customer",
+      cell: (r) =>
+        customerId(r) ? (
+          <Link
+            to="/customers/$customerId"
+            params={{ customerId: customerId(r) }}
+            className="whitespace-nowrap underline underline-offset-[3px]"
+          >
+            {r.customer}
+          </Link>
+        ) : (
+          r.customer
+        ),
+    },
     {
       header: "Item",
       cell: (r) => (
@@ -345,8 +404,8 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
         if (r.status.label === "Refunded")
           return (
             <span className="whitespace-nowrap text-[12px] text-muted-foreground">
-              <b className="block font-medium text-foreground">{r.refund?.ref ?? "Refunded"}</b>by{" "}
-              {r.refund?.by ?? "—"}
+              <b className="block font-medium text-foreground">{r.refund?.ref ?? "Refunded"}</b>
+              {r.refund ? `${r.refund.method} · ${formatMoney(r.refund.amount)}` : "—"}
             </span>
           );
         return (
@@ -365,7 +424,7 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
         subtitle="All returns are handled here — approve, receive, inspect and refund. Every step is recorded with the name of the person who did it."
         actions={
           <>
-            <Button onClick={soon("Export")}>Export</Button>
+            <Button onClick={exportRows}>Export</Button>
             <Button primary onClick={() => setLogOpen(true)}>
               Log a return
             </Button>
@@ -450,21 +509,17 @@ export default function ReturnsPage({ logOrder }: { logOrder?: string | undefine
             }}
             placeholder="Return, order, customer or item"
           />
-          <DateRangeFilter
+          <RangeTabs
+            allTime
             value={dateF}
             onChange={(v) => {
               setDateF(v);
+              setSel(new Set());
               setPage(1);
             }}
           />
         </FilterBar>
-        <DataTable
-          columns={columns}
-          rows={shown}
-          rowKey={(r) => r.id}
-          empty="No returns match"
-          onRowClick={(r) => navigate({ to: "/returns/$returnId", params: { returnId: r.id } })}
-        />
+        <DataTable columns={columns} rows={shown} rowKey={(r) => r.id} empty="No returns match" />
         <Pager
           page={cur}
           pageSize={pageSize}

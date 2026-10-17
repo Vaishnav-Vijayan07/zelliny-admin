@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Panel, StatusBadge, Thumb } from "@/components/admin/primitives";
 import { Button, PageHeader } from "@/components/admin/page";
+import { useStickyFit } from "@/components/admin/useStickyFit";
 import {
   RETURN_STAGES,
   STAGE_HINT,
@@ -52,6 +53,7 @@ export default function ReturnDetailPage({ returnId }: { returnId: string }) {
   const actions = useReturnActions();
   const [note, setNote] = useState("");
   const r = all.find((x) => x.id === returnId);
+  const sideRef = useStickyFit(84);
 
   if (!r) {
     return (
@@ -126,9 +128,9 @@ export default function ReturnDetailPage({ returnId }: { returnId: string }) {
             {(
               [
                 ["Refund reference", r.refund?.ref],
-                ["Method", r.refund?.method],
+                ["Refunded by", r.refund?.method],
                 ["Amount", r.refund ? formatMoney(r.refund.amount) : formatMoney(r.amount)],
-                ["Issued by", r.refund?.by],
+                ["Recorded by", r.refund?.by],
                 ["Date", r.refund?.when],
               ] as [string, string | undefined][]
             ).map(([k, v]) => (
@@ -255,6 +257,18 @@ export default function ReturnDetailPage({ returnId }: { returnId: string }) {
                     {l.sku}
                     {l.qty > 1 ? ` · qty ${l.qty}` : ""}
                   </div>
+                  {r.stockResult?.[l.sku] && (
+                    <div
+                      className={cn(
+                        "mt-1 text-[12px]",
+                        r.stockResult[l.sku] === "stock" ? "text-good" : "text-bad",
+                      )}
+                    >
+                      {r.stockResult[l.sku] === "stock"
+                        ? "Back to stock · added to Inventory"
+                        : "Damaged, not sellable · not added to stock"}
+                    </div>
+                  )}
                 </div>
                 <b className="font-medium">{formatMoney(l.price * l.qty)}</b>
               </div>
@@ -326,7 +340,7 @@ export default function ReturnDetailPage({ returnId }: { returnId: string }) {
           </Panel>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-[84px] lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
+        <div ref={sideRef} className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-[84px]">
           <Panel title="Customer">
             <div className="flex items-center gap-3">
               <span className="grid size-[34px] place-items-center rounded-full bg-hover text-[12px] font-semibold">
@@ -347,8 +361,9 @@ export default function ReturnDetailPage({ returnId }: { returnId: string }) {
           <Panel title="Refund">
             <Kv
               rows={[
-                ["Amount", formatMoney(r.amount)],
-                ["To", "Original payment method"],
+                ["Paid", formatMoney(r.amount)],
+                ["Amount refunded", r.refund ? formatMoney(r.refund.amount) : "—"],
+                ["Refunded by", r.refund?.method ?? "—"],
                 [
                   "Status",
                   r.refund ? (
@@ -362,7 +377,7 @@ export default function ReturnDetailPage({ returnId }: { returnId: string }) {
                   ),
                 ],
                 ["Reference", r.refund?.ref ?? "—"],
-                ["Issued by", r.refund?.by ?? "—"],
+                ["Recorded by", r.refund?.by ?? "—"],
               ]}
             />
           </Panel>

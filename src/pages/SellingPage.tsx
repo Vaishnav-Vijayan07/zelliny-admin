@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { brandsQuery, categoriesQuery, productsQuery } from "@/lib/api/sections.functions";
 import type { ProductRow } from "@/lib/api/section-types";
@@ -12,13 +12,21 @@ import {
   Card,
   DataTable,
   FilterBar,
-  FilterSelect,
   PageHeader,
   Pager,
   SearchInput,
   type Column,
 } from "@/components/admin/page";
-import { bulkMode, isCart, useCatalogue } from "@/components/admin/CatalogueFlow";
+import { Dropdown } from "@/components/admin/Dropdown";
+import { SearchSelect } from "@/components/admin/SearchSelect";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { isCart, useCatalogue } from "@/components/admin/CatalogueFlow";
 import { MixBar, useBulkMode, useVisibility } from "@/components/admin/CatalogueUi";
 import { editProduct, editProducts, type ProductEdit } from "@/components/admin/ProductFlow";
 
@@ -34,6 +42,28 @@ const RULES: [string, string][] = [
   ["Hide a maison automatically when all its products are hidden", ""],
   ["Email me a daily summary of automatic switches", ""],
 ];
+const BULK_TEXT = {
+  cart: [
+    "Switch {n} to Add to Cart?",
+    "Customers will see the price and buy online.",
+    "Switch to Add to Cart",
+  ],
+  enq: [
+    "Switch {n} to Enquiry?",
+    "The price is hidden and customers see “Make an Enquiry” instead.",
+    "Switch to Enquiry",
+  ],
+  hide: [
+    "Hide {n} from the website?",
+    "They disappear from the website. Nothing is deleted — you can show them again.",
+    "Hide from site",
+  ],
+  show: [
+    "Show {n} on the website?",
+    "They become visible to customers on zelliny.com.",
+    "Show on site",
+  ],
+} as const;
 
 function Mini({ children, onClick }: { children: string; onClick: () => void }) {
   return (
@@ -51,6 +81,7 @@ export default function SellingPage() {
   const { data: cats } = useSuspenseQuery(categoriesQuery());
   const { data: brands } = useSuspenseQuery(brandsQuery());
   const { data: prods } = useSuspenseQuery(productsQuery());
+  const navigate = useNavigate();
   const live = useCatalogue(cats, brands, prods.rows);
   const vis = useVisibility();
   const bulk = useBulkMode();
@@ -60,6 +91,8 @@ export default function SellingPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [rules, setRules] = useState(RULES.map((_, i) => i !== 3));
+  const [askBulk, setAskBulk] = useState<"cart" | "enq" | "hide" | "show" | null>(null);
+  const [askNoPrice, setAskNoPrice] = useState<ProductRow | null>(null);
 
   const setFilter = (k: keyof typeof f) => (v: string) => {
     setF((x) => ({ ...x, [k]: v }));
@@ -69,15 +102,15 @@ export default function SellingPage() {
 
   const setMode = (p: ProductRow, m: "cart" | "enq") => {
     if (m === "cart" && !p.price) {
-      toast(`${p.name} has no price yet — set one in the product first`);
+      setAskNoPrice(p);
       return;
     }
     editProduct(p.id, { mode: m === "cart" ? "Add to Cart" : "Enquiry only" });
-    toast(`${p.name} → ${m === "cart" ? "Add to Cart" : "Enquiry"}`);
+    toast("1 product updated");
   };
   const toggleVisible = (p: ProductRow) => {
     editProduct(p.id, { visible: !p.visible });
-    toast(`${p.name} ${!p.visible ? "is on the site" : "is hidden from the site"}`);
+    toast("1 product updated");
   };
 
   const q = f.q.toLowerCase();
@@ -123,21 +156,33 @@ export default function SellingPage() {
       return n;
     });
 
-  const doSel = (d: "cart" | "enq" | "hide" | "show") => {
+  const doBulk = (d: "cart" | "enq" | "hide" | "show") => {
     const list = live.products.filter((p) => sel.has(p.id));
-    if (d === "cart" || d === "enq") {
-      const { n, skipped } = bulkMode(list, d);
-      toast(`${n} products updated${skipped ? ` · ${skipped} without price stayed Enquiry` : ""}`);
-    } else {
-      const next: Record<string, ProductEdit> = {};
-      list.forEach((p) => {
-        next[p.id] = { visible: d === "show" };
-      });
-      editProducts(next);
-      toast(`${list.length} products updated`);
-    }
+    const next: Record<string, ProductEdit> = {};
+    let n = 0;
+    list.forEach((p) => {
+      if (d === "cart" && p.price && !isCart(p)) {
+        next[p.id] = { mode: "Add to Cart" };
+        n++;
+      }
+      if (d === "enq" && isCart(p)) {
+        next[p.id] = { mode: "Enquiry only" };
+        n++;
+      }
+      if (d === "hide" && p.visible) {
+        next[p.id] = { visible: false };
+        n++;
+      }
+      if (d === "show" && !p.visible) {
+        next[p.id] = { visible: true };
+        n++;
+      }
+    });
+    editProducts(next);
     setSel(new Set());
+    toast(`${n} product${n === 1 ? "" : "s"} updated`);
   };
+  const noPriceSel = live.products.filter((p) => sel.has(p.id) && !isCart(p) && !p.price).length;
 
   const groupColumns = (
     kind: "maison" | "category",
@@ -311,7 +356,7 @@ export default function SellingPage() {
           </div>
         ))}
       </div>
-      <div className="mb-[18px] flex gap-1 overflow-x-auto border-b border-border">
+      <div className="mb-[18px] flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border">
         {TABS.map((t) => (
           <button
             key={t}
@@ -348,29 +393,41 @@ export default function SellingPage() {
         <Card>
           <FilterBar>
             <SearchInput value={f.q} onChange={setFilter("q")} placeholder="Product name or SKU" />
-            <FilterSelect
+            <Dropdown
               value={f.cat}
               onChange={setFilter("cat")}
-              all="All categories"
-              options={prods.categories}
+              ariaLabel="Category"
+              options={[
+                { value: "", label: "All categories" },
+                ...prods.categories.map((c) => ({ value: c, label: c })),
+              ]}
             />
-            <FilterSelect
+            <SearchSelect
               value={f.brand}
               onChange={setFilter("brand")}
-              all="All maisons"
+              allLabel="All maisons"
               options={prods.brands}
+              className="w-auto min-w-[150px] bg-background text-[13px]"
             />
-            <FilterSelect
+            <Dropdown
               value={f.mode}
               onChange={setFilter("mode")}
-              all="Cart & Enquiry"
-              options={["Add to Cart", "Enquiry only"]}
+              ariaLabel="Selling mode"
+              options={[
+                { value: "", label: "Cart & Enquiry" },
+                { value: "Add to Cart", label: "Add to Cart" },
+                { value: "Enquiry only", label: "Enquiry only" },
+              ]}
             />
-            <FilterSelect
+            <Dropdown
               value={f.vis}
               onChange={setFilter("vis")}
-              all="On site & hidden"
-              options={["On site", "Not on site"]}
+              ariaLabel="On site"
+              options={[
+                { value: "", label: "On site & hidden" },
+                { value: "On site", label: "On site" },
+                { value: "Not on site", label: "Not on site" },
+              ]}
             />
           </FilterBar>
           <div
@@ -393,7 +450,7 @@ export default function SellingPage() {
                   <button
                     key={d}
                     type="button"
-                    onClick={() => doSel(d)}
+                    onClick={() => setAskBulk(d)}
                     className="h-[30px] rounded-lg border border-white/35 px-3.5 text-[12px] text-white hover:border-white"
                   >
                     {l}
@@ -432,6 +489,72 @@ export default function SellingPage() {
       )}
       {vis.dialog}
       {bulk.dialog}
+
+      <Dialog open={!!askBulk} onOpenChange={(o) => !o && setAskBulk(null)}>
+        <DialogContent className="max-w-[480px]">
+          {askBulk && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-head text-[18px] font-normal">
+                  {BULK_TEXT[askBulk][0].replace(
+                    "{n}",
+                    `${sel.size} product${sel.size === 1 ? "" : "s"}`,
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-[13.5px]">{BULK_TEXT[askBulk][1]}</p>
+              {askBulk === "cart" && noPriceSel > 0 && (
+                <div className="rounded-lg border border-[#e8d3ae] bg-warn-bg px-3 py-2.5 text-[13px] leading-normal text-warn">
+                  <b className="font-semibold">
+                    {noPriceSel} product{noPriceSel === 1 ? " has" : "s have"} no price
+                  </b>{" "}
+                  and will stay on Enquiry until you add one.
+                </div>
+              )}
+              <DialogFooter>
+                <Button onClick={() => setAskBulk(null)}>Cancel</Button>
+                <Button
+                  primary
+                  onClick={() => {
+                    doBulk(askBulk);
+                    setAskBulk(null);
+                  }}
+                >
+                  {BULK_TEXT[askBulk][2]}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!askNoPrice} onOpenChange={(o) => !o && setAskNoPrice(null)}>
+        <DialogContent className="max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="font-head text-[18px] font-normal">No price yet</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13.5px]">
+            <b className="font-semibold">{askNoPrice?.name}</b> has no price, so it can’t be
+            switched to Add to Cart. Set the price on the product page first.
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setAskNoPrice(null)}>Cancel</Button>
+            <Button
+              primary
+              onClick={() => {
+                if (askNoPrice)
+                  navigate({
+                    to: "/products/$productId",
+                    params: { productId: askNoPrice.id },
+                    search: { tab: "Price & action" },
+                  });
+              }}
+            >
+              Open product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

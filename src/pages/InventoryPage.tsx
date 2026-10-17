@@ -12,12 +12,12 @@ import {
   Card,
   DataTable,
   FilterBar,
-  FilterSelect,
   PageHeader,
   Pager,
   SearchInput,
   type Column,
 } from "@/components/admin/page";
+import { Dropdown } from "@/components/admin/Dropdown";
 import { editProducts, stockLabel, useProducts } from "@/components/admin/ProductFlow";
 import {
   FeatureBanner,
@@ -301,7 +301,7 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
           )
         }
       />
-      <div className="mb-[18px] flex gap-1 overflow-x-auto border-b border-border">
+      <div className="mb-[18px] flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border">
         {INVENTORY_TABS.map((t) => (
           <button
             key={t}
@@ -337,24 +337,33 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
               <b className="font-medium text-foreground">Low stock</b> = 2 pieces or fewer
             </span>
             <span>
-              <b className="font-medium text-foreground">Out of stock</b> = 0 — the product switches
-              to Enquiry automatically
+              <b className="font-medium text-foreground">Out of stock</b> = 0 — the product shows{" "}
+              <b className="font-medium text-foreground">Sold out</b> with{" "}
+              <b className="font-medium text-foreground">Notify me</b>
             </span>
           </div>
           <Card>
             <FilterBar>
               <SearchInput value={f.q} onChange={setFilter("q")} placeholder="Product or SKU" />
-              <FilterSelect
+              <Dropdown
                 value={f.cat}
                 onChange={setFilter("cat")}
-                all="All categories"
-                options={productsData.categories}
+                ariaLabel="Category"
+                options={[
+                  { value: "", label: "All categories" },
+                  ...productsData.categories.map((c) => ({ value: c, label: c })),
+                ]}
               />
-              <FilterSelect
+              <Dropdown
                 value={f.st}
                 onChange={setFilter("st")}
-                all="Any stock status"
-                options={["In stock", "Low stock", "Out of stock"]}
+                ariaLabel="Stock status"
+                options={[
+                  { value: "", label: "Any stock status" },
+                  { value: "In stock", label: "In stock" },
+                  { value: "Low stock", label: "Low stock" },
+                  { value: "Out of stock", label: "Out of stock" },
+                ]}
               />
             </FilterBar>
             <DataTable
@@ -388,10 +397,10 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
             steps={[
               [
                 "On the site",
-                "When a product is sold out, customers see “Make an enquiry” and “Notify me when it's back”. Notify me only asks for their email.",
+                "When a product is sold out, customers see “Sold out” and a “Notify me when it's back” button. Notify me only asks for their email.",
               ],
               [
-                "Here",
+                "In the admin",
                 "Each product shows who is waiting. Open it to see every name, email and the date they asked.",
               ],
               [
@@ -429,10 +438,10 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
             steps={[
               [
                 "On the site",
-                "For the products you choose here, a sold-out product shows “Pre-order · expected [date]” instead of Enquiry. Every other sold-out product still switches to Enquiry.",
+                "For the products you choose here, a sold-out product shows “Pre-order · expected [date]” instead of Sold out. Every other sold-out product shows Sold out with Notify me.",
               ],
               [
-                "Here",
+                "In the admin",
                 "Choose the product, the expected date and the maximum number of pre-orders. It closes by itself when the maximum is reached.",
               ],
               [

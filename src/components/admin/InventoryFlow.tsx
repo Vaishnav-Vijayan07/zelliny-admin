@@ -7,6 +7,7 @@ import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSessionUser } from "@/hooks/use-session";
 import { Button } from "./page";
+import { SearchSelect } from "./SearchSelect";
 import { Thumb } from "./primitives";
 import {
   Dialog,
@@ -76,52 +77,81 @@ const markNotified = (ids: string[], stamp: string) =>
 
 /* ---------- site switch banner ---------- */
 const FEATURE_TEXT = { backInStock: "Back-in-stock requests", preorders: "Pre-orders" } as const;
+const FEATURE_OFF = {
+  backInStock:
+    "Customers will no longer see “Notify me” on sold-out products. The waiting lists are kept.",
+  preorders: "Customers will no longer be able to pre-order. Pre-orders already taken are kept.",
+} as const;
 export function FeatureBanner({ k, live }: { k: keyof InventoryData["features"]; live: boolean }) {
   const name = FEATURE_TEXT[k];
+  const [confirm, setConfirm] = useState(false);
   const flip = () => {
     setFeature(k, !live);
     toast(
       `${name} ${!live ? "is now live on zelliny.com" : "is switched off — hidden from customers"}`,
     );
   };
+  const switchOff = () => {
+    setFeature(k, false);
+    setConfirm(false);
+    toast(`${name} is switched off — hidden from customers`);
+  };
   return (
-    <div
-      className={cn(
-        "mb-[18px] flex items-center gap-3.5 rounded-[10px] border px-4 py-3",
-        live
-          ? "border-transparent bg-good-bg"
-          : "border-border bg-[repeating-linear-gradient(135deg,#FAFAFA_0_10px,#F4F4F4_10px_20px)]",
-      )}
-    >
-      <span
+    <>
+      <div
         className={cn(
-          "size-[9px] flex-none rounded-full",
-          live ? "bg-good" : "border-2 border-muted-foreground",
-        )}
-      />
-      <div className="flex-1">
-        <b className="block text-[13.5px] font-medium">
-          {live ? `${name} is live` : `${name} is switched off`}
-        </b>
-        <span className="text-[12.5px] text-muted-foreground">
-          {live
-            ? "Customers can see and use this on zelliny.com."
-            : "Everything here is built and can be prepared — customers won't see it until you switch it on."}
-        </span>
-      </div>
-      <button
-        type="button"
-        onClick={flip}
-        className={cn(
-          "h-9 rounded-lg border px-3.5 text-[13px]",
+          "mb-[18px] flex items-center gap-3.5 rounded-[10px] border px-4 py-3",
           live
-            ? "border-border bg-surface hover:border-primary"
-            : "border-primary bg-primary text-primary-foreground",
+            ? "border-transparent bg-good-bg"
+            : "border-border bg-[repeating-linear-gradient(135deg,#FAFAFA_0_10px,#F4F4F4_10px_20px)]",
         )}
       >
-        {live ? "Switch off" : "Switch on"}
-      </button>
-    </div>
+        <span
+          className={cn(
+            "size-[9px] flex-none rounded-full",
+            live ? "bg-good" : "border-2 border-muted-foreground",
+          )}
+        />
+        <div className="flex-1">
+          <b className="block text-[13.5px] font-medium">
+            {live ? `${name} is live` : `${name} is switched off`}
+          </b>
+          <span className="text-[12.5px] text-muted-foreground">
+            {live
+              ? "Customers can see and use this on zelliny.com."
+              : "Everything here is built and can be prepared — customers won't see it until you switch it on."}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => (live ? setConfirm(true) : flip())}
+          className={cn(
+            "h-9 rounded-lg border px-3.5 text-[13px]",
+            live
+              ? "border-border bg-surface hover:border-primary"
+              : "border-primary bg-primary text-primary-foreground",
+          )}
+        >
+          {live ? "Switch off" : "Switch on"}
+        </button>
+      </div>
+      <Dialog open={confirm} onOpenChange={(v) => !v && setConfirm(false)}>
+        <DialogContent className="max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="font-head text-[18px] font-normal">
+              Switch off {name.toLowerCase()}?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[13.5px]">{FEATURE_OFF[k]}</p>
+          <DialogFooter>
+            <Button onClick={() => setConfirm(false)}>Cancel</Button>
+            <Button primary onClick={switchOff}>
+              Switch off
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -361,14 +391,30 @@ export function useNotifyDialog() {
 /* ---------- Open / edit pre-orders ---------- */
 const field =
   "h-9 w-full rounded-lg border border-border bg-background px-3 text-[13px] outline-none focus:border-primary";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** "12 Oct 2026" → "2026-10-12" (for a date input). */
+const toISO = (display: string) => {
+  const m = display.trim().match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/);
+  if (!m) return "";
+  const mi = MONTHS.findIndex((x) => x.toLowerCase() === m[2]!.toLowerCase());
+  if (mi < 0) return "";
+  return `${m[3]}-${String(mi + 1).padStart(2, "0")}-${m[1]!.padStart(2, "0")}`;
+};
+/** "2026-10-12" → "12 Oct 2026". */
+const fromISO = (iso: string) => {
+  const [y, mo, d] = iso.split("-");
+  const mi = Number(mo) - 1;
+  if (!y || !d || Number.isNaN(mi) || !MONTHS[mi]) return "";
+  return `${Number(d)} ${MONTHS[mi]} ${y}`;
+};
+const todayISO = () => new Date().toISOString().slice(0, 10);
 /** `show(products, row?)` — no row opens "Open pre-orders on a product" for low or out-of-stock products. */
 export function usePreorderDialog(onOpened?: (productId: string) => void) {
   const [open, setOpen] = useState<{ row: PreorderRow | null; options: ProductRow[] } | null>(null);
   const [f, setF] = useState({
     productId: "",
-    expected: "",
+    expectedIso: "",
     limit: "5",
-    payment: "Paid in full online",
   });
   const [err, setErr] = useState("");
   const show = (options: ProductRow[], row?: PreorderRow) => {
@@ -377,15 +423,13 @@ export function usePreorderDialog(onOpened?: (productId: string) => void) {
       row
         ? {
             productId: row.productId,
-            expected: row.expected,
+            expectedIso: toISO(row.expected),
             limit: String(row.limit),
-            payment: row.payment,
           }
         : {
             productId: options[0]?.id ?? "",
-            expected: "",
+            expectedIso: "",
             limit: "5",
-            payment: "Paid in full online",
           },
     );
     setOpen({ row: row ?? null, options });
@@ -396,8 +440,8 @@ export function usePreorderDialog(onOpened?: (productId: string) => void) {
       setErr("Choose a product.");
       return;
     }
-    if (!f.expected.trim()) {
-      setErr("Add the expected arrival date.");
+    if (!f.expectedIso) {
+      setErr("Pick the expected arrival date.");
       return;
     }
     if (!limit) {
@@ -405,9 +449,9 @@ export function usePreorderDialog(onOpened?: (productId: string) => void) {
       return;
     }
     editPreorder(f.productId, {
-      expected: f.expected.trim(),
+      expected: fromISO(f.expectedIso),
       limit,
-      payment: f.payment,
+      payment: "Paid in full online",
       ...(open?.row ? {} : { open: true }),
     });
     toast(open?.row ? "Pre-order saved" : "Pre-orders opened");
@@ -436,29 +480,31 @@ export function usePreorderDialog(onOpened?: (productId: string) => void) {
                 </div>
               </div>
             ) : (
-              <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
-                Product
-                <select
+              <div className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
+                <span>Product</span>
+                <SearchSelect
                   value={f.productId}
-                  onChange={(e) => setF({ ...f, productId: e.target.value })}
-                  className={field}
-                >
-                  {open.options.map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.name} · {x.sku} · {x.stock} in stock
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setF({ ...f, productId: v })}
+                  placeholder="Choose a product"
+                  searchPlaceholder="Type a product name or SKU…"
+                  className="h-9 bg-background text-[13px]"
+                  invalid={!!err && !f.productId}
+                  items={open.options.map((x) => ({
+                    value: x.id,
+                    label: `${x.name} · ${x.sku} · ${x.stock} in stock`,
+                  }))}
+                />
                 <span className="text-[11.5px]">Only low or out-of-stock products are listed</span>
-              </label>
+              </div>
             )}
             <div className="grid gap-3.5 md:grid-cols-2">
               <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
                 Expected arrival
                 <input
-                  value={f.expected}
-                  onChange={(e) => setF({ ...f, expected: e.target.value })}
-                  placeholder="e.g. 12 Oct 2026"
+                  type="date"
+                  value={f.expectedIso}
+                  min={todayISO()}
+                  onChange={(e) => setF({ ...f, expectedIso: e.target.value })}
                   className={field}
                 />
                 <span className="text-[11.5px]">Shown on the product page</span>
@@ -473,21 +519,15 @@ export function usePreorderDialog(onOpened?: (productId: string) => void) {
                 <span className="text-[11.5px]">Closes by itself when reached</span>
               </label>
             </div>
-            <label className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
-              Payment
-              <select
-                value={f.payment}
-                onChange={(e) => setF({ ...f, payment: e.target.value })}
-                className={field}
-              >
-                <option>Paid in full online</option>
-                <option>Cash on delivery not allowed for pre-orders</option>
-              </select>
-            </label>
+            <div className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
+              <span>Payment</span>
+              <div className="text-[13.5px] text-foreground">Paid in full online</div>
+              <span className="text-[11.5px]">Cash on delivery is not offered for pre-orders</span>
+            </div>
             <div>
               <div className="mb-1.5 text-[13px] font-medium">What the customer sees</div>
               <div className="rounded-lg border border-border px-4 py-3 text-[14px]">
-                Pre-order · expected {f.expected || "[date]"}
+                Pre-order · expected {fromISO(f.expectedIso) || "[date]"}
                 <br />
                 <span className="text-[12.5px] text-muted-foreground">
                   The button says "Pre-order" instead of "Add to Bag". The order confirmation

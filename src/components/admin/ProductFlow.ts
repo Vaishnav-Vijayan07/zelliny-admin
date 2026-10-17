@@ -8,6 +8,8 @@ export type ProductEdit = Partial<Omit<ProductRow, "id">>;
 let created: ProductRow[] = [];
 let edits: Record<string, ProductEdit> = {};
 let deleted: string[] = [];
+/** Units added back by returns, by SKU. */
+let restocked: Record<string, number> = {};
 const listeners = new Set<() => void>();
 const sub = (l: () => void) => {
   listeners.add(l);
@@ -17,6 +19,7 @@ const emit = () => listeners.forEach((l) => l());
 const NO_ROWS: ProductRow[] = [];
 const NO_EDITS: Record<string, ProductEdit> = {};
 const NO_IDS: string[] = [];
+const NO_STOCK: Record<string, number> = {};
 
 export const stockLabel = (n: number) =>
   n === 0 ? "Out of stock" : n <= 2 ? "Low stock" : "In stock";
@@ -48,21 +51,33 @@ export function useProducts(rows: ProductRow[]): ProductRow[] {
     () => deleted,
     () => NO_IDS,
   );
+  const back = useSyncExternalStore(
+    sub,
+    () => restocked,
+    () => NO_STOCK,
+  );
   return useMemo(
     () =>
       [...c, ...rows]
         .filter((r) => !d.includes(r.id))
         .map((r) => {
           const x = e[r.id];
-          if (!x) return r;
+          const add = back[r.sku] ?? 0;
+          if (!x && !add) return r;
           const m = { ...r, ...x };
-          return { ...m, status: statusOf(m.stock, m.isDraft) };
+          const stock = m.stock + add;
+          return { ...m, stock, status: statusOf(stock, m.isDraft) };
         }),
-    [c, rows, e, d],
+    [c, rows, e, d, back],
   );
 }
 export function editProduct(id: string, e: ProductEdit) {
   edits = { ...edits, [id]: { ...edits[id], ...e } };
+  emit();
+}
+/** A returned item that passed inspection goes back into Inventory. */
+export function addStock(sku: string, qty: number) {
+  restocked = { ...restocked, [sku]: (restocked[sku] ?? 0) + qty };
   emit();
 }
 export function editProducts(next: Record<string, ProductEdit>) {

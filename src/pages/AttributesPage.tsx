@@ -13,13 +13,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { deleteAttribute, useAttributes } from "@/components/admin/AttributeFlow";
+import {
+  PREVIEW_LABEL,
+  attributeUsedBy,
+  deleteAttribute,
+  editAttribute,
+  useAttributes,
+  valueLabel,
+} from "@/components/admin/AttributeFlow";
 
 export default function AttributesPage() {
   const { data } = useSuspenseQuery(attributesQuery());
   const navigate = useNavigate();
   const attributes = useAttributes(data);
   const [deleting, setDeleting] = useState<AttributeRow | null>(null);
+  const used = deleting ? attributeUsedBy(deleting) : 0;
 
   const confirmDelete = () => {
     if (!deleting) return;
@@ -27,18 +35,57 @@ export default function AttributesPage() {
     toast(`${deleting.name} deleted`);
     setDeleting(null);
   };
+  const makeInactive = () => {
+    if (!deleting) return;
+    editAttribute(deleting.id, { status: { label: "Inactive", tone: "mute" } });
+    toast(`${deleting.name} is now inactive`);
+    setDeleting(null);
+  };
 
   const columns: Column<AttributeRow>[] = [
-    { header: "Attribute", cell: (a) => <b className="font-medium">{a.name}</b> },
-    { header: "Preview type", cell: (a) => <Chip>{a.previewType}</Chip> },
+    {
+      header: "Attribute",
+      cell: (a) => (
+        <>
+          <b className="font-medium">{a.name}</b>
+          {a.nameAr ? (
+            <div className="text-[12.5px] text-muted-foreground" dir="rtl">
+              {a.nameAr}
+            </div>
+          ) : (
+            <div className="text-[12.5px] text-warn">No Arabic yet</div>
+          )}
+        </>
+      ),
+    },
+    {
+      header: "Preview type",
+      cell: (a) => <Chip>{PREVIEW_LABEL[a.previewType]}</Chip>,
+    },
     {
       header: "Values",
       cell: (a) =>
         a.values.length ? (
-          <span className="text-muted-foreground">{a.values.map((v) => v.value).join(", ")}</span>
+          <span className="text-muted-foreground">
+            {a.values.map((v) => valueLabel(a, v)).join(", ")}
+          </span>
         ) : (
           <span className="text-muted-foreground">No values yet</span>
         ),
+    },
+    {
+      header: "Used by",
+      cell: (a) => {
+        const n = attributeUsedBy(a);
+        return n ? (
+          <>
+            <b className="font-semibold">{n}</b>{" "}
+            <span className="text-muted-foreground">products</span>
+          </>
+        ) : (
+          <span className="text-muted-foreground">Not used</span>
+        );
+      },
     },
     {
       header: "Status",
@@ -92,21 +139,49 @@ export default function AttributesPage() {
 
       <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <DialogContent className="max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="font-head text-[18px] font-normal">
-              Delete attribute?
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-[13.5px]">
-            <b className="font-semibold">{deleting?.name}</b> and its {deleting?.values.length ?? 0}{" "}
-            value(s) will be deleted permanently. This cannot be undone.
-          </p>
-          <DialogFooter>
-            <Button onClick={() => setDeleting(null)}>Cancel</Button>
-            <Button primary onClick={confirmDelete}>
-              Delete permanently
-            </Button>
-          </DialogFooter>
+          {used > 0 ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-head text-[18px] font-normal">
+                  {deleting?.name} is in use
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-[13.5px]">
+                <b className="font-semibold">{deleting?.name}</b> is used by{" "}
+                <b className="font-semibold">{used} products</b>. Deleting it would remove these
+                options from those products on the website.
+              </p>
+              <p className="text-[12.5px] text-muted-foreground">
+                Make it inactive instead — it stops appearing in the product editor and nothing is
+                lost.
+              </p>
+              <DialogFooter>
+                <Button onClick={() => setDeleting(null)}>Cancel</Button>
+                <Button primary onClick={makeInactive}>
+                  Make inactive
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-head text-[18px] font-normal">
+                  Delete attribute?
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-[13.5px]">
+                <b className="font-semibold">{deleting?.name}</b> and its{" "}
+                {deleting?.values.length ?? 0} value(s) will be deleted permanently. It is not used
+                by any product. This cannot be undone.
+              </p>
+              <DialogFooter>
+                <Button onClick={() => setDeleting(null)}>Cancel</Button>
+                <Button primary onClick={confirmDelete}>
+                  Delete permanently
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </>

@@ -1,7 +1,24 @@
 // Attribute (and attribute value) changes made in this browser — shared by the Attributes list,
 // the attribute editor and the values manager. Swap these for API mutations later.
 import { useMemo, useSyncExternalStore } from "react";
-import type { AttributeRow, AttributeValueRow } from "@/lib/api/section-types";
+import type {
+  AttributePreviewType,
+  AttributeRow,
+  AttributeValueRow,
+} from "@/lib/api/section-types";
+
+/** Same word everywhere: "Colour", not COLOR. */
+export const PREVIEW_LABEL: Record<AttributePreviewType, string> = {
+  TEXT: "Text",
+  COLOR: "Colour",
+  ICON: "Icon / image",
+  NUMBER: "Number + unit",
+};
+/** A value as customers see it, e.g. "100 ml" for a Number + unit attribute. */
+export const valueLabel = (a: AttributeRow, v: AttributeValueRow) =>
+  a.previewType === "NUMBER" ? `${v.value} ${a.unit}` : v.value;
+/** Products using an attribute (sum over its values). */
+export const attributeUsedBy = (a: AttributeRow) => a.values.reduce((s, v) => s + v.usedBy, 0);
 
 export type AttributeEdit = Partial<Omit<AttributeRow, "id">>;
 let created: AttributeRow[] = [];

@@ -82,6 +82,7 @@ export default function ProductsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [priceFor, setPriceFor] = useState<ProductRow | null>(null);
   const [priceInput, setPriceInput] = useState("");
+  const [askBulk, setAskBulk] = useState<"cart" | "enq" | "hide" | "show" | null>(null);
 
   const products = useProducts(data.rows);
   const setFilter = (k: keyof typeof f) => (v: string) => {
@@ -148,6 +149,28 @@ export default function ProductsPage() {
       rows.forEach((p) => (allOn ? n.delete(p.id) : n.add(p.id)));
       return n;
     });
+  const BULK_TEXT = {
+    cart: [
+      "Switch {n} to Add to Cart?",
+      "Customers will see the price and buy online. Products without a price stay as Enquiry.",
+      "Switch to Add to Cart",
+    ],
+    enq: [
+      "Switch {n} to Enquiry?",
+      "The price is hidden and customers see “Make an Enquiry” instead.",
+      "Switch to Enquiry",
+    ],
+    hide: [
+      "Hide {n} from the website?",
+      "They disappear from the website. Nothing is deleted — you can show them again.",
+      "Hide from site",
+    ],
+    show: [
+      "Show {n} on the website?",
+      "They become visible to customers on zelliny.com.",
+      "Show on site",
+    ],
+  } as const;
   const bulk = (d: "cart" | "enq" | "hide" | "show") => {
     let n = 0,
       skipped = 0;
@@ -328,12 +351,14 @@ export default function ProductsPage() {
             value={f.cat}
             onChange={setFilter("cat")}
             all="All categories"
+            searchable
             options={data.categories}
           />
           <FilterSelect
             value={f.brand}
             onChange={setFilter("brand")}
             all="All maisons"
+            searchable
             options={data.brands}
           />
           <FilterSelect
@@ -366,10 +391,10 @@ export default function ProductsPage() {
               <span>
                 <b className="font-semibold">{sel.size} selected</b>
               </span>
-              <BulkButton onClick={() => bulk("cart")}>→ Add to Cart</BulkButton>
-              <BulkButton onClick={() => bulk("enq")}>→ Enquiry</BulkButton>
-              <BulkButton onClick={() => bulk("hide")}>Hide from site</BulkButton>
-              <BulkButton onClick={() => bulk("show")}>Show on site</BulkButton>
+              <BulkButton onClick={() => setAskBulk("cart")}>→ Add to Cart</BulkButton>
+              <BulkButton onClick={() => setAskBulk("enq")}>→ Enquiry</BulkButton>
+              <BulkButton onClick={() => setAskBulk("hide")}>Hide from site</BulkButton>
+              <BulkButton onClick={() => setAskBulk("show")}>Show on site</BulkButton>
               <button
                 type="button"
                 onClick={() => setSel(new Set())}
@@ -401,6 +426,36 @@ export default function ProductsPage() {
           }}
         />
       </Card>
+
+      <Dialog open={!!askBulk} onOpenChange={(o) => !o && setAskBulk(null)}>
+        <DialogContent className="max-w-[480px]">
+          {askBulk && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-head text-[18px] font-normal">
+                  {BULK_TEXT[askBulk][0].replace(
+                    "{n}",
+                    `${sel.size} product${sel.size === 1 ? "" : "s"}`,
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-[13.5px]">{BULK_TEXT[askBulk][1]}</p>
+              <DialogFooter>
+                <Button onClick={() => setAskBulk(null)}>Cancel</Button>
+                <Button
+                  primary
+                  onClick={() => {
+                    bulk(askBulk);
+                    setAskBulk(null);
+                  }}
+                >
+                  {BULK_TEXT[askBulk][2]}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!priceFor} onOpenChange={(o) => !o && setPriceFor(null)}>
         <DialogContent className="max-w-[480px]">

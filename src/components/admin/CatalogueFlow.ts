@@ -30,14 +30,23 @@ export function setBrandVisible(id: string, v: boolean) {
 type CatEdit = Partial<Omit<CategoryRow, "id">>;
 type BrandEdit = Partial<Omit<BrandRow, "id">>;
 let newCats: CategoryRow[] = [];
+/** The order the team set by drag and drop (ids). Anything not listed goes last. */
+let catOrder: string[] = [];
+const NO_ORDER: string[] = [];
 let newBrands: BrandRow[] = [];
+let deletedBrands: string[] = [];
 let catEdits: Record<string, CatEdit> = {};
 let brandEdits: Record<string, BrandEdit> = {};
 const NO_C: CategoryRow[] = [];
 const NO_B: BrandRow[] = [];
+const NO_IDS: string[] = [];
 const NO_CE: Record<string, CatEdit> = {};
 const NO_BE: Record<string, BrandEdit> = {};
 
+export function setCategoryOrder(ids: string[]) {
+  catOrder = ids;
+  emit();
+}
 export function addCategory(r: CategoryRow) {
   newCats = [...newCats, r];
   emit();
@@ -52,6 +61,11 @@ export function addBrand(r: BrandRow) {
 }
 export function editBrand(id: string, e: BrandEdit) {
   brandEdits = { ...brandEdits, [id]: { ...brandEdits[id], ...e } };
+  emit();
+}
+/** Removes a maison from the store. Only ever called when it has no products. */
+export function deleteBrand(id: string) {
+  deletedBrands = [...deletedBrands, id];
   emit();
 }
 
@@ -90,6 +104,11 @@ export function useCatalogue(
     () => newBrands,
     () => NO_B,
   );
+  const db = useSyncExternalStore(
+    sub,
+    () => deletedBrands,
+    () => NO_IDS,
+  );
   const ce = useSyncExternalStore(
     sub,
     () => catEdits,
@@ -99,6 +118,11 @@ export function useCatalogue(
     sub,
     () => brandEdits,
     () => NO_BE,
+  );
+  const co = useSyncExternalStore(
+    sub,
+    () => catOrder,
+    () => NO_ORDER,
   );
   const base = useProducts(productRows);
   return useMemo(() => {
@@ -112,14 +136,27 @@ export function useCatalogue(
       const n = be[x.id]?.name;
       if (n && n !== x.name) brandRename.set(x.name, n);
     });
-    const categoriesLive: LiveCategory[] = [...categories, ...nc].map((x) => {
-      const m = { ...x, ...ce[x.id] };
-      return { ...m, visible: c[x.id] ?? m.status.label !== "Draft" };
-    });
-    const brandsLive: LiveBrand[] = [...brandRows, ...nb].map((x) => {
-      const m = { ...x, ...be[x.id] };
-      return { ...m, visible: b[x.id] ?? m.status.label !== "Draft" };
-    });
+    const rank = new Map(co.map((id, i) => [id, i]));
+    const categoriesLive: LiveCategory[] = [...categories, ...nc]
+      .map((x, i) => {
+        const m = { ...x, ...ce[x.id] };
+        return {
+          ...m,
+          visible: c[x.id] ?? m.status.label !== "Draft",
+          at: rank.get(x.id) ?? 1000 + i,
+        };
+      })
+      .sort((a, b) => a.at - b.at)
+      .map(({ at, ...x }) => {
+        void at;
+        return x;
+      });
+    const brandsLive: LiveBrand[] = [...brandRows, ...nb]
+      .filter((x) => !db.includes(x.id))
+      .map((x) => {
+        const m = { ...x, ...be[x.id] };
+        return { ...m, visible: b[x.id] ?? m.status.label !== "Draft" };
+      });
     const catOff = new Set(categoriesLive.filter((x) => !x.visible).map((x) => x.name));
     const brandOff = new Set(brandsLive.filter((x) => !x.visible).map((x) => x.name));
     const products = base.map((p) => {
@@ -131,7 +168,7 @@ export function useCatalogue(
       return { ...q, hiddenBy: hiddenReason(q, catOff, brandOff) ?? p.hiddenBy };
     });
     return { categories: categoriesLive, brands: brandsLive, products };
-  }, [categories, brandRows, base, c, b, nc, nb, ce, be]);
+  }, [categories, brandRows, base, c, b, nc, nb, ce, be, co, db]);
 }
 
 /** Switch every priced product in the list to a selling mode. Returns how many changed / were skipped. */

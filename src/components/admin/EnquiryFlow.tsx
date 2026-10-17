@@ -2,13 +2,18 @@
 // change stage / assign together, email, WhatsApp / SMS, export, quotation).
 // Shared by the enquiries list and the single-enquiry page. Local for now — swap for API calls.
 import { useMemo, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import type { EnquiryRow, QuoteLine } from "@/lib/api/section-types";
+import type { EnquiryProduct, EnquiryRow, QuoteLine } from "@/lib/api/section-types";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSessionUser } from "@/hooks/use-session";
 import { Button } from "./page";
+import { Dropdown } from "./Dropdown";
+import { Thumb } from "./primitives";
 import { downloadCsv } from "./CustomerFlow";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +67,38 @@ const CAME_IN = [
   "Instagram message",
   "LinkedIn",
 ];
+export const LOST_REASONS = [
+  "Price too high",
+  "Chose another supplier",
+  "Budget cancelled",
+  "Delivery date too tight",
+  "No reply from client",
+  "Other",
+];
+/** The website is split in two: a product page's Enquire now, or the corporate form. */
+export const CAME_FROM_EXTRA = ["Product page", "Corporate form", "Phone call", "Referral"];
+export function cameFrom(e: EnquiryRow) {
+  if (e.src.manual) return e.src.channel;
+  return e.product || e.src.page?.startsWith("Product page") ? "Product page" : "Corporate form";
+}
+export function matchesCameFrom(e: EnquiryRow, v: string) {
+  if (v === "Product page" || v === "Corporate form") return !e.src.manual && cameFrom(e) === v;
+  return e.src.channel === v;
+}
+/** "24 Sep" + "20:15" → a real date (the list shows no year). */
+export function enquiryWhen(e: EnquiryRow) {
+  const y = new Date().getFullYear();
+  const m = /^(\d{1,2}) ([A-Za-z]{3})/.exec(e.date);
+  const t = /(\d{1,2}):(\d{2})/.exec(e.time);
+  const d = m ? new Date(`${m[1]} ${m[2]} ${y}`) : new Date();
+  if (t) d.setHours(+t[1]!, +t[2]!);
+  return d;
+}
+/** Dateless text the sort and date filter use, e.g. "24 Sep 2026". */
+export const enquiryDay = (e: EnquiryRow) =>
+  /^\d{1,2} [A-Za-z]{3}$/.test(e.date) ? `${e.date} ${new Date().getFullYear()}` : e.date;
+/** What a won deal is worth — the total of the quotation that became the order. */
+export const dealValue = (e: EnquiryRow) => quoteTotal(e.quote);
 const PERSONAL = [
   "None",
   "Logo engraving",
@@ -77,7 +114,10 @@ export const quoteTotal = (q: QuoteLine[]) => q.reduce((a, l) => a + (l.unit + l
 
 /* ---------- local store ---------- */
 type Edit = Partial<
-  Pick<EnquiryRow, "owner" | "followUp" | "quote" | "quoteRef" | "quoteSent" | "order" | "unread">
+  Pick<
+    EnquiryRow,
+    "owner" | "followUp" | "quote" | "quoteRef" | "quoteSent" | "order" | "unread" | "lostReason"
+  >
 > & { stage?: string; log?: EnquiryRow["log"] };
 let created: EnquiryRow[] = [];
 let edits: Record<string, Edit> = {};
@@ -153,34 +193,274 @@ export function setOwner(r: EnquiryRow, to: string, who: string) {
 }
 
 /* ---------- stage dropdown in the stage's colour ---------- */
-export function StageSelect({ r, big, who }: { r: EnquiryRow; big?: boolean; who: string }) {
+export function StageSelect({
+  r,
+  big,
+  onPick,
+}: {
+  r: EnquiryRow;
+  big?: boolean;
+  /** Receives the chosen stage — Lost and Won open a window first. */
+  onPick: (to: string) => void;
+}) {
   const c = STAGE_COLOR[r.stage.label] ?? "#767676";
   return (
-    <select
+    <Dropdown
       value={r.stage.label}
-      title="Change stage"
-      onClick={(e) => e.stopPropagation()}
-      onChange={(e) => {
-        setStage(r, e.target.value, who);
-        toast(`${r.company} · stage set to ${e.target.value}`);
-      }}
+      ariaLabel="Change stage"
+      onChange={onPick}
+      options={STAGES.map((st) => ({ value: st, label: st, dot: STAGE_COLOR[st] ?? "#767676" }))}
       style={
         {
-          "--s": c,
           color: c,
           background: `color-mix(in srgb, ${c} 9%, #fff)`,
           borderColor: `color-mix(in srgb, ${c} 28%, #fff)`,
         } as CSSProperties
       }
       className={cn(
-        "cursor-pointer rounded-full border font-medium outline-none hover:border-[var(--s)]",
-        big ? "h-11 w-full px-4 text-[14px]" : "h-9 px-3 text-[13px]",
+        "rounded-full font-medium hover:opacity-90",
+        big ? "h-11 w-full px-5 text-[14px]" : "h-9 px-3 text-[13px]",
       )}
+    />
+  );
+}
+
+/* ---------- date + time picker for the next follow-up ---------- */
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const p2 = (n: number) => String(n).padStart(2, "0");
+export const fmtFollowUp = (d: Date) =>
+  `${DAYS[d.getDay()]} ${d.getDate()} ${MONS[d.getMonth()]}, ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+function parseFollowUp(t: string): Date | null {
+  const m = /(\d{1,2}) ([A-Za-z]{3}),? (\d{1,2}):(\d{2})/.exec(t);
+  if (!m) return null;
+  const mi = MONS.indexOf(m[2]!);
+  if (mi < 0) return null;
+  return new Date(new Date().getFullYear(), mi, +m[1]!, +m[3]!, +m[4]!);
+}
+const TIMES = Array.from(
+  { length: 23 },
+  (_, i) => `${p2(9 + Math.floor(i / 2))}:${i % 2 ? "30" : "00"}`,
+);
+
+export function FollowUpPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const base = parseFollowUp(value);
+  const [day, setDay] = useState<Date | undefined>(base ?? undefined);
+  const [time, setTime] = useState(
+    base ? `${p2(base.getHours())}:${p2(base.getMinutes())}` : "10:00",
+  );
+  const today = new Date(new Date().setHours(0, 0, 0, 0));
+  const quick = (n: number, t: string) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + n);
+    setDay(d);
+    setTime(t);
+  };
+  const set = () => {
+    if (!day) return;
+    const [h, m] = time.split(":").map(Number);
+    onChange(fmtFollowUp(new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m)));
+    setOpen(false);
+  };
+  const toMonday = (8 - today.getDay()) % 7 || 7;
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        if (disabled) return;
+        setOpen(o);
+        if (o) setDay(base ?? undefined);
+      }}
     >
-      {STAGES.map((s) => (
-        <option key={s}>{s}</option>
-      ))}
-    </select>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={!!disabled}
+          className={cn(
+            "flex h-11 w-full items-center justify-between rounded-lg border border-border bg-surface px-3.5 text-left text-[14px] outline-none hover:border-primary disabled:cursor-default disabled:text-muted-foreground disabled:opacity-60",
+            !value && "text-muted-foreground",
+            open && "border-primary",
+          )}
+        >
+          <span>{value || "Pick a date and time"}</span>
+          <span className="text-muted-foreground">▾</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-auto rounded-xl p-4">
+        <div className="mb-3 text-[13.5px] font-medium">Next follow-up</div>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {(
+            [
+              ["Today 17:00", () => quick(0, "17:00")],
+              ["Tomorrow 10:00", () => quick(1, "10:00")],
+              ["In 3 days", () => quick(3, "10:00")],
+              ["Next Monday", () => quick(toMonday, "10:00")],
+            ] as [string, () => void][]
+          ).map(([l, f]) => (
+            <button
+              key={l}
+              type="button"
+              onClick={f}
+              className="rounded-full border border-border px-3 py-1 text-[12px] hover:border-primary"
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <Calendar
+          mode="single"
+          selected={day}
+          onSelect={setDay}
+          {...(day ? { defaultMonth: day } : {})}
+          disabled={{ before: today }}
+          className="p-0"
+        />
+        <div className="mt-3 grid max-h-[112px] grid-cols-5 gap-1.5 overflow-auto">
+          {TIMES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTime(t)}
+              className={cn(
+                "h-8 rounded-lg border text-[12.5px]",
+                time === t ? "border-primary bg-primary text-primary-foreground" : "border-border",
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3.5 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              onChange("");
+              setDay(undefined);
+              setOpen(false);
+            }}
+            className="text-[12.5px] text-muted-foreground underline"
+          >
+            Clear
+          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="h-8 rounded-lg border border-border px-3 text-[12.5px]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!day}
+              onClick={set}
+              className="h-8 rounded-lg bg-primary px-3 text-[12.5px] text-primary-foreground disabled:opacity-40"
+            >
+              Set follow-up
+            </button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+type ProductOpt = {
+  id: string;
+  name: string;
+  sku: string;
+  brand: string;
+  category: string;
+  color: string;
+  price: number | null;
+};
+/** Type a product or maison — pick from the list. Starts empty. */
+export function ProductSearch({
+  products,
+  value,
+  onPick,
+  onClear,
+  placeholder = "Type a product or maison — e.g. Cerruti, pen, wallet",
+}: {
+  products: ProductOpt[];
+  value: ProductOpt | null;
+  onPick: (p: ProductOpt) => void;
+  onClear: () => void;
+  placeholder?: string;
+}) {
+  const [q, setQ] = useState("");
+  if (value)
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-primary bg-surface px-3 py-2 text-[13px]">
+        <span className="flex min-w-0 items-center gap-2.5">
+          <Thumb color={value.color} className="size-8 rounded-md" />
+          <span className="min-w-0">
+            <b className="block truncate font-medium text-foreground">{value.name}</b>
+            <small className="text-muted-foreground">
+              {value.brand} · {value.sku}
+            </small>
+          </span>
+        </span>
+        <button type="button" onClick={onClear} className="text-[12.5px] underline">
+          Change
+        </button>
+      </div>
+    );
+  const t = q.trim().toLowerCase();
+  const hits = t
+    ? products.filter((x) => `${x.name} ${x.brand} ${x.sku}`.toLowerCase().includes(t)).slice(0, 8)
+    : [];
+  return (
+    <div className="relative">
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        className={input}
+      />
+      {t && (
+        <div className="absolute inset-x-0 top-[calc(100%+6px)] z-20 max-h-[260px] overflow-auto rounded-xl border border-border bg-surface p-1.5 shadow-[0_14px_34px_rgba(0,0,0,.12)]">
+          {hits.length ? (
+            hits.map((x) => (
+              <button
+                key={x.id}
+                type="button"
+                onClick={() => {
+                  onPick(x);
+                  setQ("");
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] hover:bg-hover"
+              >
+                <Thumb color={x.color} className="size-8 rounded-md" />
+                <span className="min-w-0 flex-1">
+                  <b className="block truncate font-medium text-foreground">{x.name}</b>
+                  <small className="text-muted-foreground">
+                    {x.brand} · {x.sku}
+                  </small>
+                </span>
+                <span className="whitespace-nowrap text-muted-foreground">
+                  {x.price ? formatMoney(x.price) : "—"}
+                </span>
+              </button>
+            ))
+          ) : (
+            <p className="px-3 py-2.5 text-[13px] text-muted-foreground">
+              No product found — check the spelling or the maison name.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -200,14 +480,14 @@ function Field({
   hint,
   bad,
 }: {
-  label: string;
+  label: ReactNode;
   req?: boolean;
   children: ReactNode;
   hint?: ReactNode;
   bad?: boolean;
 }) {
   return (
-    <label
+    <div
       className={cn(
         "flex min-w-0 flex-col gap-1.5 text-[12px] text-muted-foreground",
         bad && "[&_input]:border-bad",
@@ -219,7 +499,7 @@ function Field({
       </span>
       {children}
       {hint && <span className="text-[11.5px]">{hint}</span>}
-    </label>
+    </div>
   );
 }
 const Primary = ({
@@ -275,9 +555,21 @@ const Section = ({ children }: { children: ReactNode }) => (
 
 const EMAIL_TPL: Record<string, [string, string]> = {
   "Write my own": ["", ""],
+  "Thank you for your enquiry": [
+    "Thank you for your enquiry — Zelliny",
+    "Dear {first name},\n\nThank you for contacting Zelliny. We have received your enquiry and will be in touch shortly with options for you.\n\nKind regards,\n{my name}\nZelliny",
+  ],
   "Follow-up on your enquiry": [
     "Your gifting enquiry with Zelliny",
     "Dear {first name},\n\nThank you for your enquiry. We would be glad to prepare options for you. When would be a good time for a short call?\n\nKind regards,\n{my name}\nZelliny",
+  ],
+  "Quotation sent": [
+    "Your quotation from Zelliny",
+    "Dear {first name},\n\nPlease find your quotation attached. Prices include the personalisation shown. We are happy to adjust quantities or items.\n\nKind regards,\n{my name}\nZelliny",
+  ],
+  "Order confirmed": [
+    "Your order is confirmed",
+    "Dear {first name},\n\nThank you for your order. It is confirmed and we will share the delivery date with you shortly.\n\nKind regards,\n{my name}\nZelliny",
   ],
   "Catalogue & engraving options": [
     "Zelliny corporate catalogue and engraving options",
@@ -289,8 +581,14 @@ const EMAIL_TPL: Record<string, [string, string]> = {
   ],
 };
 const WA_TPL: Record<string, string> = {
+  "Thank you for your enquiry":
+    "Hello {first name}, thank you for contacting Zelliny. We have your enquiry and {my name} will be in touch shortly.",
   "Enquiry follow-up":
     "Hello {first name}, this is {my name} from Zelliny about your gifting enquiry. Is now a good time to talk?",
+  "Quotation sent":
+    "Hello {first name}, we have emailed your quotation from Zelliny. Happy to go through it on a call.",
+  "Order confirmed":
+    "Hello {first name}, your Zelliny corporate order is confirmed. We will share the delivery date shortly.",
   "Quotation reminder":
     "Hello {first name}, just checking you received our quotation. Happy to adjust quantities or options.",
   "Year-end reminder":
@@ -312,18 +610,57 @@ const EXPORT_COLS: [string, string, (e: EnquiryRow) => string | number][] = [
   ["camp", "Campaign", (e) => e.src.campaign ?? ""],
 ];
 
-type Kind = "new" | "stage" | "owner" | "email" | "message" | "export" | "line" | "quote";
-type Products = { id: string; name: string; sku: string; brand: string; price: number | null }[];
+type Kind =
+  | "new"
+  | "stage"
+  | "owner"
+  | "email"
+  | "message"
+  | "export"
+  | "line"
+  | "quote"
+  | "lost"
+  | "won"
+  | "contacted";
+type Products = ProductOpt[];
+
+/** A dropdown that fills the width of its field, in the panel's own style. */
+function Pick({
+  value,
+  options,
+  onChange,
+  dots,
+}: {
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+  dots?: boolean;
+}) {
+  return (
+    <Dropdown
+      value={value}
+      onChange={onChange}
+      className="w-full text-foreground"
+      options={options.map((o) => ({
+        value: o,
+        label: o,
+        ...(dots && { dot: STAGE_COLOR[o] ?? "#767676" }),
+      }))}
+    />
+  );
+}
 
 /**
  * Opens the enquiry dialogs. Render `dialog` once on the page.
- * `onCreated(id)` runs after "New enquiry" is saved.
+ * `onCreated(id)` runs after "New enquiry" is saved; `onConvert(id)` opens the new-order page
+ * for a won deal's quotation.
  */
 export function useEnquiryActions(
   all: EnquiryRow[],
   owners: string[],
   products: Products,
   onCreated?: (id: string) => void,
+  onConvert?: (id: string) => void,
 ) {
   const user = useSessionUser();
   const me = user?.name ?? "You";
@@ -336,20 +673,24 @@ export function useEnquiryActions(
   /* state for the various dialogs */
   const [to, setTo] = useState("Contacted");
   const [note, setNote] = useState("");
+  const [why, setWhy] = useState("");
+  const [wonHow, setWonHow] = useState<"convert" | "existing">("convert");
+  const [wonOrder, setWonOrder] = useState("");
+  const [via2, setVia2] = useState("phone");
+  const [moveC, setMoveC] = useState(true);
   const [owner, setOwnerSel] = useState(me);
   const [tpl, setTpl] = useState("Follow-up on your enquiry");
+  const [fromAddr, setFromAddr] = useState("Zelliny <info@zelliny.com>");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [via, setVia] = useState<"WhatsApp" | "SMS">("WhatsApp");
-  const [waTpl, setWaTpl] = useState(Object.keys(WA_TPL)[0]!);
+  const [waTpl, setWaTpl] = useState("Enquiry follow-up");
+  const [waBody, setWaBody] = useState("");
   const [sms, setSms] = useState(Object.values(WA_TPL)[0]!);
   const [cols, setCols] = useState(EXPORT_COLS.map((c) => c[0]));
-  const [line, setLine] = useState({
-    productId: products[0]?.id ?? "",
-    qty: "",
-    unit: "",
-    pers: "0",
-  });
+  const [line, setLine] = useState({ qty: "", unit: "", pers: "0" });
+  const [lineProd, setLineProd] = useState<ProductOpt | null>(null);
+  const [nProd, setNProd] = useState<ProductOpt | null>(null);
   const [qs, setQs] = useState({ to: "", subject: "", body: "", valid: "14 days" });
   const blankNew = {
     name: "",
@@ -375,16 +716,44 @@ export function useEnquiryActions(
     setErr("");
     setOpen({ kind, list, ...(scope && { scope }) });
   };
+  const markLost = (e: EnquiryRow, reason: string, extra: string) => {
+    const full = reason + (extra.trim() ? ` — ${extra.trim()}` : "");
+    setStage(e, "Lost", me, full);
+    editEnquiry(e.id, { lostReason: full, followUp: "" });
+  };
   const actions = {
     newEnquiry: () => {
       setNf({ ...blankNew, owner: me });
+      setNProd(null);
       setBad([]);
       show("new");
     },
     changeStage: (list: EnquiryRow[]) => {
       setTo("Contacted");
       setNote("");
+      setWhy("");
       show("stage", list);
+    },
+    /** Stage picked in a row or on the enquiry page — Lost and Won ask a question first. */
+    stageTo: (e: EnquiryRow, v: string) => {
+      if (v === e.stage.label) return;
+      if (v === "Lost") {
+        setWhy("");
+        setNote("");
+        show("lost", [e]);
+      } else if (v === "Won") {
+        setWonHow("convert");
+        setWonOrder("");
+        show("won", [e]);
+      } else {
+        setStage(e, v, me);
+        toast(`${e.company} · stage set to ${v}`);
+      }
+    },
+    /** After a call, email, WhatsApp or meeting is logged on a New enquiry. */
+    askContacted: (e: EnquiryRow, how: string) => {
+      setVia2(how.toLowerCase());
+      show("contacted", [e]);
     },
     assign: (list: EnquiryRow[]) => {
       setOwnerSel(me);
@@ -395,10 +764,14 @@ export function useEnquiryActions(
       setTpl("Follow-up on your enquiry");
       setSubject(t[0]);
       setBody(t[1]);
+      setMoveC(true);
       show("email", list);
     },
     message: (list: EnquiryRow[]) => {
       setVia("WhatsApp");
+      setWaTpl("Enquiry follow-up");
+      setWaBody(WA_TPL["Enquiry follow-up"]!);
+      setMoveC(true);
       show("message", list);
     },
     exportTo: (list: EnquiryRow[], scope: string) => {
@@ -406,13 +779,8 @@ export function useEnquiryActions(
       show("export", list, scope);
     },
     addLine: (e: EnquiryRow) => {
-      const p = products[0];
-      setLine({
-        productId: p?.id ?? "",
-        qty: e.qty ? String(e.qty) : "",
-        unit: p?.price ? formatNumber(p.price) : "",
-        pers: "0",
-      });
+      setLineProd(null);
+      setLine({ qty: e.qty ? String(e.qty) : "", unit: "", pers: "0" });
       show("line", [e]);
     },
     sendQuote: (e: EnquiryRow) => {
@@ -434,13 +802,59 @@ export function useEnquiryActions(
   const list = open?.list ?? [];
   const one = list.length === 1 ? list[0]! : null;
   const nEnq = (n: number) => plural(n, "enquiry").replace("enquirys", "enquiries");
+  const newOnes = list.filter((e) => e.stage.label === "New");
+  const n = (v: string) => Number(v.replace(/[^\d]/g, "")) || 0;
 
   const done = () => {
     if (!open) return;
     const k = open.kind;
     if (k === "stage") {
-      list.forEach((e) => setStage(e, to, me, note.trim() || undefined));
+      if (to === "Lost" && !why) {
+        setErr("Choose a reason for Lost.");
+        return;
+      }
+      list.forEach((e) => {
+        if (to === "Lost") markLost(e, why, note);
+        else setStage(e, to, me, note.trim() || undefined);
+      });
       toast(`${nEnq(list.length)} moved to ${to}`);
+    }
+    if (k === "lost" && one) {
+      if (!why) {
+        setErr("Choose a reason first.");
+        return;
+      }
+      markLost(one, why, note);
+      toast(`Marked as lost · ${why}`);
+    }
+    if (k === "won" && one) {
+      if (wonHow === "existing") {
+        const no = wonOrder.trim();
+        if (!no) {
+          setErr("Enter the order number.");
+          return;
+        }
+        setStage(one, "Won", me, `order ${no}`);
+        editEnquiry(
+          one.id,
+          { order: no, followUp: "" },
+          { via: "System", text: `Order confirmed · ${no}` },
+        );
+        toast(`${one.company} marked as won · ${no}`);
+      } else if (one.quote.length) {
+        close();
+        onConvert?.(one.id);
+        return;
+      } else {
+        close();
+        toast("Add the products to the quotation first — they are copied into the order");
+        actions.addLine(one);
+        return;
+      }
+    }
+    if (k === "contacted" && one) {
+      setStage(one, "Contacted", me, `by ${via2}`);
+      toast("Moved to Contacted");
     }
     if (k === "owner") {
       list.forEach((e) => setOwner(e, owner, me));
@@ -457,13 +871,15 @@ export function useEnquiryActions(
           { unread: false },
           { via: "Email", text: `${me} — email “${subject.trim()}”` },
         );
-        if (e.stage.label === "New") setStage(e, "Contacted", me);
+        if (moveC && e.stage.label === "New") setStage(e, "Contacted", me, "by email");
       });
-      toast(`Email sent to ${plural(list.length, "client")}`);
+      toast(
+        one ? `Email sent to ${one.contact}` : `Email sent to ${plural(list.length, "client")}`,
+      );
     }
     if (k === "message") {
-      if (via === "SMS" && !sms.trim()) {
-        setErr("Write the SMS text.");
+      if ((via === "SMS" && !sms.trim()) || (via === "WhatsApp" && !waBody.trim())) {
+        setErr(via === "SMS" ? "Write the SMS text." : "Write the message.");
         return;
       }
       list.forEach((e) => {
@@ -472,12 +888,14 @@ export function useEnquiryActions(
           { unread: false },
           {
             via,
-            text: `${me} — ${via} ${via === "WhatsApp" ? `template “${waTpl}”` : `“${sms.slice(0, 60)}”`}`,
+            text: `${me} — ${via} “${(via === "WhatsApp" ? fillT(waBody, e) : sms).slice(0, 60)}”`,
           },
         );
-        if (e.stage.label === "New") setStage(e, "Contacted", me);
+        if (moveC && e.stage.label === "New") setStage(e, "Contacted", me, `by ${via}`);
       });
-      toast(`${via} sent to ${plural(list.length, "client")}`);
+      toast(
+        one ? `${via} sent to ${one.contact}` : `${via} sent to ${plural(list.length, "client")}`,
+      );
     }
     if (k === "export") {
       const use = EXPORT_COLS.filter((c) => cols.includes(c[0]));
@@ -493,17 +911,26 @@ export function useEnquiryActions(
       toast(`Excel downloaded · ${plural(list.length, "row")}`);
     }
     if (k === "line" && one) {
-      const n = (v: string) => Number(v.replace(/[^\d]/g, "")) || 0;
       const qty = n(line.qty),
         unit = n(line.unit);
+      if (!lineProd) {
+        setErr("Pick a product first.");
+        return;
+      }
       if (!qty || !unit) {
         setErr("Add the quantity and the unit price.");
         return;
       }
-      const p = products.find((x) => x.id === line.productId)!;
       const quote = [
         ...one.quote,
-        { productId: p.id, name: p.name, sku: p.sku, qty, unit, pers: n(line.pers) },
+        {
+          productId: lineProd.id,
+          name: lineProd.name,
+          sku: lineProd.sku,
+          qty,
+          unit,
+          pers: n(line.pers),
+        },
       ];
       editEnquiry(one.id, {
         quote,
@@ -550,6 +977,17 @@ export function useEnquiryActions(
         WhatsApp: "WhatsApp",
         Email: "Email",
       };
+      const product: EnquiryProduct | null = nProd
+        ? {
+            id: nProd.id,
+            name: nProd.name,
+            brand: nProd.brand,
+            category: nProd.category,
+            sku: nProd.sku,
+            price: nProd.price,
+            color: nProd.color,
+          }
+        : null;
       created = [
         {
           id,
@@ -557,7 +995,7 @@ export function useEnquiryActions(
           contact: nf.name.trim(),
           email: nf.email.trim(),
           phone: nf.phone.trim(),
-          items: nf.items.trim() || nf.cat,
+          items: nf.items.trim() || product?.name || nf.cat,
           qty: Number(nf.qty.replace(/\D/g, "")),
           branding: nf.brand,
           stage: { label: nf.stage, tone: TONE[nf.stage as keyof typeof TONE] },
@@ -568,12 +1006,19 @@ export function useEnquiryActions(
           budget: nf.budget.trim(),
           needBy: nf.need.trim(),
           message: nf.msg.trim(),
-          src: { channel: chMap[nf.src] ?? nf.src, how: "Added by hand", manual: true },
+          src: {
+            channel: chMap[nf.src] ?? nf.src,
+            how: "Added by hand",
+            manual: true,
+            ...(product && { page: `Product page · ${product.name}` }),
+          },
           followUp: "",
           quote: [],
           quoteRef: null,
           quoteSent: null,
           order: null,
+          product,
+          lostReason: null,
           unread: false,
           log: [
             {
@@ -610,15 +1055,59 @@ export function useEnquiryActions(
     new: "Save enquiry",
     stage: "Change stage",
     owner: "Assign",
-    email: `Send to ${list.length}`,
-    message: `Send ${via} to ${list.length}`,
+    email: one ? "Send email" : `Send to ${list.length}`,
+    message: one ? `Send ${via}` : `Send ${via} to ${list.length}`,
     export: "Download Excel",
     line: "Add to quotation",
     quote: "Send quotation",
+    lost: "Mark as lost",
+    won:
+      wonHow === "existing"
+        ? "Mark as won"
+        : one?.quote.length
+          ? "Continue to convert"
+          : "Add the products",
+    contacted: "Move to Contacted",
   };
-  const sel = (p: (typeof products)[number] | undefined) =>
-    p && setLine((l) => ({ ...l, productId: p.id, unit: p.price ? formatNumber(p.price) : "" }));
-  const lp = products.find((p) => p.id === line.productId);
+  const pickLine = (p: ProductOpt) => {
+    setLineProd(p);
+    setLine((l) => ({ ...l, unit: l.unit || (p.price ? formatNumber(p.price) : "") }));
+  };
+  const lq = n(line.qty),
+    lu = n(line.unit),
+    lpers = n(line.pers);
+  const manageTemplates = (
+    <Link
+      to="/settings"
+      search={{ tab: "templates" }}
+      className="text-[12px] text-muted-foreground underline"
+    >
+      Manage templates
+    </Link>
+  );
+  const moveBox = newOnes.length > 0 && (
+    <label className="flex items-start gap-2.5 text-[13px]">
+      <input
+        type="checkbox"
+        checked={moveC}
+        onChange={(e) => setMoveC(e.target.checked)}
+        className="mt-0.5 accent-[#0a0a0a]"
+      />
+      <span>
+        Move {newOnes.length > 1 ? `${newOnes.length} new enquiries` : "this enquiry"} to Contacted
+        <small className="block text-[12px] text-muted-foreground">
+          {newOnes.length > 1
+            ? "They are still New — not contacted yet."
+            : "It is still New — not contacted yet."}
+        </small>
+      </span>
+    </label>
+  );
+  const reasonPills = (
+    <Field label="Reason" req>
+      <Pills value={why} options={LOST_REASONS} onChange={setWhy} />
+    </Field>
+  );
 
   const dialog = (
     <Dialog open={!!open} onOpenChange={(v) => !v && close()}>
@@ -668,17 +1157,31 @@ export function useEnquiryActions(
               <Pills value={nf.src} options={CAME_IN} onChange={(v) => setNf({ ...nf, src: v })} />
             </Field>
             <Section>Request</Section>
+            <Field
+              label="Product (optional)"
+              hint="If they called about a specific item, pick it — the enquiry then shows the product card, like a website enquiry."
+            >
+              <ProductSearch
+                products={products}
+                value={nProd}
+                onClear={() => setNProd(null)}
+                onPick={(p) => {
+                  setNProd(p);
+                  setNf((f) => ({
+                    ...f,
+                    items: f.items || p.name,
+                    cat: CATEGORIES.includes(p.category) ? p.category : f.cat,
+                  }));
+                }}
+              />
+            </Field>
             <div className="grid gap-3.5 md:grid-cols-2">
               <Field label="Category of interest">
-                <select
+                <Pick
                   value={nf.cat}
-                  onChange={(e) => setNf({ ...nf, cat: e.target.value })}
-                  className={input}
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
+                  options={CATEGORIES}
+                  onChange={(v) => setNf({ ...nf, cat: v })}
+                />
               </Field>
               <Field label="Products / maisons">
                 <input
@@ -734,25 +1237,19 @@ export function useEnquiryActions(
             <Section>Handling</Section>
             <div className="grid gap-3.5 md:grid-cols-2">
               <Field label="Owner" hint="From Team & permissions">
-                <select
+                <Pick
                   value={nf.owner}
-                  onChange={(e) => setNf({ ...nf, owner: e.target.value })}
-                  className={input}
-                >
-                  {["Unassigned", ...owners].map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
-                </select>
+                  options={["Unassigned", ...owners]}
+                  onChange={(v) => setNf({ ...nf, owner: v })}
+                />
               </Field>
               <Field label="Stage" hint='Choose "Contacted" if you already spoke to them'>
-                <select
+                <Pick
                   value={nf.stage}
-                  onChange={(e) => setNf({ ...nf, stage: e.target.value })}
-                  className={input}
-                >
-                  <option>New</option>
-                  <option>Contacted</option>
-                </select>
+                  options={["New", "Contacted"]}
+                  dots
+                  onChange={(v) => setNf({ ...nf, stage: v })}
+                />
               </Field>
             </div>
             <Field label="Internal note (team only)">
@@ -778,12 +1275,23 @@ export function useEnquiryActions(
               ))}
             </dl>
             <Field label="Move all of them to" hint={STAGE_HINT[to]}>
-              <select value={to} onChange={(e) => setTo(e.target.value)} className={input}>
-                {STAGES.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
+              <Dropdown
+                value={to}
+                onChange={(v) => {
+                  setTo(v);
+                  setWhy("");
+                }}
+                className="w-full text-foreground"
+                options={STAGES.map((st) => ({
+                  value: st,
+                  label: st,
+                  dot: STAGE_COLOR[st] ?? "#767676",
+                  disabled: st === "Won",
+                  ...(st === "Won" && { hint: "one at a time" }),
+                }))}
+              />
             </Field>
+            {to === "Lost" && reasonPills}
             <Field label="Note for the record (optional)">
               <input
                 value={note}
@@ -793,7 +1301,89 @@ export function useEnquiryActions(
               />
             </Field>
             <p className="text-[12px] text-muted-foreground">
-              Each enquiry records the change under <b className="text-foreground">{me}</b>.
+              Each enquiry records the change under <b className="text-foreground">{me}</b>. Won is
+              set one enquiry at a time, because each won deal needs its own order.
+            </p>
+          </>
+        )}
+
+        {open?.kind === "lost" && one && (
+          <>
+            <Title sub="The reason is kept in History and in Reports.">
+              Mark as lost · {one.company}
+            </Title>
+            {reasonPills}
+            <Field label="Note (optional)">
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="e.g. They went with a local supplier at 1,100 EGP"
+                className={input}
+              />
+            </Field>
+          </>
+        )}
+
+        {open?.kind === "won" && one && (
+          <>
+            <Title sub="A won deal needs its order. Choose how this one was confirmed.">
+              Mark as won · {one.company}
+            </Title>
+            {(
+              [
+                [
+                  "convert",
+                  "Convert the quotation to an order",
+                  one.quote.length
+                    ? `${one.quoteRef ?? "Quotation"} · ${plural(one.quote.length, "line")} · ${formatMoney(quoteTotal(one.quote))} — the products are copied into the order.`
+                    : "There is no quotation yet — add the products first.",
+                ],
+                [
+                  "existing",
+                  "The order already exists",
+                  "The order was entered in Orders by hand. Type its number here.",
+                ],
+              ] as const
+            ).map(([v, t, h]) => (
+              <label
+                key={v}
+                className={cn(
+                  "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-[13.5px]",
+                  wonHow === v ? "border-primary" : "border-border",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="won-how"
+                  checked={wonHow === v}
+                  onChange={() => setWonHow(v)}
+                  className="mt-1 accent-[#0a0a0a]"
+                />
+                <span>
+                  <b className="font-medium">{t}</b>
+                  <small className="mt-0.5 block text-[12.5px] text-muted-foreground">{h}</small>
+                </span>
+              </label>
+            ))}
+            {wonHow === "existing" && (
+              <Field label="Order number" req>
+                <input
+                  autoFocus
+                  value={wonOrder}
+                  onChange={(e) => setWonOrder(e.target.value)}
+                  placeholder="e.g. ZL-C-0032"
+                  className={input}
+                />
+              </Field>
+            )}
+          </>
+        )}
+
+        {open?.kind === "contacted" && one && (
+          <>
+            <Title>Move to Contacted?</Title>
+            <p className="text-[13.5px] text-muted-foreground">
+              You logged a {via2} with {one.contact}. This enquiry is still New — not contacted yet.
             </p>
           </>
         )}
@@ -805,11 +1395,7 @@ export function useEnquiryActions(
               label="Owner"
               hint="The list comes from Team & permissions — invite someone there and they appear here."
             >
-              <select value={owner} onChange={(e) => setOwnerSel(e.target.value)} className={input}>
-                {["Unassigned", ...owners].map((o) => (
-                  <option key={o}>{o}</option>
-                ))}
-              </select>
+              <Pick value={owner} options={["Unassigned", ...owners]} onChange={setOwnerSel} />
             </Field>
             <label className="flex items-center gap-2 text-[13px]">
               <input type="checkbox" defaultChecked className="accent-[#0a0a0a]" /> Email them the
@@ -822,32 +1408,38 @@ export function useEnquiryActions(
           <>
             <Title>{one ? `Email ${one.contact}` : `Email ${list.length} clients`}</Title>
             <p className="rounded-lg border border-border px-3.5 py-2.5 text-[13px]">
-              <b className="text-[15px] font-medium">{list.length}</b>{" "}
-              {list.length === 1 ? "client" : "clients"} · one separate email each, from you. Saved
-              in each enquiry's history.
+              {one ? (
+                <>
+                  To <b className="font-medium">{one.email}</b> · saved in this enquiry's history.
+                </>
+              ) : (
+                <>
+                  <b className="text-[15px] font-medium">{list.length}</b> clients · one separate
+                  email each, from you. Saved in each enquiry's history.
+                </>
+              )}
             </p>
             <div className="grid gap-3.5 md:grid-cols-2">
               <Field label="From">
-                <select className={input}>
-                  <option>Zelliny &lt;info@zelliny.com&gt;</option>
-                  <option>{me}</option>
-                </select>
+                <Pick
+                  value={fromAddr}
+                  options={["Zelliny <info@zelliny.com>", me]}
+                  onChange={setFromAddr}
+                />
               </Field>
-              <Field label="Start from">
-                <select
+              <Field
+                label={<span className="flex justify-between">Start from {manageTemplates}</span>}
+              >
+                <Pick
                   value={tpl}
-                  onChange={(e) => {
-                    const t = EMAIL_TPL[e.target.value]!;
-                    setTpl(e.target.value);
+                  options={Object.keys(EMAIL_TPL)}
+                  onChange={(v) => {
+                    const t = EMAIL_TPL[v]!;
+                    setTpl(v);
                     setSubject(t[0]);
                     setBody(t[1]);
                   }}
-                  className={input}
-                >
-                  {Object.keys(EMAIL_TPL).map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
+                />
               </Field>
             </div>
             <Field label="Subject">
@@ -861,6 +1453,7 @@ export function useEnquiryActions(
               label="Message"
               hint={
                 <>
+                  You can change the wording before sending — it changes this message only.{" "}
                   <b>{"{first name}"}</b> becomes each client's first name, <b>{"{my name}"}</b>{" "}
                   yours.
                 </>
@@ -873,6 +1466,7 @@ export function useEnquiryActions(
                 className={cn(input, "h-auto py-2")}
               />
             </Field>
+            {moveBox}
           </>
         )}
 
@@ -887,25 +1481,37 @@ export function useEnquiryActions(
             {via === "WhatsApp" ? (
               <>
                 <Field
-                  label="Message template"
+                  label={
+                    <span className="flex justify-between">Message template {manageTemplates}</span>
+                  }
                   hint="WhatsApp only allows messages from templates approved by Meta."
                 >
-                  <select
+                  <Pick
                     value={waTpl}
-                    onChange={(e) => setWaTpl(e.target.value)}
-                    className={input}
-                  >
-                    {Object.keys(WA_TPL).map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
+                    options={Object.keys(WA_TPL)}
+                    onChange={(v) => {
+                      setWaTpl(v);
+                      setWaBody(WA_TPL[v]!);
+                    }}
+                  />
+                </Field>
+                <Field
+                  label="Message"
+                  hint="You can change the wording before sending — it changes this message only."
+                >
+                  <textarea
+                    rows={3}
+                    value={waBody}
+                    onChange={(e) => setWaBody(e.target.value)}
+                    className={cn(input, "h-auto py-2")}
+                  />
                 </Field>
                 <div className="rounded-lg bg-[#efe7dd] p-3.5">
                   <small className="mb-1.5 block text-[10.5px] uppercase tracking-[.1em] text-muted-foreground">
                     Preview{list[0] ? ` · ${list[0].contact}` : ""}
                   </small>
                   <div className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-white px-3 py-2.5 text-[13px] shadow-sm">
-                    {list[0] ? fillT(WA_TPL[waTpl]!, list[0]) : ""}
+                    {list[0] ? fillT(waBody, list[0]) : ""}
                   </div>
                 </div>
                 {one && (
@@ -936,6 +1542,7 @@ export function useEnquiryActions(
                 />
               </Field>
             )}
+            {moveBox}
           </>
         )}
 
@@ -966,19 +1573,13 @@ export function useEnquiryActions(
         {open?.kind === "line" && one && (
           <>
             <Title>Add a line · {one.company}</Title>
-            <Field label="Product">
-              <select
-                value={line.productId}
-                onChange={(e) => sel(products.find((p) => p.id === e.target.value))}
-                className={input}
-              >
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} · {p.brand}
-                    {p.price ? "" : " · enquiry item"}
-                  </option>
-                ))}
-              </select>
+            <Field label="Product" req>
+              <ProductSearch
+                products={products}
+                value={lineProd}
+                onClear={() => setLineProd(null)}
+                onPick={pickLine}
+              />
             </Field>
             <div className="grid gap-3.5 md:grid-cols-3">
               <Field label="Quantity" req>
@@ -1005,10 +1606,22 @@ export function useEnquiryActions(
               </Field>
             </div>
             <p className="text-[12px] text-muted-foreground">
-              {lp?.price
-                ? `Website price ${formatMoney(lp.price)} — change it for a corporate price.`
-                : "Enquiry item — no website price. Type the corporate price."}
+              {lineProd
+                ? lineProd.price
+                  ? `Website price ${formatMoney(lineProd.price)} — change it for a corporate price.`
+                  : "Enquiry item — no website price. Type the corporate price."
+                : "Pick a product to see its website price."}
             </p>
+            <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-[13px]">
+              <span className="text-muted-foreground">
+                {lq && lu
+                  ? `Line total · ${formatNumber(lq)} × (${formatNumber(lu)} + ${formatNumber(lpers)} personalisation)`
+                  : "Line total"}
+              </span>
+              <b className="text-[16px] font-semibold">
+                {lq && lu ? formatMoney(lq * (lu + lpers)) : "—"}
+              </b>
+            </div>
           </>
         )}
 
@@ -1044,15 +1657,11 @@ export function useEnquiryActions(
                 {formatMoney(quoteTotal(one.quote))}
               </div>
               <Field label="Valid for">
-                <select
+                <Pick
                   value={qs.valid}
-                  onChange={(e) => setQs({ ...qs, valid: e.target.value })}
-                  className={input}
-                >
-                  {["7 days", "14 days", "30 days"].map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
-                </select>
+                  options={["7 days", "14 days", "30 days"]}
+                  onChange={(v) => setQs({ ...qs, valid: v })}
+                />
               </Field>
             </div>
             <p className="text-[12px] text-muted-foreground">
@@ -1064,7 +1673,7 @@ export function useEnquiryActions(
         {open && (
           <DialogFooter className="items-center">
             {err && <span className="mr-auto text-[12.5px] text-bad">{err}</span>}
-            <Button onClick={close}>Cancel</Button>
+            <Button onClick={close}>{open.kind === "contacted" ? "Keep as New" : "Cancel"}</Button>
             <Primary onClick={done}>{okLabel[open.kind]}</Primary>
           </DialogFooter>
         )}

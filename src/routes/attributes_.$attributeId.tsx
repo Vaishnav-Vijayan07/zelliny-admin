@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { attributesQuery } from "@/lib/api/sections.functions";
+import { attributesQuery, categoriesQuery } from "@/lib/api/sections.functions";
 import { pageHead } from "@/lib/seo";
 import AttributeEditPage from "@/pages/AttributeEditPage";
 
@@ -10,7 +10,11 @@ export const Route = createFileRoute("/attributes_/$attributeId")({
       `Attribute ${params.attributeId}`,
       "Edit a Zelliny attribute's name, preview type and status.",
     ),
-  loader: ({ context }) => context.queryClient.ensureQueryData(attributesQuery()),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(attributesQuery()),
+      context.queryClient.ensureQueryData(categoriesQuery()),
+    ]),
   component: AttributeEditRoute,
 });
 

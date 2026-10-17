@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   bulkMode,
+  isCart,
   mix,
   setBrandVisible,
   setCategoryVisible,
@@ -100,11 +101,17 @@ export function useBulkMode() {
   const [ask, setAsk] = useState<{ name: string; list: ProductRow[]; mode: "cart" | "enq" } | null>(
     null,
   );
-  const noPrice = ask && ask.mode === "cart" ? ask.list.filter((p) => !p.price).length : 0;
+  // Exactly how many change, how many are already in that mode, and how many have no price.
+  const toCart = ask?.mode === "cart";
+  const already = ask ? ask.list.filter((p) => (toCart ? isCart(p) : !isCart(p))).length : 0;
+  const noPrice = ask && toCart ? ask.list.filter((p) => !isCart(p) && !p.price).length : 0;
+  const willSwitch = ask ? ask.list.length - already - noPrice : 0;
+  const modeName = toCart ? "Add to Cart" : "Enquiry";
+  const pr = (n: number) => `${formatNumber(n)} product${n === 1 ? "" : "s"}`;
   const confirm = () => {
     if (!ask) return;
-    const { n } = bulkMode(ask.list, ask.mode);
-    toast(`${n} products switched`);
+    bulkMode(ask.list, ask.mode);
+    toast(`${pr(willSwitch)} switched to ${modeName}`);
     setAsk(null);
   };
   const dialog = (
@@ -115,21 +122,44 @@ export function useBulkMode() {
             All {ask?.name} → {ask?.mode === "cart" ? "Add to Cart" : "Enquiry"}
           </DialogTitle>
         </DialogHeader>
-        <p className="text-[13.5px]">
-          This switches <b className="font-semibold">every product</b> in {ask?.name} to{" "}
-          {ask?.mode === "cart" ? "Add to Cart" : "Enquiry"} in one go. You can still flip single
-          products back afterwards.
-        </p>
-        {noPrice > 0 && (
-          <p className="text-[13px] text-warn">
-            {noPrice} product(s) have no price and will stay on Enquiry until you add one.
+        {willSwitch > 0 ? (
+          <p className="text-[13.5px]">
+            This switches <b className="font-semibold">{pr(willSwitch)}</b> in {ask?.name} to{" "}
+            {modeName} in one go
+            {already > 0 ? ` — the other ${formatNumber(already)} are already ${modeName}` : ""}.
+            You can still flip single products back afterwards.
+          </p>
+        ) : noPrice > 0 ? (
+          <p className="text-[13.5px]">
+            No product in {ask?.name} can switch to Add to Cart right now.
+          </p>
+        ) : (
+          <p className="text-[13.5px]">
+            All {pr(ask?.list.length ?? 0)} in {ask?.name} are already {modeName}.
           </p>
         )}
+        {noPrice > 0 && (
+          <div className="rounded-lg border border-[#e8d3ae] bg-warn-bg px-3 py-2.5 text-[13px] leading-normal text-warn">
+            <b className="font-semibold">
+              {formatNumber(noPrice)} product{noPrice === 1 ? "" : "s"}{" "}
+              {noPrice === 1 ? "has" : "have"} no price
+            </b>{" "}
+            and will stay on Enquiry until you add one.
+          </div>
+        )}
         <DialogFooter>
-          <Button onClick={() => setAsk(null)}>Cancel</Button>
-          <Button primary onClick={confirm}>
-            Apply to all
-          </Button>
+          {willSwitch > 0 ? (
+            <>
+              <Button onClick={() => setAsk(null)}>Cancel</Button>
+              <Button primary onClick={confirm}>
+                Switch {pr(willSwitch)}
+              </Button>
+            </>
+          ) : (
+            <Button primary onClick={() => setAsk(null)}>
+              OK
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

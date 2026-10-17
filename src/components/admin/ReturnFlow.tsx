@@ -11,6 +11,7 @@ import { useSessionUser } from "@/hooks/use-session";
 import { Button } from "./page";
 import { Thumb } from "./primitives";
 import { editOrder } from "./OrderFlow";
+import { addStock } from "./ProductFlow";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,15 @@ export const REASONS = [
 ];
 const VIA = ["Phone call", "WhatsApp", "Email", "At the office", "Website form"];
 
+/** How a refund was made outside the system. */
+export const REFUND_METHODS = ["Card (back through Paymob)", "Bank transfer", "Wallet"];
+const defaultRefundMethod = (payment: string) =>
+  /wallet/i.test(payment)
+    ? "Wallet"
+    : payment.startsWith("Paymob")
+      ? REFUND_METHODS[0]!
+      : "Bank transfer";
+
 /** Only the owner pays refunds out; everyone else sends them for approval. */
 export const canPayRefunds = (role?: string | null) => role === "Owner";
 
@@ -49,6 +59,7 @@ export type ReturnEdit = {
   kind?: string;
   awb?: string | null;
   inspect?: string;
+  stockResult?: Record<string, "stock" | "damaged"> | undefined;
   refund?: RefundRecord;
   refundAsked?: boolean;
   events?: OrderEvent[];
@@ -98,6 +109,7 @@ export function applyReturnEdit(
     kind: e.kind ?? r.kind,
     awb: e.awb !== undefined ? e.awb : r.awb,
     inspect: e.inspect ?? r.inspect,
+    stockResult: e.stockResult ?? r.stockResult,
     refund: e.refund ?? r.refund,
     refundAsked: !!e.refundAsked,
     log: [...r.log, ...(e.events ?? [])],
@@ -255,51 +267,7 @@ const Ok = ({
     {children}
   </button>
 );
-function Checks({
-  items,
-  ticks,
-  setTicks,
-}: {
-  items: { label: string; hint?: string }[];
-  ticks: boolean[];
-  setTicks: (t: boolean[]) => void;
-}) {
-  const open = ticks.filter((t) => !t).length;
-  return (
-    <>
-      <div className="flex flex-col gap-1">
-        {items.map((it, i) => (
-          <label
-            key={it.label}
-            className={cn(
-              "flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-[13px]",
-              ticks[i] ? "border-primary bg-hover" : "border-border",
-            )}
-          >
-            <input
-              type="checkbox"
-              className="mt-0.5 size-4 accent-[#0a0a0a]"
-              checked={!!ticks[i]}
-              onChange={() => setTicks(ticks.map((v, j) => (j === i ? !v : v)))}
-            />
-            <div>
-              {it.label}
-              {it.hint && (
-                <span className="block text-[11.5px] text-muted-foreground">{it.hint}</span>
-              )}
-            </div>
-          </label>
-        ))}
-      </div>
-      <p className={cn("text-[12.5px]", open ? "text-muted-foreground" : "text-good")}>
-        {open ? `${open} step${open > 1 ? "s" : ""} still to tick` : "All done — ready to move on"}
-      </p>
-    </>
-  );
-}
-
 type Kind = "approve" | "reject" | "receive" | "inspect" | "refund" | "bulk";
-let refSeq = 40219;
 
 /**
  * Step actions for one or more returns.
@@ -310,13 +278,12 @@ export function useReturnActions() {
   const who = user?.name ?? "You";
   const owner = canPayRefunds(user?.role);
   const [step, setStep] = useState<{ list: LiveReturn[]; kind: Kind } | null>(null);
-  const [ticks, setTicks] = useState<boolean[]>([]);
   const [why, setWhy] = useState("");
-  const [how, setHow] = useState("Bosta collects from the customer");
-  const [result, setResult] = useState("Perfect — back in stock");
-  const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState("");
-  const [ref, setRef] = useState("");
+  const [fate, setFate] = useState<Record<string, "stock" | "damaged">>({});
+  // Per return: the amount refunded and the reference of the refund already made.
+  const [paid, setPaid] = useState<Record<string, { amount: string; ref: string; method: string }>>(
+    {},
+  );
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
   const ev = (text: string, by = who): OrderEvent => ({ text, when: "Just now", who: by });
@@ -326,21 +293,24 @@ export function useReturnActions() {
     setErr("");
     setNote("");
     if (kind === "approve") {
-      setWhy(REASONS.includes(r.kind) ? r.kind : REASONS[0]!);
-      setHow("Bosta collects from the customer");
+      setWhy(r.kind);
     }
     if (kind === "reject") setWhy("Opened fragrance is not returnable");
-    if (kind === "receive") setTicks([false]);
-    if (kind === "inspect") {
-      setTicks([false, false, false]);
-      setResult("Perfect — back in stock");
-    }
-    if (kind === "refund") {
-      setAmount(formatNumber(r.amount));
-      setMethod(
-        r.payment.startsWith("Paymob") ? `${r.payment} (original)` : "Bank transfer to customer",
+    if (kind === "inspect")
+      setFate(
+        Object.fromEntries(
+          list.flatMap((x) => x.lines.map((l) => [`${x.id}|${l.sku}`, "stock" as const])),
+        ),
       );
-      setRef(`PMB-RF-${refSeq}`);
+    if (kind === "refund") {
+      setPaid(
+        Object.fromEntries(
+          list.map((x) => [
+            x.id,
+            { amount: formatNumber(x.amount), ref: "", method: defaultRefundMethod(x.payment) },
+          ]),
+        ),
+      );
     }
     setStep({ list, kind });
   };
@@ -359,7 +329,16 @@ export function useReturnActions() {
     );
   };
   const bulk = (list: LiveReturn[]) =>
-    open(list, list[0]!.status.label === "Inspected" ? "refund" : "bulk");
+    open(
+      list,
+      list[0]!.status.label === "Inspected"
+        ? "refund"
+        : list[0]!.status.label === "Received"
+          ? "inspect"
+          : list[0]!.status.label === "Approved"
+            ? "receive"
+            : "bulk",
+    );
 
   /* --- what each step does --- */
   const approve = (r: LiveReturn, reason: string, route: string) => {
@@ -377,26 +356,32 @@ export function useReturnActions() {
       editReturn(r.id, { awb }, ev(`Return pickup booked · AWB ${awb}`, "Bosta"));
     } else editReturn(r.id, {}, ev("Customer will drop it at the office"));
   };
-  const inspect = (r: LiveReturn, res: string) => {
-    if (res.startsWith("Damaged")) {
-      editReturn(
-        r.id,
-        { status: "Rejected", inspect: res },
-        ev("Inspected · damaged by customer · refund not accepted"),
-      );
-      editOrder(r.order, { status: "Delivered" });
-      return;
-    }
+  const inspect = (r: LiveReturn, choices: Record<string, "stock" | "damaged">) => {
+    const fates = Object.fromEntries(
+      r.lines.map((l) => [l.sku, choices[`${r.id}|${l.sku}`] ?? "stock"]),
+    );
+    // Items marked "Back to stock" are added to Inventory straight away.
+    r.lines.filter((l) => fates[l.sku] === "stock").forEach((l) => addStock(l.sku, l.qty));
+    const stockText = r.lines
+      .map(
+        (l) =>
+          `${l.name}${l.qty > 1 ? ` ×${l.qty}` : ""} ${fates[l.sku] === "stock" ? "back to stock" : "damaged, not sellable"}`,
+      )
+      .join(" · ");
     editReturn(
       r.id,
-      { status: "Inspected", inspect: res },
-      ev(
-        `Inspected · ${res.startsWith("Perfect") ? "perfect · back in stock" : "defect confirmed · set aside for the maison"}`,
-      ),
+      {
+        status: "Inspected",
+        inspect: r.lines.every((l) => fates[l.sku] === "stock")
+          ? "Back to stock"
+          : "Damaged, not sellable",
+        stockResult: fates,
+      },
+      ev(`Inspected · ${stockText}`),
     );
   };
-  const refund = (r: LiveReturn, rec?: Partial<RefundRecord>) => {
-    if (!owner) {
+  const refund = (r: LiveReturn, rec?: Pick<RefundRecord, "amount" | "method" | "ref">) => {
+    if (!owner || !rec) {
       editReturn(
         r.id,
         { refundAsked: true },
@@ -407,18 +392,16 @@ export function useReturnActions() {
       return;
     }
     const rf: RefundRecord = {
-      ref: rec?.ref ?? `PMB-RF-${refSeq++}`,
-      method:
-        rec?.method ??
-        (r.payment.startsWith("Paymob") ? `${r.payment} (original)` : "Bank transfer to customer"),
-      amount: rec?.amount ?? r.amount,
+      ref: rec.ref,
+      method: rec.method,
+      amount: rec.amount,
       by: who,
       when: "Today, just now",
     };
     editReturn(
       r.id,
       { status: "Refunded", refund: rf },
-      ev(`Refund issued · ${formatMoney(rf.amount)} to ${rf.method} · ref ${rf.ref}`),
+      ev(`Refund recorded · ${formatMoney(rf.amount)} by ${rf.method} · ref ${rf.ref}`),
     );
     editOrder(
       r.order,
@@ -432,62 +415,55 @@ export function useReturnActions() {
     const { list, kind } = step;
     const r = list[0]!;
     if (kind === "approve") {
-      approve(r, why, how);
+      approve(r, why, "Bosta collects from the customer");
       toast(`${r.id} approved`);
     } else if (kind === "reject") {
       editReturn(r.id, { status: "Rejected" }, ev(`Rejected · ${why}`));
       editOrder(r.order, { status: "Delivered" });
       toast(`${r.id} rejected`);
     } else if (kind === "receive") {
-      editReturn(r.id, { status: "Received" }, ev("Received at the office"));
-      toast(`${r.id} received`);
+      list.forEach((x) => editReturn(x.id, { status: "Received" }, ev("Received at the office")));
+      toast(`${list.length === 1 ? r.id : `${list.length} returns`} received`);
     } else if (kind === "inspect") {
-      inspect(r, result);
-      toast(
-        result.startsWith("Damaged")
-          ? `${r.id} closed · no refund`
-          : "Inspection done · refund is next",
-      );
+      list.forEach((x) => inspect(x, fate));
+      toast(`${list.length === 1 ? r.id : `${list.length} returns`} inspected · refund is next`);
     } else if (kind === "refund") {
-      if (list.length === 1 && owner) {
-        const amt = Number(amount.replace(/[^\d]/g, ""));
-        if (!amt) {
-          setErr("Enter the amount.");
-          return;
+      if (owner) {
+        const recs: [LiveReturn, { amount: number; method: string; ref: string }][] = [];
+        for (const x of list) {
+          const f = paid[x.id] ?? { amount: "", ref: "", method: REFUND_METHODS[0]! };
+          const amt = Number(f.amount.replace(/[^\d]/g, ""));
+          const lead = list.length > 1 ? `${x.id}: ` : "";
+          if (!amt) return setErr(`${lead}Enter the amount refunded.`);
+          if (amt > x.amount)
+            return setErr(
+              `${lead}The refund can't be more than was paid (${formatMoney(x.amount)}).`,
+            );
+          if (!f.ref.trim()) return setErr(`${lead}Enter the reference number.`);
+          recs.push([x, { amount: amt, method: f.method, ref: f.ref.trim() }]);
         }
-        if (ref.trim().length < 4) {
-          setErr("Enter the refund reference.");
-          return;
-        }
-        refund(r, { amount: amt, method, ref: ref.trim() });
-        refSeq++;
+        recs.forEach(([x, rec]) => refund(x, rec));
       } else list.forEach((x) => refund(x));
       toast(
         owner
           ? list.length === 1
-            ? "Refund issued"
-            : `${list.length} refunds issued`
+            ? "Refund recorded"
+            : `${list.length} refunds recorded`
           : "Sent to Ramy for approval",
       );
     } else if (kind === "bulk") {
       const s = r.status.label;
       list.forEach((x) => {
         if (s === "Requested") approve(x, x.kind, "Bosta collects from the customer");
-        else if (s === "Approved")
-          editReturn(x.id, { status: "Received" }, ev("Received at the office"));
-        else if (s === "Received") inspect(x, "Perfect — back in stock");
       });
-      toast(`${list.length} returns updated`);
+      toast(`${list.length} return${list.length === 1 ? "" : "s"} updated`);
     }
     setStep(null);
   };
 
   const list = step?.list ?? [];
   const r = list[0];
-  const p = r?.lines[0];
-  const sealed = !!p && (p.category === "fragrance" || p.category === "beauty");
   const total = list.reduce((a, x) => a + x.amount, 0);
-  const openTicks = ticks.filter((t) => !t).length;
   const footer = (
     ok: string,
     opts: { disabled?: boolean; danger?: boolean; left?: ReactNode } = {},
@@ -520,28 +496,12 @@ export function useReturnActions() {
             <p className="text-[13.5px]">
               {r.customer} · {r.item} · {formatMoney(r.amount)}
             </p>
-            <Field label="Reason for approval">
-              <select value={why} onChange={(e) => setWhy(e.target.value)} className={sel}>
-                {REASONS.map((x) => (
-                  <option key={x}>{x}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="How it comes back">
-              <select value={how} onChange={(e) => setHow(e.target.value)} className={sel}>
-                {[
-                  "Bosta collects from the customer",
-                  "Customer drops it at the office",
-                  "Nothing to collect (order cancelled)",
-                ].map((x) => (
-                  <option key={x}>{x}</option>
-                ))}
-              </select>
-            </Field>
-            <label className="flex items-center gap-2 text-[13px]">
-              <input type="checkbox" defaultChecked className="accent-[#0a0a0a]" /> Email the
-              customer the return instructions
-            </label>
+            <div className="rounded-lg border border-border bg-hover px-3.5 py-2.5 text-[13px]">
+              <span className="block text-[12px] text-muted-foreground">Reason</span>
+              <b className="font-medium">{r.kind}</b>
+              <span className="mt-2 block text-[12px] text-muted-foreground">Customer's notes</span>
+              {r.reason || "—"}
+            </div>
             <p className="text-[12px] text-muted-foreground">
               Recorded as approved by <b className="font-semibold text-foreground">{who}</b>.
             </p>
@@ -585,135 +545,183 @@ export function useReturnActions() {
         )}
         {r && step?.kind === "receive" && (
           <>
-            <Title>Mark {r.id} received</Title>
-            <p className="text-[13px] text-muted-foreground">
-              Normally Bosta updates this by itself when the parcel reaches the office. Use this if
-              it arrived by hand.
+            <Title>
+              Mark {list.length} return{list.length === 1 ? "" : "s"} received
+            </Title>
+            <p className="text-[13.5px] text-muted-foreground">
+              Each return is marked as received at the office.
             </p>
-            <Checks
-              items={[{ label: "Parcel received at the office", hint: r.item }]}
-              ticks={ticks}
-              setTicks={setTicks}
-            />
-            {footer("Mark received", { disabled: openTicks > 0 })}
+            {list.map((x) => (
+              <div
+                key={x.id}
+                className="flex justify-between gap-4 border-b border-line-soft py-3.5 text-[13px] last:border-0"
+              >
+                <b className="font-medium">{x.id}</b>
+                <span className="text-right text-muted-foreground">
+                  {x.item} · {x.kind}
+                </span>
+              </div>
+            ))}
+            <p className="text-[12px] text-muted-foreground">
+              Recorded under <b className="font-semibold text-foreground">{who}</b>.
+            </p>
+            {footer("Confirm")}
           </>
         )}
         {r && step?.kind === "inspect" && (
           <>
-            <Title>Receive & inspect · {r.id}</Title>
-            <p className="text-[13.5px]">
-              Reason: <b className="font-semibold">{r.kind}</b> — {r.reason}
+            <Title>
+              Receive & inspect {list.length} return{list.length === 1 ? "" : "s"}
+            </Title>
+            <p className="text-[13.5px] text-muted-foreground">
+              Inspect each item, then choose what happens to it.
             </p>
-            <Checks
-              ticks={ticks}
-              setTicks={setTicks}
-              items={[
-                {
-                  label: `${r.item} is the item we sent`,
-                  hint: `SKU ${p?.sku ?? ""} — must match the order`,
-                },
-                {
-                  label: sealed ? "Cellophane seal checked" : "All parts and packaging checked",
-                  hint: sealed
-                    ? "Opened fragrance or beauty can only be refunded for a defect"
-                    : "Box, pouch, cards and tags",
-                },
-                { label: "Photos taken of the item as received" },
-              ]}
-            />
-            <Field label="Result">
-              <select value={result} onChange={(e) => setResult(e.target.value)} className={sel}>
-                {[
-                  "Perfect — back in stock",
-                  "Defect confirmed — set aside for the maison",
-                  "Damaged by customer — refund not accepted",
-                ].map((x) => (
-                  <option key={x}>{x}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Inspector notes">
-              <textarea
-                rows={2}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="What you found"
-                className={cn(sel, "h-auto py-2")}
-              />
-            </Field>
-            {footer("Inspection done", { disabled: openTicks > 0 })}
+            {list.map((x) => (
+              <div key={x.id} className="border-b border-line-soft py-3.5 last:border-0">
+                <div className="flex justify-between gap-4 text-[13px]">
+                  <b className="font-medium">{x.id}</b>
+                  <span className="text-right text-muted-foreground">
+                    {x.item} · {x.kind}
+                  </span>
+                </div>
+                {x.lines.map((l) => {
+                  const k = `${x.id}|${l.sku}`;
+                  return (
+                    <div key={k} className="mt-3 rounded-[10px] bg-hover px-3.5 py-3">
+                      <span className="mb-2 block text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+                        Item
+                        {x.lines.length > 1 ? ` · ${l.name}${l.qty > 1 ? ` × ${l.qty}` : ""}` : ""}
+                      </span>
+                      {(
+                        [
+                          ["stock", "Back to stock", "Added back to Inventory automatically"],
+                          ["damaged", "Damaged, not sellable", "Not added to stock"],
+                        ] as const
+                      ).map(([v, t, h]) => (
+                        <label
+                          key={v}
+                          className="flex cursor-pointer items-baseline gap-2.5 py-1.5 text-[13px]"
+                        >
+                          <input
+                            type="radio"
+                            name={`fate-${k}`}
+                            className="accent-[#0a0a0a]"
+                            checked={fate[k] === v}
+                            onChange={() => setFate((f) => ({ ...f, [k]: v }))}
+                          />
+                          <b className="font-medium">{t}</b>
+                          <small className="text-muted-foreground">{h}</small>
+                        </label>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            <p className="text-[12px] text-muted-foreground">
+              Recorded under <b className="font-semibold text-foreground">{who}</b>.
+            </p>
+            {footer("Confirm")}
           </>
         )}
         {r && step?.kind === "refund" && (
           <>
             <Title>
               {owner
-                ? list.length === 1
-                  ? `Issue refund · ${r.id}`
-                  : `Issue ${list.length} refunds`
+                ? `Record refund · ${list.length} return${list.length === 1 ? "" : "s"}`
                 : list.length === 1
                   ? `Ask for refund · ${r.id}`
                   : `Ask for ${list.length} refunds`}
             </Title>
-            {owner && list.length === 1 ? (
+            {owner ? (
               <>
-                <div className="grid gap-3.5 md:grid-cols-2">
-                  <Field label="Amount (EGP)">
-                    <input
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className={sel}
-                    />
-                  </Field>
-                  <Field label="Refund to">
-                    <select
-                      value={method}
-                      onChange={(e) => setMethod(e.target.value)}
-                      className={sel}
-                    >
-                      {[
-                        r.payment.startsWith("Paymob")
-                          ? `${r.payment} (original)`
-                          : "Bank transfer to customer",
-                        "Store credit",
-                        "Cash at the office",
-                      ].map((x) => (
-                        <option key={x}>{x}</option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
-                <Field
-                  label="Refund reference"
-                  hint="Filled from Paymob automatically. For cash or bank transfer, type the receipt or transfer number."
-                >
-                  <input value={ref} onChange={(e) => setRef(e.target.value)} className={sel} />
-                </Field>
+                <p className="text-[13.5px] text-muted-foreground">
+                  Refunds are made by your team outside the system. Record each one here — amount,
+                  method and reference.
+                </p>
+                {list.map((x) => {
+                  const f = paid[x.id] ?? { amount: "", ref: "", method: REFUND_METHODS[0]! };
+                  const set = (v: Partial<typeof f>) =>
+                    setPaid((o) => ({ ...o, [x.id]: { ...f, ...v } }));
+                  return (
+                    <div key={x.id} className="border-b border-line-soft py-3.5 last:border-0">
+                      <div className="flex justify-between gap-4 text-[13px]">
+                        <b className="font-medium">{x.id}</b>
+                        <span className="text-right text-muted-foreground">
+                          {x.item} · {x.kind}
+                        </span>
+                      </div>
+                      <div className="mt-3 rounded-[10px] bg-hover px-3.5 py-3 text-[13px]">
+                        <span className="mb-2 block text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+                          Amount refunded
+                        </span>
+                        <div className="flex w-[220px] items-center rounded-[10px] border border-border bg-surface">
+                          <input
+                            value={f.amount}
+                            onChange={(e) => set({ amount: e.target.value })}
+                            className="w-full rounded-[10px] bg-transparent px-3 py-2 text-[14px] outline-none"
+                          />
+                          <span className="px-3 text-muted-foreground">EGP</span>
+                        </div>
+                        <small className="mt-1.5 block text-[12px] text-muted-foreground">
+                          Paid {formatMoney(x.amount)} by {x.payment} · lower it for a part refund
+                        </small>
+                        <span className="mb-1 mt-3.5 block text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+                          Refunded by
+                        </span>
+                        {(
+                          [
+                            [REFUND_METHODS[0]!, "Card", "back through Paymob"],
+                            [REFUND_METHODS[1]!, "Bank transfer", ""],
+                            [REFUND_METHODS[2]!, "Wallet", "Vodafone Cash, InstaPay…"],
+                          ] as const
+                        ).map(([v, t, h]) => (
+                          <label
+                            key={v}
+                            className="flex cursor-pointer items-baseline gap-2.5 py-1.5 text-[13px]"
+                          >
+                            <input
+                              type="radio"
+                              name={`via-${x.id}`}
+                              className="accent-[#0a0a0a]"
+                              checked={f.method === v}
+                              onChange={() => set({ method: v })}
+                            />
+                            <b className="font-medium">{t}</b>
+                            {h && <small className="text-muted-foreground">{h}</small>}
+                          </label>
+                        ))}
+                        <span className="mb-1.5 mt-3.5 block text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+                          Reference number
+                        </span>
+                        <input
+                          value={f.ref}
+                          onChange={(e) => set({ ref: e.target.value })}
+                          placeholder="Paymob refund ID, bank or wallet transfer reference"
+                          className="h-9 w-full rounded-[10px] border border-border bg-surface px-3 text-[13px]"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </>
             ) : (
               <Kv rows={list.map((x) => [x.id, `${x.customer} · ${formatMoney(x.amount)}`])} />
             )}
-            <Field label={owner ? "Note for the record" : "Reason for Ramy"}>
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder={
-                  owner ? "Optional" : "e.g. Returned unopened, checked and back in stock"
-                }
-                className={sel}
-              />
-            </Field>
+            {!owner && (
+              <Field label="Reason for Ramy">
+                <input
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="e.g. Returned unopened, checked and back in stock"
+                  className={sel}
+                />
+              </Field>
+            )}
             {owner ? (
-              <>
-                <label className="flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" defaultChecked className="accent-[#0a0a0a]" /> Email the
-                  customer the refund confirmation
-                </label>
-                <p className="text-[12px] text-muted-foreground">
-                  Recorded as refunded by <b className="font-semibold text-foreground">{who}</b> ·
-                  total {formatMoney(total)}.
-                </p>
-              </>
+              <p className="text-[12px] text-muted-foreground">
+                Recorded under <b className="font-semibold text-foreground">{who}</b>.
+              </p>
             ) : (
               <p className="rounded-lg bg-warn-bg px-3.5 py-2.5 text-[12.5px]">
                 Nothing is paid yet. Ramy gets it by email and WhatsApp and approves with his code.
@@ -721,11 +729,7 @@ export function useReturnActions() {
               </p>
             )}
             {err && <p className="text-[12.5px] text-bad">{err}</p>}
-            {footer(
-              owner
-                ? `Refund ${formatMoney(list.length === 1 ? Number(amount.replace(/[^\d]/g, "")) || 0 : total)}`
-                : `Send ${formatMoney(total)} for approval`,
-            )}
+            {footer(owner ? "Confirm" : `Send ${formatMoney(total)} for approval`)}
           </>
         )}
         {r && step?.kind === "bulk" && (
@@ -733,7 +737,7 @@ export function useReturnActions() {
             <Title>
               {
                 {
-                  Requested: `Approve ${list.length} returns`,
+                  Requested: `Approve ${list.length} return${list.length === 1 ? "" : "s"}`,
                   Approved: `Mark ${list.length} received`,
                   Received: `Mark ${list.length} inspected`,
                 }[r.status.label]

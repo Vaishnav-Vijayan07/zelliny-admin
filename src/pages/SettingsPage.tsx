@@ -226,7 +226,7 @@ export default function SettingsPage({
           </Button>
         }
       />
-      <div className="mb-[18px] flex gap-1 overflow-x-auto border-b border-border">
+      <div className="mb-[18px] flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border">
         {TABS.map((t) => (
           <button
             key={t}

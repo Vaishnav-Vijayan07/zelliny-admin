@@ -3,6 +3,7 @@ import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { Tile, SettingsGroup } from "@/lib/api/section-types";
 import { StatusBadge, Panel } from "./primitives";
+import { SearchSelect } from "./SearchSelect";
 
 export function PageHeader({
   title,
@@ -28,20 +29,26 @@ export function Button({
   primary,
   children,
   onClick,
+  disabled,
+  className,
 }: {
   primary?: boolean;
   children: ReactNode;
   onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "rounded-lg border px-4 py-2 text-[13px] transition-colors",
+        "rounded-lg border px-4 py-2 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-45",
         primary
           ? "border-primary bg-primary text-primary-foreground hover:opacity-90"
           : "border-border bg-surface hover:bg-hover",
+        className,
       )}
     >
       {children}
@@ -111,12 +118,26 @@ export function FilterSelect({
   onChange,
   all,
   options,
+  searchable,
 }: {
   value: string;
   onChange: (v: string) => void;
   all: string;
   options: string[];
+  /** Opens with a search box. Lists of more than 8 always do. */
+  searchable?: boolean;
 }) {
+  // Long lists (maisons, categories…) open with a search box.
+  if (searchable || options.length > 8)
+    return (
+      <SearchSelect
+        value={value}
+        onChange={onChange}
+        options={options}
+        allLabel={all}
+        className="w-auto min-w-[150px] bg-background text-[13px]"
+      />
+    );
   return (
     <select
       value={value}
@@ -312,6 +333,7 @@ export function Pager({
   onPage,
   onPageSize,
   sizes = [10, 25, 50, 100],
+  hideSize,
 }: {
   page: number;
   pageSize: number;
@@ -320,6 +342,8 @@ export function Pager({
   onPage: (p: number) => void;
   onPageSize: (n: number) => void;
   sizes?: number[];
+  /** Fixed page size — hides the "Rows per page" control (prototype's inline product pager). */
+  hideSize?: boolean;
 }) {
   if (!total) return null;
   const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -373,20 +397,24 @@ export function Pager({
           Next ›
         </button>
       </div>
-      <label>
-        Rows per page
-        <select
-          value={pageSize}
-          onChange={(e) => onPageSize(Number(e.target.value))}
-          className="ml-1.5 h-9 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-foreground"
-        >
-          {sizes.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </label>
+      {hideSize ? (
+        <span />
+      ) : (
+        <label>
+          Rows per page
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSize(Number(e.target.value))}
+            className="ml-1.5 h-9 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-foreground"
+          >
+            {sizes.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </div>
   );
 }

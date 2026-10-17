@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { ordersQuery, returnsQuery } from "@/lib/api/sections.functions";
+import { customersQuery, ordersQuery, returnsQuery } from "@/lib/api/sections.functions";
 import { pageHead } from "@/lib/seo";
 import ReturnsPage from "@/pages/ReturnsPage";
 
@@ -17,6 +17,7 @@ export const Route = createFileRoute("/returns")({
     Promise.all([
       context.queryClient.ensureQueryData(returnsQuery()),
       context.queryClient.ensureQueryData(ordersQuery()),
+      context.queryClient.ensureQueryData(customersQuery()),
     ]),
   component: ReturnsRoute,
 });

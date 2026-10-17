@@ -553,65 +553,126 @@ export const mockBrands = (): T.BrandRow[] =>
     mode: b.mode,
     count: b.count,
     featured: b.featured,
+    featuredCategory: b.featured ? cat(b.cats[0] ?? "") : undefined,
     status: tag(b.status),
   }));
 
 /* Attributes (variant options like colour/size) — not in the original prototype, added for the admin's own catalogue needs. */
-const ATTRIBUTES: {
+type AttrSample = {
   id: string;
   name: string;
+  nameAr: string;
   previewType: T.AttributePreviewType;
+  unit?: string;
+  categories: string[];
   status: string;
-  values: { id: string; value: string; color?: string; icon?: string; iconAlt?: string }[];
-}[] = [
+  /** [id, value, Arabic, products using it, colour?] */
+  values: [string, string, string, number, string?][];
+};
+const ATTRIBUTES: AttrSample[] = [
   {
     id: "colour",
     name: "Colour",
+    nameAr: "اللون",
     previewType: "COLOR",
+    categories: ["Jewellery", "Watches", "Bags", "Leather Goods", "Writing Instruments"],
     status: "Active",
     values: [
-      { id: "colour-black", value: "Black", color: "#0a0a0a" },
-      { id: "colour-gold", value: "Gold", color: "#c9a227" },
-      { id: "colour-burgundy", value: "Burgundy", color: "#5c1a24" },
-      { id: "colour-tan", value: "Tan", color: "#b08968" },
+      ["colour-black", "Black", "أسود", 38, "#0a0a0a"],
+      ["colour-gold", "Gold", "ذهبي", 21, "#c9a227"],
+      ["colour-burgundy", "Burgundy", "عنابي", 6, "#5c1a24"],
+      ["colour-tan", "Tan", "بني فاتح", 9, "#b08968"],
     ],
   },
   {
     id: "size",
     name: "Size",
-    previewType: "TEXT",
+    nameAr: "الحجم",
+    previewType: "NUMBER",
+    unit: "ml",
+    categories: ["Fragrance", "Beauty"],
     status: "Active",
     values: [
-      { id: "size-s", value: "Small" },
-      { id: "size-m", value: "Medium" },
-      { id: "size-l", value: "Large" },
+      ["size-30", "30", "٣٠", 24],
+      ["size-50", "50", "٥٠", 61],
+      ["size-75", "75", "٧٥", 18],
+      ["size-80", "80", "٨٠", 9],
+      ["size-85", "85", "٨٥", 6],
+      ["size-100", "100", "١٠٠", 88],
+      ["size-105", "105", "١٠٥", 4],
+      ["size-120", "120", "١٢٠", 7],
+      ["size-200", "200", "٢٠٠", 7],
+    ],
+  },
+  {
+    id: "concentration",
+    name: "Concentration",
+    nameAr: "التركيز",
+    previewType: "TEXT",
+    categories: ["Fragrance"],
+    status: "Active",
+    values: [
+      ["conc-edt", "Eau de Toilette", "أو دي تواليت", 72],
+      ["conc-edp", "Eau de Parfum", "أو دي بارفان", 96],
+      ["conc-parfum", "Parfum", "بارفان", 14],
+    ],
+  },
+  {
+    id: "shade",
+    name: "Shade",
+    nameAr: "الدرجة",
+    previewType: "COLOR",
+    categories: ["Beauty"],
+    status: "Active",
+    values: [
+      ["shade-110", "110 Porcelain", "110 بورسلين", 5, "#f1d9c4"],
+      ["shade-120", "120 Ivory", "120 عاجي", 8, "#ead0b3"],
+      ["shade-210", "210 Beige", "210 بيج", 9, "#d9b48f"],
+      ["shade-310", "310 Honey", "310 عسلي", 6, "#c08b5c"],
+      ["shade-410", "410 Caramel", "410 كراميل", 4, "#a06a42"],
+      ["shade-510", "510 Mocha", "510 موكا", 2, "#6f4630"],
     ],
   },
   {
     id: "material",
     name: "Material",
+    nameAr: "الخامة",
     previewType: "ICON",
+    categories: ["Bags", "Leather Goods"],
     status: "Active",
     values: [
-      { id: "material-leather", value: "Leather" },
-      { id: "material-canvas", value: "Canvas" },
+      ["material-leather", "Leather", "جلد", 31],
+      ["material-canvas", "Canvas", "كانفاس", 4],
     ],
   },
-  { id: "finish", name: "Finish", previewType: "TEXT", status: "Inactive", values: [] },
+  {
+    id: "finish",
+    name: "Finish",
+    nameAr: "",
+    previewType: "TEXT",
+    categories: [],
+    status: "Inactive",
+    values: [],
+  },
 ];
 
 export const mockAttributes = (): T.AttributeRow[] =>
   ATTRIBUTES.map((a) => ({
     id: a.id,
     name: a.name,
+    nameAr: a.nameAr,
+    unit: a.unit ?? "ml",
+    categories: a.categories,
     previewType: a.previewType,
     status: tag(a.status),
-    values: a.values.map((v) => ({
-      id: v.id,
-      value: v.value,
-      color: v.color ?? null,
-      icon: v.icon ?? null,
-      iconAlt: v.iconAlt ?? null,
+    values: a.values.map(([id, value, valueAr, usedBy, color]) => ({
+      id,
+      value,
+      valueAr,
+      usedBy,
+      color: color ?? null,
+      icon: null,
+      iconAlt: null,
     })),
   }));
 
@@ -866,6 +927,7 @@ type EnqExtra = Pick<
   order?: string;
   followUp?: string;
   unread?: boolean;
+  lostReason?: string;
 };
 const ENQ_EXTRA: Record<string, EnqExtra> = {
   "ENQ-318": {
@@ -959,6 +1021,9 @@ const ENQ_EXTRA: Record<string, EnqExtra> = {
     budget: "",
     needBy: "1 Oct 2026",
     order: "ZL-C-0031",
+    quote: [["name:Hugo Boss Gear Matrix", 80, 4200, 90]],
+    quoteRef: "Q-2026-0414",
+    quoteSent: "18 Sep",
     message: "Leather sets for our hotel partners, logo printed.",
     src: {
       channel: "Facebook",
@@ -979,6 +1044,7 @@ const ENQ_EXTRA: Record<string, EnqExtra> = {
     time: "15:30",
     budget: "",
     needBy: "",
+    lostReason: "Chose another supplier",
     message: "Lighters for 15 partners, initials engraved.",
     src: { channel: "Email", how: "Wrote to info@zelliny.com", manual: true },
     log: [
@@ -1071,6 +1137,34 @@ export function mockEnquiries(): T.EnquiriesData {
     followUp: x.followUp ?? "",
     unread: !!x.unread,
     order: x.order ?? null,
+    lostReason: x.lostReason ?? null,
+    product: (() => {
+      // "Product page · Cerruti 1881 Card Holder" → the product they pressed Enquire now on.
+      const n = x.src.page?.startsWith("Product page · ") ? x.src.page.slice(14) : "";
+      if (!n) return null;
+      const p =
+        products.find((y) => y.en.includes(n)) ??
+        products.find((y) => y.en.startsWith(n.split(" ").slice(0, 2).join(" ")));
+      return p
+        ? {
+            id: p.id,
+            name: p.en,
+            brand: brand(p.brand),
+            category: p.cat,
+            sku: p.sku,
+            price: p.offer || p.price,
+            color: p.img,
+          }
+        : {
+            id: "",
+            name: n,
+            brand: n.split(" ")[0] ?? "",
+            category: "",
+            sku: "",
+            price: null,
+            color: "#bbb",
+          };
+    })(),
     quoteRef: x.quoteRef ?? null,
     quoteSent: x.quoteSent ?? null,
     quote: (x.quote ?? []).map(([ref, qty, unit, pers]) => {
@@ -1093,6 +1187,8 @@ export function mockEnquiries(): T.EnquiriesData {
         name: p.en,
         sku: p.sku,
         brand: brand(p.brand),
+        category: p.cat,
+        color: p.img,
         price: p.offer || p.price,
       })),
   };

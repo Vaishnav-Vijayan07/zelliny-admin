@@ -115,6 +115,8 @@ export interface ReturnRow {
   via: string;
   photos: number;
   inspect: string | null;
+  /** What happened to each returned item (by SKU) at inspection. */
+  stockResult?: Record<string, "stock" | "damaged"> | undefined;
   refund: RefundRecord | null;
   /** Who did what, oldest first. `who` is a person, the customer, or "Bosta". */
   log: OrderEvent[];
@@ -165,6 +167,14 @@ export interface CategoryRow {
   mode: string;
   order: number;
   status: Tagged;
+  /** How products are ordered on the category page, e.g. "Newest first". */
+  defaultSort?: string | undefined;
+  introEn?: string | undefined;
+  introAr?: string | undefined;
+  metaTitle?: string | undefined;
+  metaEn?: string | undefined;
+  metaAr?: string | undefined;
+  url?: string | undefined;
 }
 export interface BrandRow {
   id: string;
@@ -175,13 +185,25 @@ export interface BrandRow {
   count: number;
   featured: boolean;
   status: Tagged;
+  /** The one category this maison shows for in the homepage "Houses we curate" row. */
+  featuredCategory?: string | undefined;
+  metaTitle?: string | undefined;
+  metaTitleAr?: string | undefined;
+  metaEn?: string | undefined;
+  metaAr?: string | undefined;
+  url?: string | undefined;
 }
 
-export type AttributePreviewType = "COLOR" | "ICON" | "TEXT";
+/** TEXT, COLOR (swatch), ICON (small picture) or NUMBER (a number with a unit, e.g. 50 ml). */
+export type AttributePreviewType = "COLOR" | "ICON" | "TEXT" | "NUMBER";
 /** `color` is a hex string (COLOR type), `icon` a data/image URL (ICON type) — both null otherwise. */
 export interface AttributeValueRow {
   id: string;
   value: string;
+  /** Arabic name of the value. */
+  valueAr: string;
+  /** How many products use this value. */
+  usedBy: number;
   color: string | null;
   icon: string | null;
   iconAlt: string | null;
@@ -189,6 +211,11 @@ export interface AttributeValueRow {
 export interface AttributeRow {
   id: string;
   name: string;
+  nameAr: string;
+  /** Unit for a Number + unit attribute: ml, g, cm, mm or pcs. */
+  unit: string;
+  /** Categories the attribute applies to. Empty = offered everywhere. */
+  categories: string[];
   previewType: AttributePreviewType;
   values: AttributeValueRow[];
   status: Tagged;
@@ -277,6 +304,17 @@ export interface QuoteLine {
   unit: number;
   /** Personalisation price per piece. */ pers: number;
 }
+/** The product a client pressed "Enquire now" on (or the team picked when adding by hand). */
+export interface EnquiryProduct {
+  id: string;
+  name: string;
+  brand: string;
+  category: string;
+  sku: string;
+  price: number | null;
+  /** Placeholder photo colour. */
+  color: string;
+}
 export interface EnquiryRow {
   id: string;
   company: string;
@@ -303,6 +341,10 @@ export interface EnquiryRow {
   quoteSent: string | null;
   /** Order created from this enquiry, once won. */
   order: string | null;
+  /** Set when the enquiry came from a product page or the team picked a product. */
+  product: EnquiryProduct | null;
+  /** Why the deal was lost, once the stage is Lost. */
+  lostReason: string | null;
   /** Arrived and not opened yet. */
   unread: boolean;
   /** History, oldest first. `via` is "System", "Phone", "Email", "WhatsApp" or "Note". */
@@ -313,7 +355,15 @@ export interface EnquiriesData {
   /** Team members who can own an enquiry (from Team & permissions). */
   owners: string[];
   /** Products that can go on a quotation. */
-  products: { id: string; name: string; sku: string; brand: string; price: number | null }[];
+  products: {
+    id: string;
+    name: string;
+    sku: string;
+    brand: string;
+    category: string;
+    color: string;
+    price: number | null;
+  }[];
 }
 
 export interface PaymentRow {
