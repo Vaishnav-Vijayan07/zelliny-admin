@@ -11,7 +11,7 @@ export const Route = createFileRoute("/settings")({
     tab: z.literal("templates").optional(),
     from: z.string().max(20).optional(),
   }),
-  head: () => pageHead("Settings", "Store details, checkout, notifications and policies."),
+  head: () => pageHead("Settings", "Store details, checkout, payments, notifications, message templates and connections."),
   component: SettingsRoute,
 });
 

@@ -1,4 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { OwnerOnly } from "@/components/admin/OwnerOnly";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -111,7 +112,9 @@ export default function AttributesPage() {
           >
             Edit
           </Button>
-          <Button onClick={() => setDeleting(a)}>Delete</Button>
+          <OwnerOnly>
+            <Button onClick={() => setDeleting(a)}>Delete</Button>
+          </OwnerOnly>
         </div>
       ),
     },

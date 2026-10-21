@@ -107,8 +107,9 @@ const ENTRIES: Entry[] = [
     action: "Edited Arabic description",
     item: "Swarovski Millenia Necklace",
     link: product("P1011"),
-    before: "قلادة ميلينيا بكريستالات…",
-    after: "قلادة ميلينيا من سواروفسكي بكريستالات مقطوعة…",
+    before: "قلادة ميلينيا بكريستالات سواروفسكي، تصميم أنيق للمناسبات.",
+    after:
+      "قلادة ميلينيا من سواروفسكي بكريستالات مقطوعة بدقة، بطلاء ذهبي وردي، تأتي في علبة سواروفسكي الأصلية — هدية مثالية للمناسبات الخاصة.",
     from: IPHONE,
   },
   {
@@ -377,3 +378,12 @@ export const ACTIVITY_LOG: ActivityRow[] = ENTRIES.map((e, i) => ({
 
 /** Days offered in the day filter, in the order they appear. */
 export const ACTIVITY_DAYS = ["Today", "Yesterday", "22 Sep"];
+
+/** Calendar date of a day label, as "21 Oct 2026" — the format the shared date filter reads. */
+export function activityDayDate(day: string): string {
+  // The sample data's "22 Sep" is two days back.
+  const back = day === "Today" ? 0 : day === "Yesterday" ? 1 : 2;
+  const d = new Date();
+  d.setDate(d.getDate() - back);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}

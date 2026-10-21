@@ -1,4 +1,9 @@
 // Create / edit a promotion (coupon, offer or cart discount). Saves go to the shared promotion store (DiscountFlow) — swap for API mutations later.
+import { StickyCol } from "@/components/admin/StickyCol";
+import { useIsOwner } from "@/pages/StaffPage";
+import { useSessionUser } from "@/hooks/use-session";
+import { useDone } from "@/components/admin/SiteContentUi";
+import { discountNeedsApproval, requestApproval } from "@/lib/team-store";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
@@ -7,6 +12,8 @@ import { categoriesQuery, discountsQuery, productsQuery } from "@/lib/api/sectio
 import { cn } from "@/lib/utils";
 import { StatusBadge, Toggle } from "@/components/admin/primitives";
 import { Button } from "@/components/admin/page";
+import { SearchSelect } from "@/components/admin/SearchSelect";
+import { DateField } from "@/components/admin/DateField";
 import {
   APPLY_ON,
   COUPON_SCOPES,
@@ -19,6 +26,7 @@ import {
   datesLabel,
   deletePromotion,
   editPromotion,
+  fmt,
   randomCode,
   statusOf,
   typeMeta,
@@ -124,17 +132,13 @@ function Choice<T extends string>({
   );
 }
 const ModeSelect = ({ value, onChange }: { value: Mode; onChange: (m: Mode) => void }) => (
-  <select
+  <SearchSelect
     value={value}
-    onChange={(e) => onChange(e.target.value as Mode)}
-    className={cn(inputCls, "cursor-pointer")}
-  >
-    {MODES.map((m) => (
-      <option key={m.value} value={m.value}>
-        {m.label}
-      </option>
-    ))}
-  </select>
+    items={MODES}
+    onChange={(v) => onChange(v as Mode)}
+    searchable={false}
+    className="text-[14px]"
+  />
 );
 
 export function DiscountEditor({ code: id }: { code?: string | undefined }) {
@@ -150,6 +154,9 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
   const [picker, setPicker] = useState<null | "items" | "buy" | "get">(null);
   const [q, setQ] = useState("");
   const [askDelete, setAskDelete] = useState(false);
+  const owner = useIsOwner();
+  const me = useSessionUser();
+  const [doneNode, done] = useDone();
   const set = <K extends keyof Promotion>(k: K, v: Promotion[K]) => setF((x) => ({ ...x, [k]: v }));
 
   if (!isNew && !p)
@@ -241,6 +248,36 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
       code: f.type === "coupon" ? codeUp : "",
       items: usesItems ? f.items : [],
     };
+    // Above the role's discount limit the change doesn't happen: it waits for the owner.
+    const pct =
+      f.type === "coupon"
+        ? f.couponMode === "percentage"
+          ? Number(f.value)
+          : 0
+        : f.type === "offer" && f.offerType === "discount"
+          ? f.discountMode === "percentage"
+            ? Number(f.discountValue)
+            : 0
+          : f.type === "cartDiscount" && f.cartType === "discount" && f.couponMode === "percentage"
+            ? Number(f.value)
+            : 0;
+    const why = pct ? discountNeedsApproval(me?.name, pct) : null;
+    if (why) {
+      const { id: _id, ...rest } = row;
+      requestApproval({
+        kind: "Discount",
+        who: me?.name,
+        what: `${isNew ? "New" : "Change to"} ${name} · ${pct}% off`,
+        ref: "Discounts & offers",
+        why,
+        apply: () => (isNew ? addPromotion(rest) : editPromotion(row.id, row)),
+      });
+      done(
+        "Sent for approval",
+        `${name} is above your ${pct > 0 ? "discount" : ""} limit, so it was not saved. It waits for the owner under "Waiting for approval", and they have been notified.`,
+      );
+      return;
+    }
     if (isNew) {
       const { id: _drop, ...rest } = row;
       const nid = addPromotion(rest);
@@ -254,6 +291,25 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
 
   const status = statusOf(f);
   const meta = typeMeta(f.type);
+
+  // On a saved promotion the switch applies at once, without pressing Save.
+  const toggleActive = () => {
+    const active = !f.active;
+    set("active", active);
+    if (isNew || !p) return;
+    editPromotion(p.id, { active });
+    const s = statusOf({ ...p, ...f, active }).label;
+    toast(
+      !active
+        ? `Promotion paused · ${p.name} stops applying straight away`
+        : s === "Scheduled"
+          ? `${p.name} switched on · it starts on ${fmt(f.starts)}`
+          : s === "Expired"
+            ? `${p.name} switched on · but its end date has passed`
+            : `${p.name} is live again`,
+    );
+  };
+  const wasUsed = !!p && p.used > 0;
 
   return (
     <>
@@ -296,7 +352,7 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
               />
             </Field>
             <div className="max-w-[200px]">
-              <Field label="Sort order" hint="Lower shows first">
+              <Field label="Sort order" hint="Order on the website offers page · lower shows first">
                 <input
                   value={f.sortOrder}
                   onChange={(e) => set("sortOrder", digits(e.target.value))}
@@ -397,17 +453,13 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
                     </Field>
                   </div>
                   <Field label="Apply offer on">
-                    <select
+                    <SearchSelect
                       value={f.applyOn}
-                      onChange={(e) => setItemScope(e.target.value as Scope)}
-                      className={cn(inputCls, "cursor-pointer")}
-                    >
-                      {APPLY_ON.map((a) => (
-                        <option key={a.value} value={a.value}>
-                          {a.label}
-                        </option>
-                      ))}
-                    </select>
+                      items={APPLY_ON}
+                      onChange={(v) => setItemScope(v as Scope)}
+                      searchable={false}
+                      className="text-[14px]"
+                    />
                   </Field>
                 </>
               )}
@@ -586,20 +638,17 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
           <Card title="Schedule & limits">
             <div className="grid gap-3.5 sm:grid-cols-2">
               <Field label="Starts">
-                <input
-                  type="date"
+                <DateField
                   value={f.starts}
-                  onChange={(e) => set("starts", e.target.value)}
-                  className={inputCls}
+                  max={f.ends || undefined}
+                  onChange={(v) => set("starts", v)}
                 />
               </Field>
               <Field label="Ends" hint="Empty dates = always active">
-                <input
-                  type="date"
+                <DateField
                   value={f.ends}
-                  min={f.starts}
-                  onChange={(e) => set("ends", e.target.value)}
-                  className={inputCls}
+                  min={f.starts || undefined}
+                  onChange={(v) => set("ends", v)}
                 />
               </Field>
             </div>
@@ -638,7 +687,7 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
           </Card>
         </div>
 
-        <div className="min-w-0">
+        <StickyCol>
           <Card title="Summary">
             <ul className="mb-3 space-y-2 text-[13px]">
               <li>
@@ -657,9 +706,9 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
             </ul>
             <Row
               label="Active"
-              hint="Switch off to pause without deleting"
+              hint={isNew ? "Switch off to save as a draft" : "Takes effect straight away"}
               on={f.active}
-              onChange={() => set("active", !f.active)}
+              onChange={toggleActive}
             />
             <div className="mt-2">
               <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
@@ -671,7 +720,7 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
               </p>
             )}
           </Card>
-          {!isNew && (
+          {!isNew && owner && (
             <section className="rounded-[10px] border border-bad-bg bg-surface px-5 pb-5 pt-4">
               <h3 className="mb-3 text-[15px] text-bad">Delete promotion</h3>
               <p className="mb-3 text-[13px]">
@@ -681,7 +730,7 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
               <Button onClick={() => setAskDelete(true)}>Delete promotion</Button>
             </section>
           )}
-        </div>
+        </StickyCol>
       </div>
 
       <Dialog
@@ -747,27 +796,59 @@ export function DiscountEditor({ code: id }: { code?: string | undefined }) {
         <DialogContent className="max-w-[460px]">
           <DialogHeader>
             <DialogTitle className="font-head text-[18px] font-normal">
-              Delete {p?.name}?
+              {wasUsed ? `Make ${p?.name} inactive?` : `Delete ${p?.name}?`}
             </DialogTitle>
           </DialogHeader>
-          <p className="text-[13.5px]">The promotion stops applying straight away.</p>
+          {wasUsed ? (
+            <>
+              <p className="text-[13.5px]">
+                {p?.name} has been used in <b>{p?.used} orders</b>, so it can't be deleted.
+              </p>
+              <p className="text-[13px] text-muted-foreground">
+                Making it inactive stops it straight away. It stays in the list with its history,
+                and you can switch it back on later.
+              </p>
+            </>
+          ) : (
+            <p className="text-[13.5px]">
+              It has never been used. It will be removed for good — this can't be undone.
+            </p>
+          )}
           <DialogFooter>
             <Button onClick={() => setAskDelete(false)}>Cancel</Button>
-            <Button
-              primary
-              onClick={() => {
-                if (p) {
-                  deletePromotion(p.id);
-                  toast(`${p.name} deleted`);
-                }
-                navigate({ to: "/discounts" });
-              }}
-            >
-              Delete
-            </Button>
+            {wasUsed ? (
+              <Button
+                primary
+                onClick={() => {
+                  if (p) {
+                    editPromotion(p.id, { active: false });
+                    set("active", false);
+                    toast(`${p.name} is now inactive`);
+                  }
+                  setAskDelete(false);
+                }}
+              >
+                Make inactive
+              </Button>
+            ) : (
+              <button
+                type="button"
+                className="h-9 rounded-lg bg-bad px-4 text-[13.5px] text-white"
+                onClick={() => {
+                  if (p) {
+                    deletePromotion(p.id);
+                    toast(`${p.name} deleted`);
+                  }
+                  navigate({ to: "/discounts" });
+                }}
+              >
+                Delete
+              </button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {doneNode}
     </>
   );
 }

@@ -1,4 +1,5 @@
 // Create / edit a bundle (gift set). Saves go to the shared bundle store (BundleFlow) — swap for API mutations later.
+import { StickyCol } from "@/components/admin/StickyCol";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
@@ -316,7 +317,7 @@ export function BundleEditor({ id }: { id?: string | undefined }) {
             </div>
           </Card>
         </div>
-        <div className="min-w-0">
+        <StickyCol>
           <Card title="Price">
             <div className="mb-3">
               <ModeSwitch<"cart" | "enq">
@@ -374,7 +375,7 @@ export function BundleEditor({ id }: { id?: string | undefined }) {
             <Row label="Show in “Gifts” menu" init />
             <Row label="Show on homepage" init={false} />
           </Card>
-        </div>
+        </StickyCol>
       </div>
 
       <Dialog open={pick} onOpenChange={setPick}>

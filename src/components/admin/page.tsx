@@ -127,30 +127,16 @@ export function FilterSelect({
   /** Opens with a search box. Lists of more than 8 always do. */
   searchable?: boolean;
 }) {
-  // Long lists (maisons, categories…) open with a search box.
-  if (searchable || options.length > 8)
-    return (
-      <SearchSelect
-        value={value}
-        onChange={onChange}
-        options={options}
-        allLabel={all}
-        className="w-auto min-w-[150px] bg-background text-[13px]"
-      />
-    );
+  // Always the styled list; long lists (maisons, categories…) also get a search box.
   return (
-    <select
+    <SearchSelect
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-9 rounded-lg border border-border bg-background px-3 text-[13px]"
-    >
-      <option value="">{all}</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      options={options}
+      allLabel={all}
+      searchable={!!searchable || options.length > 8}
+      className="w-auto min-w-[150px] bg-background text-[13px]"
+    />
   );
 }
 
@@ -163,6 +149,8 @@ export interface Column<T> {
   cell: (row: T) => ReactNode;
   align?: "right";
   className?: string;
+  /** CSS width (e.g. "78px", "20%") — only used when the table has `fixedLayout`. */
+  width?: string;
   /** Rendered instead of the header text (e.g. a select-all checkbox). */ headerNode?: ReactNode;
 }
 
@@ -174,7 +162,10 @@ export function DataTable<T>({
   onRowClick,
   groupBy,
   rowClassName,
+  fixedLayout,
 }: {
+  /** Columns keep their widths whatever the rows contain (use with `Column.width`). */
+  fixedLayout?: boolean;
   columns: Column<T>[];
   rows: T[];
   rowKey: (r: T) => string;
@@ -186,7 +177,14 @@ export function DataTable<T>({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
+      <table className={cn("w-full border-collapse text-[13px]", fixedLayout && "table-fixed")}>
+        {fixedLayout && (
+          <colgroup>
+            {columns.map((c) => (
+              <col key={c.header} {...(c.width ? { style: { width: c.width } } : {})} />
+            ))}
+          </colgroup>
+        )}
         <thead>
           <tr className="border-b border-border text-left text-[11px] uppercase tracking-[.12em] text-muted-foreground">
             {columns.map((c) => (
@@ -400,20 +398,17 @@ export function Pager({
       {hideSize ? (
         <span />
       ) : (
-        <label>
+        <div className="flex items-center gap-1.5">
           Rows per page
-          <select
-            value={pageSize}
-            onChange={(e) => onPageSize(Number(e.target.value))}
-            className="ml-1.5 h-9 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-foreground"
-          >
-            {sizes.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
+          <SearchSelect
+            value={String(pageSize)}
+            items={sizes.map((n) => ({ value: String(n), label: String(n) }))}
+            onChange={(v) => v && onPageSize(Number(v))}
+            searchable={false}
+            flip
+            className="w-[76px] min-w-0 text-[13px]"
+          />
+        </div>
       )}
     </div>
   );

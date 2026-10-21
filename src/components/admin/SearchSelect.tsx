@@ -18,7 +18,13 @@ export function SearchSelect({
   invalid,
   id,
   searchPlaceholder = "Type to search…",
+  searchable = true,
+  flip,
 }: {
+  /** Lets the list open upwards when there is no room below (e.g. near the page bottom). */
+  flip?: boolean;
+  /** Set false for short lists: no search box, just the styled list. */
+  searchable?: boolean;
   value: string;
   options?: string[];
   /** Full value/label pairs — used when the value is an id and the label is richer. */
@@ -70,15 +76,19 @@ export function SearchSelect({
       </PopoverTrigger>
       <PopoverContent
         align="start"
+        side="bottom"
+        avoidCollisions={!!flip}
         className="w-[var(--radix-popover-trigger-width)] min-w-[220px] rounded-xl p-1.5"
       >
-        <input
-          autoFocus
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={searchPlaceholder}
-          className="mb-1 h-8 w-full rounded-lg border border-border bg-hover px-2.5 text-[13px] outline-none focus:border-primary focus:bg-surface"
-        />
+        {searchable && (
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="mb-1 h-8 w-full rounded-lg border border-border bg-hover px-2.5 text-[13px] outline-none focus:border-primary focus:bg-surface"
+          />
+        )}
         <div className="max-h-[260px] overflow-auto">
           {items.length ? (
             items.map((o) => (

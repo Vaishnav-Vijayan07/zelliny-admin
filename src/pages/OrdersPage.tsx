@@ -1,4 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { OwnerOnly } from "@/components/admin/OwnerOnly";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -498,16 +499,18 @@ export default function OrdersPage() {
                     <Button primary onClick={() => newOrder(d.id)}>
                       Continue
                     </Button>
-                    <Button
-                      onClick={() => {
-                        if (localDrafts.some((l) => l.id === d.id)) {
-                          removeDraft(d.id);
-                          toast(`Draft ${d.id} deleted`);
-                        } else soon("Delete draft")();
-                      }}
-                    >
-                      Delete
-                    </Button>
+                    <OwnerOnly>
+                      <Button
+                        onClick={() => {
+                          if (localDrafts.some((l) => l.id === d.id)) {
+                            removeDraft(d.id);
+                            toast(`Draft ${d.id} deleted`);
+                          } else soon("Delete draft")();
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </OwnerOnly>
                   </div>
                 ),
               },

@@ -6,7 +6,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 export type RangeKey =
-  "" | "today" | "week" | "7d" | "30d" | "90d" | "ytd" | "month" | "lastMonth" | "custom";
+  | ""
+  | "today"
+  | "yesterday"
+  | "week"
+  | "7d"
+  | "30d"
+  | "90d"
+  | "ytd"
+  | "month"
+  | "lastMonth"
+  | "custom";
 
 export interface DateFilter {
   key: RangeKey;
@@ -34,6 +44,10 @@ function presetRange(key: RangeKey): { from: Date; to: Date } | null {
   switch (key) {
     case "today":
       return { from: today, to: today };
+    case "yesterday": {
+      const yd = new Date(y, m, today.getDate() - 1);
+      return { from: yd, to: yd };
+    }
     case "week":
       return { from: new Date(y, m, today.getDate() - ((today.getDay() + 6) % 7)), to: today };
     case "7d":
@@ -73,6 +87,7 @@ export function inDateFilter(dateText: string, f: DateFilter): boolean {
 
 const EXTRA_PRESETS: { key: Exclude<RangeKey, "" | "custom">; label: string }[] = [
   { key: "today", label: "Today" },
+  { key: "yesterday", label: "Yesterday" },
   { key: "week", label: "This week" },
   { key: "month", label: "This month" },
   { key: "lastMonth", label: "Last month" },
@@ -87,7 +102,10 @@ export function DateRangeFilter({
   onChange,
   allLabel = "All dates",
   extended,
+  keys,
 }: {
+  /** Shows only these presets, in this order (overrides `extended`). */
+  keys?: Exclude<RangeKey, "" | "custom">[];
   value: DateFilter;
   onChange: (v: DateFilter) => void;
   /** Text for "no date limit", e.g. "All time". */
@@ -95,7 +113,11 @@ export function DateRangeFilter({
   /** Offers this week, 90 days and year to date as well. */
   extended?: boolean;
 }) {
-  const presets = extended ? EXTRA_PRESETS : PRESETS;
+  const presets = keys
+    ? keys.map((k) => EXTRA_PRESETS.find((p) => p.key === k)!)
+    : extended
+      ? EXTRA_PRESETS
+      : PRESETS;
   const [open, setOpen] = useState(false);
   const [showCal, setShowCal] = useState(false);
   const [draft, setDraft] = useState<DateRange | undefined>();

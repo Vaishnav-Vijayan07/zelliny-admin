@@ -6,6 +6,7 @@ import {
   ACTIONS,
   SECTION_GROUPS,
   deleteRole,
+  freshRoles,
   setAction,
   setLevel,
   updateRole,
@@ -15,7 +16,16 @@ import {
 } from "@/lib/team-store";
 import { Avatar, Toggle } from "@/components/admin/primitives";
 import { Button } from "@/components/admin/page";
+import { StickyCol } from "@/components/admin/StickyCol";
+import { useDone } from "@/components/admin/SiteContentUi";
 import { useIsOwner } from "@/pages/StaffPage";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const inputCls =
   "h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary";
@@ -33,9 +43,13 @@ export default function StaffRolePage({ roleId }: { roleId: string }) {
   const role = roles.find((r) => r.id === roleId);
   const [name, setName] = useState(role?.name ?? "");
   const [desc, setDesc] = useState(role?.description ?? "");
+  const [limits, setLimits] = useState(role?.limits);
+  const [doneNode, done] = useDone();
+  const [askDelete, setAskDelete] = useState(false);
   useEffect(() => {
     setName(role?.name ?? "");
     setDesc(role?.description ?? "");
+    setLimits(role?.limits);
   }, [role?.id]);
 
   if (!role)
@@ -53,11 +67,17 @@ export default function StaffRolePage({ roleId }: { roleId: string }) {
       toast(`A role called "${n}" already exists`);
       return;
     }
-    updateRole(role.id, { name: n, description: desc.trim() });
-    toast("Role saved — applies to everyone in it now");
+    updateRole(role.id, { name: n, description: desc.trim(), ...(limits ? { limits } : {}) });
+    done(
+      "Role saved",
+      people.length
+        ? `Applies now to the ${people.length} ${people.length === 1 ? "person" : "people"} in this role.`
+        : "Add people to this role from their page.",
+    );
   };
   const remove = () => {
     deleteRole(role.id);
+    setAskDelete(false);
     toast(`${role.name} deleted`);
     navigate({ to: "/staff" });
   };
@@ -85,6 +105,11 @@ export default function StaffRolePage({ roleId }: { roleId: string }) {
           )}
         </div>
       </div>
+      {freshRoles.has(role.id) && (
+        <div className="mb-[18px] rounded-[10px] border border-[#cfe3d7] bg-good-bg px-4 py-3 text-[13.5px] text-[#1f5e3e]">
+          Role created. Every section is set — choose what it can open, then press "Save role".
+        </div>
+      )}
       <div className="grid items-start gap-[18px] min-[981px]:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0">
           {editable && (
@@ -189,12 +214,49 @@ export default function StaffRolePage({ roleId }: { roleId: string }) {
                   </div>
                 ))}
                 <p className="mt-3 text-[12px] text-muted-foreground">
-                  Anything set to “No access” disappears from the menu. Team & permissions, Tracking
-                  & scripts and Settings are for the owner only.
+                  Anything set to “No access” disappears from the menu. Activity log, Team &
+                  permissions, Tracking & scripts and Settings are for the owner only.
                 </p>
               </>
             )}
           </section>
+          {!role.locked && limits && (
+            <section className="mb-[18px] rounded-[10px] border border-border bg-surface px-5 pb-5 pt-4">
+              <h3 className="mb-1 text-[15px]">Limits</h3>
+              <p className="mb-3.5 text-[12px] text-muted-foreground">
+                Above these, the change doesn't happen — it waits for your approval under "Waiting
+                for approval", and you get an email and WhatsApp.
+              </p>
+              <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+                {(
+                  [
+                    ["refund", "Refund up to (EGP)", "Each refund"],
+                    ["refundDay", "Refunds per day (EGP)", "All refunds by one person in a day"],
+                    ["discount", "Discount up to (%)", "Codes and offers"],
+                    ["price", "Price change up to (%)", "Up or down, on Products"],
+                  ] as const
+                ).map(([k, label, note]) => (
+                  <label
+                    key={k}
+                    className="flex flex-col gap-1.5 text-[12px] text-muted-foreground"
+                  >
+                    {label}
+                    <input
+                      type="number"
+                      disabled={!editable}
+                      value={limits[k]}
+                      onChange={(e) => setLimits({ ...limits, [k]: Number(e.target.value) })}
+                      className={cn(
+                        inputCls,
+                        "disabled:opacity-60 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none",
+                      )}
+                    />
+                    <span>{note}</span>
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
           {!role.locked && (
             <section className="mb-[18px] rounded-[10px] border border-border bg-surface px-5 pb-3 pt-4">
               <h3 className="mb-1 text-[15px]">Actions</h3>
@@ -216,10 +278,21 @@ export default function StaffRolePage({ roleId }: { roleId: string }) {
                   </span>
                 </div>
               ))}
+              <div className="flex items-center justify-between gap-3.5 border-t border-line-soft py-2.5">
+                <div>
+                  <div className="text-[13.5px]">Delete</div>
+                  <div className="mt-0.5 text-[12px] text-muted-foreground">
+                    Owner only — staff can switch off or archive, never delete
+                  </div>
+                </div>
+                <span className="pointer-events-none opacity-40">
+                  <Toggle on={false} onChange={() => {}} label="Delete" />
+                </span>
+              </div>
             </section>
           )}
         </div>
-        <div className="min-w-0">
+        <StickyCol>
           <section className="mb-[18px] rounded-[10px] border border-border bg-surface px-5 pb-5 pt-4">
             <h3 className="mb-3 text-[15px]">People in this role</h3>
             {people.length ? (
@@ -253,13 +326,34 @@ export default function StaffRolePage({ roleId }: { roleId: string }) {
               ) : (
                 <>
                   <p className="mb-3 text-[13px]">Nobody uses this role.</p>
-                  <Button onClick={remove}>Delete role</Button>
+                  <Button onClick={() => setAskDelete(true)}>Delete role</Button>
                 </>
               )}
             </section>
           )}
-        </div>
+        </StickyCol>
       </div>
+      <Dialog open={askDelete} onOpenChange={setAskDelete}>
+        <DialogContent className="max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="font-head text-[18px] font-normal">
+              Delete {role.name}?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[13.5px]">Nobody is in this role. It will be removed for good.</p>
+          <DialogFooter>
+            <Button onClick={() => setAskDelete(false)}>Cancel</Button>
+            <button
+              type="button"
+              className="h-9 rounded-lg bg-bad px-4 text-[13.5px] text-white"
+              onClick={remove}
+            >
+              Delete role
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {doneNode}
     </>
   );
 }

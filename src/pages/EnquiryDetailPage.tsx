@@ -1,3 +1,4 @@
+import { StickyCol } from "@/components/admin/StickyCol";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
@@ -403,7 +404,7 @@ export default function EnquiryDetailPage({ enquiryId }: { enquiryId: string }) 
           </Panel>
         </div>
 
-        <div className="min-w-0">
+        <StickyCol>
           <div ref={sideRef} className="lg:sticky lg:top-[84px]">
             <Panel
               title="History"
@@ -472,7 +473,7 @@ export default function EnquiryDetailPage({ enquiryId }: { enquiryId: string }) 
               </ol>
             </Panel>
           </div>
-        </div>
+        </StickyCol>
       </div>
       {act.dialog}
     </div>

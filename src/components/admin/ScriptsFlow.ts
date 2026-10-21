@@ -176,6 +176,17 @@ const stamp = () => {
 /** A script must look like real markup before it goes on the site. */
 export const looksLikeScript = (code: string) => /^\s*<(script|noscript|!--)/i.test(code);
 
+/** Order values a custom script can use; the website fills them in on the confirmation page. */
+export const ORDER_VALUES: [string, string][] = [
+  ["order_total", "Order total"],
+  ["order_number", "Order number"],
+  ["currency", "Currency"],
+  ["item_count", "Number of items"],
+  ["product_names", "Product names"],
+];
+/** Types that must wait for the visitor to accept cookies, by default. */
+export const consentByDefault = (type: string) => type !== "Custom script";
+
 export function toggleScript(id: string) {
   scripts = scripts.map((s) => (s.id === id ? { ...s, on: !s.on } : s));
   emit();
@@ -196,15 +207,22 @@ export function saveScript(
   by: string,
   note = "Edited",
 ) {
+  // Saving never changes Live / Off, and a save without a code change makes no new version.
+  const { name, type, place, pages, consent, code } = patch;
   scripts = scripts.map((s) =>
     s.id === id
       ? {
           ...s,
-          ...patch,
-          versions: [
-            { v: `v${s.versions.length + 1}`, by, when: stamp(), note, code: patch.code },
-            ...s.versions,
-          ],
+          name,
+          type,
+          place,
+          pages,
+          consent,
+          code,
+          versions:
+            code === s.code
+              ? s.versions
+              : [{ v: `v${s.versions.length + 1}`, by, when: stamp(), note, code }, ...s.versions],
         }
       : s,
   );

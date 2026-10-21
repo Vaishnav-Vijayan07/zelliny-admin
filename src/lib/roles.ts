@@ -84,6 +84,8 @@ const access = (role?: string | null): RoleAccess =>
   ROLE_ACCESS[role ?? ""] ?? ROLE_ACCESS["Order desk"]!;
 
 export function canSeePage(role: string | null | undefined, key: string) {
+  // The Activity log is for the owner only, whatever a custom role says.
+  if (key === "activity") return role === "Owner";
   const custom = findRoleByName(role);
   if (custom) return key === "dashboard" ? true : levelOf(custom, key) !== "none";
   const p = access(role).pages;

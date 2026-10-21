@@ -1,3 +1,4 @@
+import { StickyCol } from "@/components/admin/StickyCol";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
@@ -512,7 +513,7 @@ export default function OrderDetailPage({
         </div>
 
         {/* Stretches to the full height of the row; the inner column stays in view while the left side scrolls. */}
-        <div className="min-w-0">
+        <StickyCol>
           <div ref={sideRef} className="flex flex-col gap-5 lg:sticky lg:top-[84px]">
             <Panel title="Customer">
               <Link
@@ -635,7 +636,7 @@ export default function OrderDetailPage({
               />
             </Panel>
           </div>
-        </div>
+        </StickyCol>
       </div>
 
       {actions.dialog}

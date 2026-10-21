@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { SECURITY } from "@/lib/team-store";
 import { Toggle } from "@/components/admin/primitives";
 import { Button, Card, DataTable, Muted, PageHeader, type Column } from "@/components/admin/page";
+import { useDone } from "@/components/admin/SiteContentUi";
 import {
   TYPES,
   placeLabel,
@@ -9,6 +11,13 @@ import {
   useScripts,
   type Script,
 } from "@/components/admin/ScriptsFlow";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const ScriptLogo = ({ type }: { type: string }) => {
   const [bg, t] = TYPES[type] ?? TYPES["Custom script"]!;
@@ -22,10 +31,69 @@ export const ScriptLogo = ({ type }: { type: string }) => {
   );
 };
 
+/** Ends every confirmation: the owner is alerted on every script change and it can't be switched off. */
+export const alertNote = () => `Alert sent to ${SECURITY.email} and WhatsApp.`;
+
+/** Asks before a script is switched on or off. */
+export function LiveDialog({
+  script,
+  onClose,
+  done,
+}: {
+  script: Script;
+  onClose: () => void;
+  done: (title: string, line: string, note?: string) => void;
+}) {
+  const off = script.on;
+  const brand = script.type === "Custom script" ? null : script.type.split(" ")[0];
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2.5 font-head text-[18px] font-normal">
+            <ScriptLogo type={script.type} />
+            {off ? "Switch off" : "Switch on"} {script.name}?
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-[14px]">
+          {off
+            ? `It comes off the site straight away. ${brand ? `Your ${brand} ads stop tracking visits and sales` : "This tracking stops"} until you switch it back on. The code stays saved.`
+            : `It goes live on the site within a minute, on ${script.pages.toLowerCase()}.`}
+        </p>
+        <DialogFooter>
+          <Button onClick={onClose}>Cancel</Button>
+          <button
+            type="button"
+            className={
+              off
+                ? "h-9 rounded-lg bg-bad px-4 text-[13.5px] text-white"
+                : "h-9 rounded-lg bg-primary px-4 text-[13.5px] text-primary-foreground"
+            }
+            onClick={() => {
+              toggleScript(script.id);
+              onClose();
+              done(
+                off ? "Switched off" : "Live on the site",
+                `${script.name} ${off ? "is off the site. Switch it on again any time." : "is now live."}`,
+                alertNote(),
+              );
+            }}
+          >
+            {off ? "Switch off" : "Switch on"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ScriptsPage() {
   const scripts = useScripts();
   const navigate = useNavigate();
+  const [doneNode, done] = useDone();
+  const [asking, setAsking] = useState<string | null>(null);
   const live = scripts.filter((s) => s.on).length;
+  const askScript = scripts.find((s) => s.id === asking);
 
   const columns: Column<Script>[] = [
     {
@@ -63,18 +131,7 @@ export default function ScriptsPage() {
       align: "right",
       cell: (s) => (
         <span onClick={(e) => e.stopPropagation()}>
-          <Toggle
-            on={s.on}
-            onChange={() => {
-              toggleScript(s.id);
-              toast(
-                s.on
-                  ? `${s.name} removed from the site`
-                  : `${s.name} is live on the site within a minute`,
-              );
-            }}
-            label={s.name}
-          />
+          <Toggle on={s.on} onChange={() => setAsking(s.id)} label={s.name} />
         </span>
       ),
     },
@@ -98,6 +155,17 @@ export default function ScriptsPage() {
           page it's placed on. Paste only code that comes from Meta, Google, TikTok, LinkedIn or a
           developer you trust. Card payments happen on Paymob's page, so no script here ever sees
           card numbers.
+        </div>
+      </div>
+      <div className="mb-[18px] flex items-start gap-3.5 rounded-lg border border-[#e8d3ae] bg-warn-bg px-4 py-3.5 text-[13px] leading-relaxed text-[#5a3c00]">
+        <span className="text-[16px]">🔔</span>
+        <div>
+          <b className="font-medium">You are alerted on every change.</b> When a script is added,
+          changed, restored, switched on or off, or deleted, an email goes to{" "}
+          <b className="font-medium">{SECURITY.email}</b> and a WhatsApp to{" "}
+          <b className="font-medium">{SECURITY.whatsapp}</b> — saying who did it, when, and which
+          script. Change where alerts go in Team & permissions › Security. These alerts can't be
+          switched off.
         </div>
       </div>
       <div className="mb-[18px] grid gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
@@ -126,6 +194,8 @@ export default function ScriptsPage() {
           keeps the previous version, so you can go back in one click.
         </p>
       </Card>
+      {askScript && <LiveDialog script={askScript} onClose={() => setAsking(null)} done={done} />}
+      {doneNode}
     </>
   );
 }

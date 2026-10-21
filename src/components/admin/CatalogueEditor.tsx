@@ -1,4 +1,6 @@
 // Add / edit a category or a maison. Saves go to the shared catalogue store (CatalogueFlow) — swap for API mutations later.
+import { StickyCol } from "@/components/admin/StickyCol";
+import { useIsOwner } from "@/pages/StaffPage";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
@@ -226,6 +228,7 @@ export function CatalogueEditor({
   const [askCategory, setAskCategory] = useState(false);
   const [pick, setPick] = useState("");
   const [askDelete, setAskDelete] = useState(false);
+  const owner = useIsOwner();
   // Sticky right column that scrolls with the page when it is taller than the screen.
   const stickRef = useStickyFit(83);
 
@@ -684,7 +687,7 @@ export function CatalogueEditor({
             </Card>
           )}
         </div>
-        <div className="min-w-0">
+        <StickyCol>
           <div
             ref={stickRef}
             className="min-[981px]:sticky min-[981px]:top-[83px] flex min-w-0 flex-col [&>section:last-child]:mb-0"
@@ -773,9 +776,9 @@ export function CatalogueEditor({
               </p>
             </Card>
           </div>
-        </div>
+        </StickyCol>
       </div>
-      {!isCat && brand && !isNew && (
+      {!isCat && brand && !isNew && owner && (
         <section className="mt-[18px] rounded-[10px] border border-bad-bg bg-surface">
           <div className="border-b border-bad-bg px-5 py-3.5 text-[10.5px] uppercase tracking-[.16em] text-bad">
             Danger zone

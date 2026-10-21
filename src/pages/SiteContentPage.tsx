@@ -1,9 +1,20 @@
-import { useState, type ReactNode } from "react";
+// Site content: pages (with draft / publish), announcement bar, top menu, footer & SEO.
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Toggle } from "@/components/admin/primitives";
 import { Button, Card, DataTable, PageHeader, type Column } from "@/components/admin/page";
+import { SectionsPage } from "@/components/admin/SectionsPage";
+import { AnnouncementTab, FooterTab, MenuTab } from "@/components/admin/SiteContentTabs";
+import { TextPageDialog } from "@/components/admin/SitePageBits";
+import { TouchCtx, useDone } from "@/components/admin/SiteContentUi";
+import {
+  DB,
+  bump,
+  publishPages,
+  useSiteContent,
+  type SitePage,
+} from "@/components/admin/SiteContentFlow";
 import {
   Dialog,
   DialogContent,
@@ -12,213 +23,128 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const inputCls =
-  "h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary";
-const areaCls =
-  "w-full min-w-0 resize-y rounded-lg border border-border bg-surface px-3 py-2.5 text-[14px] leading-normal outline-none focus:border-primary";
-
-interface SitePage {
-  id: string;
-  name: string;
-  slug: string;
-  en: boolean;
-  ar: boolean;
-  edited: string;
-  bodyEn: string;
-  bodyAr: string;
-}
-const PAGES: SitePage[] = [
-  {
-    id: "home",
-    name: "Homepage",
-    slug: "",
-    en: true,
-    ar: true,
-    edited: "today",
-    bodyEn: "",
-    bodyAr: "",
-  },
-  ...[
-    "About Us",
-    "Corporate Gifting",
-    "Contact",
-    "Returns & Refunds",
-    "Delivery Information",
-    "Privacy Policy",
-    "Terms & Conditions",
-    "FAQ",
-    "404 — Page not found",
-  ].map((name, i) => ({
-    id: String(i),
-    name,
-    slug: name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, ""),
-    en: true,
-    ar: i !== 8,
-    edited: ["2 d", "today", "1 w", "1 w", "2 w", "1 m", "1 m", "3 d", "1 w"][i]! + " ago",
-    bodyEn: "",
-    bodyAr: "",
-  })),
-];
-
-function Field({
-  label,
-  req,
-  hint,
-  children,
-}: {
-  label: ReactNode;
-  req?: boolean;
-  hint?: string | undefined;
-  children: ReactNode;
-}) {
-  return (
-    <div className="mb-3.5 flex min-w-0 flex-col gap-1.5">
-      <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-        {label}
-        {req && <em className="not-italic text-bad">*</em>}
-      </label>
-      {children}
-      {hint && <div className="text-[12px] text-muted-foreground">{hint}</div>}
-    </div>
-  );
-}
-const tag = (t: string, dark: boolean) => (
-  <span
-    className={cn(
-      "rounded-[3px] px-1.5 py-px text-[10px] font-semibold tracking-[.08em]",
-      dark ? "bg-primary text-primary-foreground" : "bg-[#f0f0f0] text-foreground",
-    )}
-  >
-    {t}
-  </span>
-);
-function Bi({
-  label,
-  en,
-  ar,
-  onEn,
-  onAr,
-  rows,
-}: {
-  label: string;
-  en: string;
-  ar: string;
-  onEn: (v: string) => void;
-  onAr: (v: string) => void;
-  rows?: number;
-}) {
-  const box = (v: string, on: (v: string) => void, rtl: boolean) =>
-    rows ? (
-      <textarea
-        rows={rows}
-        value={v}
-        dir={rtl ? "rtl" : undefined}
-        onChange={(e) => on(e.target.value)}
-        className={cn(areaCls, rtl && "text-right")}
-      />
-    ) : (
-      <input
-        value={v}
-        dir={rtl ? "rtl" : undefined}
-        onChange={(e) => on(e.target.value)}
-        className={cn(inputCls, rtl && "text-right")}
-      />
-    );
-  return (
-    <div className="mb-1.5">
-      <div className="mb-2 text-[13px] font-medium">{label}</div>
-      <div className="grid gap-3.5 sm:grid-cols-2">
-        <Field label={<>{tag("EN", true)} English</>}>{box(en, onEn, false)}</Field>
-        <Field label={<>{tag("AR", false)} العربية</>}>{box(ar, onAr, true)}</Field>
-      </div>
-    </div>
-  );
-}
-const Dot = ({ on }: { on: boolean }) =>
-  on ? <span className="text-good">● Published</span> : <span className="text-warn">● Draft</span>;
-
-const TABS = ["Pages", "Footer & SEO"] as const;
+const TABS = ["Pages", "Announcement bar", "Top menu", "Footer & SEO"] as const;
 type Tab = (typeof TABS)[number];
+const TYPE_LABEL = { Sections: "Sections", Text: "Text page", FAQ: "Questions" } as const;
 
 export default function SiteContentPage() {
-  const [tab, setTab] = useState<Tab>("Pages");
-  const [pages, setPages] = useState(PAGES);
-  const [edit, setEdit] = useState<SitePage | null>(null);
-  const [f, setF] = useState({
-    news: "Receive first word of new arrivals and private offers.",
-    newsAr: "كن أول من يعرف بالوصول الجديد والعروض الخاصة.",
-    wa: "+20 10 3848 4841",
-    email: "info@zelliny.com",
-    ig: "@zelliny",
-    meta: "Zelliny — the house of luxury fragrance, beauty and gifts in Egypt.",
-    metaAr: "زيليني — بيت العطور والجمال والهدايا الفاخرة في مصر.",
-  });
-  const [about, setAbout] = useState({ title: "", titleAr: "", slug: "" });
-
+  useSiteContent();
   const navigate = useNavigate();
+  const [tab, setTab] = useState<Tab>("Pages");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [textPage, setTextPage] = useState<SitePage | null>(null);
+  const [askPub, setAskPub] = useState(false);
+  const [doneNode, done] = useDone();
+
+  const dirty = DB.dirty;
+  // The homepage is published separately, from its own page.
+  const waiting = DB.pages.filter((p) => dirty.has(p.id) && p.id !== "home");
+
   const open = (p: SitePage) => {
-    if (p.id === "home") {
-      navigate({ to: "/content/homepage" });
-      return;
-    }
-    setEdit(p);
-    setAbout({ title: p.name, titleAr: "", slug: p.slug });
+    if (p.id === "home") navigate({ to: "/content/homepage" });
+    else if (p.type === "Sections") setEditing(p.id);
+    else setTextPage(p);
   };
-  const savePage = () => {
-    if (!edit || !about.title.trim()) {
-      toast("Add the page title first");
-      return;
-    }
-    setPages((ps) =>
-      ps.map((p) =>
-        p.id === edit.id
-          ? {
-              ...edit,
-              name: about.title.trim(),
-              slug: about.slug.trim() || p.slug,
-              edited: "just now",
-            }
-          : p,
-      ),
+
+  if (editing)
+    return (
+      <>
+        <SectionsPage
+          id={editing}
+          done={done}
+          onBack={() => setEditing(null)}
+          crumb={
+            <button
+              type="button"
+              onClick={() => setEditing(null)}
+              className="underline underline-offset-[3px]"
+            >
+              Site content
+            </button>
+          }
+        />
+        {doneNode}
+      </>
     );
-    toast(`${about.title.trim()} saved`);
-    setEdit(null);
-  };
 
   const columns: Column<SitePage>[] = [
     {
       header: "Page",
       cell: (p) => (
         <div>
-          <b className="font-medium">{p.name}</b>
-          <div className="text-[12px] text-muted-foreground">/{p.slug}</div>
+          <b className="font-medium">{p.name[0]}</b>
+          <div className="text-[12px] text-muted-foreground">{p.address}</div>
         </div>
       ),
     },
-    { header: "EN", cell: (p) => <Dot on={p.en} /> },
-    { header: "AR", cell: (p) => <Dot on={p.ar} /> },
-    { header: "Last edited", cell: (p) => p.edited },
+    {
+      header: "Type",
+      cell: (p) => (
+        <span className="rounded-md border border-border px-2 py-0.5 text-[12px] text-muted-foreground">
+          {TYPE_LABEL[p.type]}
+        </span>
+      ),
+    },
+    { header: "Last updated", className: "whitespace-nowrap", cell: (p) => p.upd },
+    {
+      header: "Status",
+      cell: (p) =>
+        dirty.has(p.id) ? (
+          <span className="whitespace-nowrap rounded-full bg-warn-bg px-2.5 py-0.5 text-[12px] text-warn">
+            ● Draft · not published yet
+          </span>
+        ) : (
+          <span className="rounded-full bg-good-bg px-2.5 py-0.5 text-[12px] text-good">
+            ● Published
+          </span>
+        ),
+    },
     {
       header: "actions",
       headerNode: "",
       align: "right",
-      cell: (p) => <Button onClick={() => open(p)}>Edit</Button>,
+      cell: (p) => (
+        <span onClick={(e) => e.stopPropagation()}>
+          <Button onClick={() => open(p)}>Edit</Button>
+        </span>
+      ),
     },
   ];
 
+  const publish = () => {
+    const names = waiting.map((p) => p.name[0]);
+    publishPages(waiting.map((p) => p.id));
+    setAskPub(false);
+    done(
+      `${names.length} page${names.length > 1 ? "s" : ""} published`,
+      `${names.join(", ")} ${names.length > 1 ? "are" : "is"} now live on zelliny.com.`,
+    );
+  };
+
   return (
-    <>
+    <TouchCtx.Provider value={bump}>
       <PageHeader
         title="Site content"
-        subtitle="Change what customers see — without calling the developer."
+        subtitle="Change what customers read on zelliny.com — pages, the homepage, the top menu, the footer and the announcement bar — in English and Arabic."
         actions={
           <>
-            <Button onClick={() => toast("Opens the site in a new tab")}>Preview site</Button>
-            <Button primary onClick={() => toast("Content published")}>
-              Publish changes
+            <Button
+              onClick={() => toast("Opens zelliny.com in a new tab, with unpublished drafts shown")}
+            >
+              Preview site
+            </Button>
+            <Button
+              primary
+              onClick={() => {
+                if (waiting.length) setAskPub(true);
+                else
+                  done(
+                    "Nothing to publish",
+                    "All pages are already live. Save a page first, then publish it here.",
+                  );
+              }}
+            >
+              Publish changes{waiting.length ? ` (${waiting.length})` : ""}
             </Button>
           </>
         }
@@ -243,118 +169,50 @@ export default function SiteContentPage() {
 
       {tab === "Pages" && (
         <Card>
-          <DataTable columns={columns} rows={pages} rowKey={(p) => p.id} onRowClick={open} />
+          <DataTable columns={columns} rows={DB.pages} rowKey={(p) => p.id} onRowClick={open} />
+          <p className="mt-3 text-[12.5px] text-muted-foreground">
+            "Save" keeps your changes as a draft. Nothing changes on zelliny.com until you press
+            "Publish changes" (or "Publish homepage" on the Homepage).
+          </p>
         </Card>
       )}
+      {tab === "Announcement bar" && <AnnouncementTab done={done} />}
+      {tab === "Top menu" && <MenuTab done={done} />}
+      {tab === "Footer & SEO" && <FooterTab done={done} />}
 
-      {tab === "Footer & SEO" && (
-        <Card>
-          <h3 className="mb-3 text-[15px]">Footer, contact & site SEO</h3>
-          <Bi
-            label="Newsletter line"
-            en={f.news}
-            ar={f.newsAr}
-            onEn={(v) => setF({ ...f, news: v })}
-            onAr={(v) => setF({ ...f, newsAr: v })}
-          />
-          <div className="grid gap-3.5 sm:grid-cols-3">
-            <Field label="WhatsApp">
-              <input
-                value={f.wa}
-                onChange={(e) => setF({ ...f, wa: e.target.value })}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Email">
-              <input
-                value={f.email}
-                onChange={(e) => setF({ ...f, email: e.target.value })}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Instagram">
-              <input
-                value={f.ig}
-                onChange={(e) => setF({ ...f, ig: e.target.value })}
-                className={inputCls}
-              />
-            </Field>
-          </div>
-          <Bi
-            label="Default meta description"
-            en={f.meta}
-            ar={f.metaAr}
-            onEn={(v) => setF({ ...f, meta: v })}
-            onAr={(v) => setF({ ...f, metaAr: v })}
-            rows={2}
-          />
-          <div className="mt-2">
-            <Button primary onClick={() => toast("Footer & SEO saved")}>
-              Save
-            </Button>
-          </div>
-        </Card>
-      )}
+      {textPage && <TextPageDialog page={textPage} done={done} onClose={() => setTextPage(null)} />}
 
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent className="max-h-[88vh] max-w-[720px] overflow-auto">
+      <Dialog open={askPub} onOpenChange={setAskPub}>
+        <DialogContent className="max-w-[520px]">
           <DialogHeader>
             <DialogTitle className="font-head text-[18px] font-normal">
-              Edit page · {edit?.name}
+              Publish {waiting.length} page{waiting.length > 1 ? "s" : ""}?
             </DialogTitle>
           </DialogHeader>
-          <Bi
-            label="Page title"
-            en={about.title}
-            ar={about.titleAr}
-            onEn={(v) => setAbout({ ...about, title: v })}
-            onAr={(v) => setAbout({ ...about, titleAr: v })}
-          />
-          <Bi
-            label="Content"
-            en={edit?.bodyEn ?? ""}
-            ar={edit?.bodyAr ?? ""}
-            onEn={(v) => edit && setEdit({ ...edit, bodyEn: v })}
-            onAr={(v) => edit && setEdit({ ...edit, bodyAr: v })}
-            rows={7}
-          />
-          <Field label="Page address">
-            <input
-              value={about.slug}
-              onChange={(e) => setAbout({ ...about, slug: e.target.value })}
-              className={inputCls}
-            />
-          </Field>
-          {edit && (
-            <div className="grid gap-x-8 sm:grid-cols-2">
-              {(
-                [
-                  ["en", "English version published"],
-                  ["ar", "Arabic version published"],
-                ] as const
-              ).map(([k, l]) => (
-                <div
-                  key={k}
-                  className="flex items-center justify-between gap-3.5 border-b border-line-soft py-2.5"
-                >
-                  <span className="text-[13.5px]">{l}</span>
-                  <Toggle
-                    on={edit[k]}
-                    onChange={() => setEdit({ ...edit, [k]: !edit[k] })}
-                    label={l}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+          <p className="text-[13.5px]">These drafts will go live on zelliny.com straight away.</p>
+          <div className="rounded-lg border border-border px-3.5 py-1.5">
+            {waiting.map((p) => (
+              <p
+                key={p.id}
+                className="flex justify-between border-t border-line-soft py-2 text-[13.5px] first:border-0"
+              >
+                <span>{p.name[0]}</span>
+                <small className="text-muted-foreground">{p.address}</small>
+              </p>
+            ))}
+          </div>
+          <p className="text-[12.5px] text-muted-foreground">
+            The homepage is published separately, from its own page.
+          </p>
           <DialogFooter>
-            <Button onClick={() => setEdit(null)}>Cancel</Button>
-            <Button primary onClick={savePage}>
-              Save page
+            <Button onClick={() => setAskPub(false)}>Cancel</Button>
+            <Button primary onClick={publish}>
+              Publish
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+      {doneNode}
+    </TouchCtx.Provider>
   );
 }

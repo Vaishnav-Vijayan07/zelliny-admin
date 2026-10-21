@@ -6,11 +6,18 @@ import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { activityQuery } from "@/lib/api/sections.functions";
 import type { ActivityLink, ActivityRow } from "@/lib/api/section-types";
-import { ACTIVITY_DAYS } from "@/lib/api/activity-log";
+import { activityDayDate } from "@/lib/api/activity-log";
 import { TEAM_ACCOUNTS } from "@/lib/api/team-accounts";
 import { cn } from "@/lib/utils";
 import { useSessionUser } from "@/hooks/use-session";
 import { Avatar } from "@/components/admin/primitives";
+import { SearchSelect } from "@/components/admin/SearchSelect";
+import {
+  DateRangeFilter,
+  NO_DATE_FILTER,
+  inDateFilter,
+  type DateFilter,
+} from "@/components/admin/DateRangeFilter";
 import {
   Button,
   Card,
@@ -33,7 +40,29 @@ import {
 
 const PEOPLE = ["Ramy Bakr", "Zain", "Ahmed"];
 const ALL_AREAS = "All areas";
-const ALL_DAYS = "All days";
+const SHORT_AT = 34;
+const short = (t: string) => (t.length > SHORT_AT ? `${t.slice(0, SHORT_AT)}…` : t);
+
+/** The three boxes at the top; clicking one filters the list to its rows. */
+type CardKey = "team" | "price" | "stock";
+const CARDS: Record<CardKey, { label: string; noun: string; match: (l: ActivityRow) => boolean }> =
+  {
+    team: {
+      label: "Changes today (by the team)",
+      noun: "changes today",
+      match: (l) => l.day === "Today" && l.who !== "System" && l.area !== "Sign-in",
+    },
+    price: {
+      label: "Price changes today",
+      noun: "price changes today",
+      match: (l) => l.day === "Today" && l.area === "Prices" && l.who !== "System",
+    },
+    stock: {
+      label: "Stock changes today",
+      noun: "stock changes today",
+      match: (l) => l.day === "Today" && l.area === "Stock" && l.who !== "System",
+    },
+  };
 /** Areas where the owner can put the old value back. */
 const RESTORABLE = [
   "Prices",
@@ -115,38 +144,58 @@ function Who({ name }: { name: string }) {
 
 function BeforeAfter({ row }: { row: ActivityRow }) {
   if (!row.before && !row.after) return <span className="text-muted-foreground">—</span>;
-  if (!row.before) return <span className="font-medium">{row.after}</span>;
+  if (!row.before) return <span className="font-medium">{short(row.after)}</span>;
   return (
     <div className="flex min-w-[180px] flex-wrap items-center gap-2 text-[12.5px]">
       <span dir="auto" className="text-muted-foreground line-through">
-        {row.before}
+        {short(row.before)}
       </span>
       <span className="text-muted-foreground">→</span>
       <span dir="auto" className="font-medium">
-        {row.after}
+        {short(row.after)}
       </span>
     </div>
   );
 }
 
-function Kpi({ label, value, bad }: { label: string; value: ReactNode; bad?: boolean }) {
+function Kpi({
+  label,
+  value,
+  on,
+  onClick,
+}: {
+  label: string;
+  value: ReactNode;
+  on: boolean;
+  onClick: () => void;
+}) {
   return (
-    <div className="rounded-[10px] border border-border bg-surface px-[18px] py-3.5">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      className={cn(
+        "rounded-[10px] border bg-surface px-[18px] py-3.5 text-left hover:border-[#c9c9c9]",
+        on ? "border-primary shadow-[inset_3px_0_0_var(--color-primary)]" : "border-border",
+      )}
+    >
       <span className="block text-[12px] text-muted-foreground">{label}</span>
-      <b className={cn("font-head text-[20px] font-medium", bad && "text-bad")}>{value}</b>
-    </div>
+      <b className="font-head text-[20px] font-medium">{value}</b>
+    </button>
   );
 }
 
 const columns: Column<ActivityRow>[] = [
   {
     header: "Time",
+    width: "78px",
     className: "whitespace-nowrap tabular-nums text-muted-foreground",
     cell: (r) => r.time,
   },
-  { header: "Who", cell: (r) => <Who name={r.who} /> },
+  { header: "Who", width: "20%", cell: (r) => <Who name={r.who} /> },
   {
     header: "What they did",
+    width: "23%",
     cell: (r) => (
       <>
         <b className="block font-medium">{r.action}</b>
@@ -156,11 +205,9 @@ const columns: Column<ActivityRow>[] = [
       </>
     ),
   },
-  { header: "Item", cell: (r) => <ItemLink row={r} /> },
+  { header: "Item", width: "22%", cell: (r) => <ItemLink row={r} /> },
   { header: "Before → After", cell: (r) => <BeforeAfter row={r} /> },
 ];
-
-const selectCls = "h-8 rounded-lg border border-border bg-surface px-2.5 text-[12.5px]";
 
 export default function ActivityPage() {
   const { data } = useSuspenseQuery(activityQuery());
@@ -169,7 +216,8 @@ export default function ActivityPage() {
   const me = useSessionUser();
   const [who, setWhoState] = useState("All");
   const [area, setAreaState] = useState(ALL_AREAS);
-  const [day, setDayState] = useState(ALL_DAYS);
+  const [dateF, setDateFState] = useState<DateFilter>(NO_DATE_FILTER);
+  const [card, setCardState] = useState<CardKey | "">("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const setWho = (v: string) => {
@@ -180,21 +228,25 @@ export default function ActivityPage() {
     setAreaState(v);
     setPage(1);
   };
-  const setDay = (v: string) => {
-    setDayState(v);
+  const setDateF = (v: DateFilter) => {
+    setDateFState(v);
+    setPage(1);
+  };
+  const setCard = (v: CardKey | "") => {
+    setCardState(v);
     setPage(1);
   };
   const [open, setOpen] = useState<ActivityRow | null>(null);
 
   const log = useMemo(() => [...added, ...data], [added, data]);
   const areas = useMemo(() => [ALL_AREAS, ...[...new Set(log.map((l) => l.area))].sort()], [log]);
-  const today = log.filter((l) => l.day === "Today");
 
   const rows = log.filter(
     (l) =>
       (who === "All" || l.who === who) &&
       (area === ALL_AREAS || l.area === area) &&
-      (day === ALL_DAYS || l.day === day),
+      inDateFilter(activityDayDate(l.day), dateF) &&
+      (!card || CARDS[card].match(l)),
   );
   const cur = Math.min(page, Math.max(1, Math.ceil(rows.length / pageSize)));
   const shown = rows.slice((cur - 1) * pageSize, cur * pageSize);
@@ -221,18 +273,15 @@ export default function ActivityPage() {
       />
 
       <div className="mb-[18px] grid grid-cols-2 gap-[18px] md:grid-cols-3">
-        <Kpi
-          label="Changes today (by the team)"
-          value={today.filter((l) => l.who !== "System" && l.area !== "Sign-in").length}
-        />
-        <Kpi
-          label="Price changes today"
-          value={today.filter((l) => l.area === "Prices" && l.who !== "System").length}
-        />
-        <Kpi
-          label="Stock changes today"
-          value={today.filter((l) => l.area === "Stock" && l.who !== "System").length}
-        />
+        {(Object.keys(CARDS) as CardKey[]).map((k) => (
+          <Kpi
+            key={k}
+            label={CARDS[k].label}
+            value={log.filter(CARDS[k].match).length}
+            on={card === k}
+            onClick={() => setCard(card === k ? "" : k)}
+          />
+        ))}
       </div>
 
       <Card>
@@ -256,30 +305,40 @@ export default function ActivityPage() {
             ))}
           </div>
           <div className="ml-auto flex flex-wrap gap-1.5">
-            <select
-              aria-label="Area"
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              className={selectCls}
-            >
-              {areas.map((a) => (
-                <option key={a}>{a}</option>
-              ))}
-            </select>
-            <select
-              aria-label="Day"
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-              className={selectCls}
-            >
-              {[ALL_DAYS, ...ACTIVITY_DAYS].map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
+            <SearchSelect
+              value={area === ALL_AREAS ? "" : area}
+              options={areas.slice(1)}
+              allLabel={ALL_AREAS}
+              searchable={false}
+              onChange={(v) => setArea(v || ALL_AREAS)}
+              className="w-[170px] min-w-0 text-[13px]"
+            />
+            <DateRangeFilter
+              value={dateF}
+              onChange={setDateF}
+              allLabel="All time"
+              keys={["today", "yesterday", "7d", "30d", "90d", "ytd"]}
+            />
           </div>
         </FilterBar>
 
+        {card && (
+          <div className="mb-3 flex items-center justify-between rounded-[10px] border border-primary px-4 py-2.5 text-[13px]">
+            <span>
+              Showing <b>{rows.length}</b> {CARDS[card].noun}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCard("")}
+              className="underline underline-offset-4"
+            >
+              Show all changes
+            </button>
+          </div>
+        )}
+
         <DataTable
+          fixedLayout
           columns={columns}
           rows={shown}
           rowKey={(r) => r.id}
@@ -326,14 +385,22 @@ export default function ActivityPage() {
                   ].map(([label, val, old]) => (
                     <div
                       key={String(label)}
-                      className="rounded-lg border border-border px-3.5 py-3"
+                      className="min-w-0 rounded-lg border border-border px-3.5 py-3"
                     >
                       <small className="mb-1.5 block text-[10.5px] uppercase tracking-[.18em] text-muted-foreground">
                         {label}
                       </small>
-                      <b dir="auto" className={cn("font-medium", old && "text-muted-foreground")}>
-                        {val || "—"}
-                      </b>
+                      <div className="max-h-[170px] overflow-auto">
+                        <b
+                          dir="auto"
+                          className={cn(
+                            "whitespace-pre-wrap break-words font-medium",
+                            old && "text-muted-foreground",
+                          )}
+                        >
+                          {val || "—"}
+                        </b>
+                      </div>
                     </div>
                   ))}
                 </div>

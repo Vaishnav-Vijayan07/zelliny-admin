@@ -187,6 +187,8 @@ export interface BrandRow {
   status: Tagged;
   /** The one category this maison shows for in the homepage "Houses we curate" row. */
   featuredCategory?: string | undefined;
+  /** A logo has been uploaded for this maison; without one it is hidden in site content lists. */
+  hasLogo?: boolean | undefined;
   metaTitle?: string | undefined;
   metaTitleAr?: string | undefined;
   metaEn?: string | undefined;
@@ -408,14 +410,27 @@ export interface BundleRow {
   visible: boolean;
 }
 
+/** An area with its English and Arabic name. */
+export interface ZoneArea {
+  en: string;
+  ar: string;
+}
+export type CourierName = "Bosta" | "Aramex";
 export interface ZoneRow {
   id: string;
   name: string;
-  areas: string[];
+  nameAr: string;
+  areas: ZoneArea[];
   fee: number;
-  free: string;
-  eta: string;
+  /** Free delivery above this order total (EGP); null = never free. */
+  free: number | null;
+  /** Arrives in etaFrom to etaTo working days. */
+  etaFrom: number;
+  etaTo: number;
   cod: boolean;
+  /** Switched on: customers in its areas can order with delivery. */
+  on: boolean;
+  courier: CourierName;
 }
 export interface AppointmentRow {
   order: string;
@@ -522,21 +537,38 @@ export interface BrowserView {
   color: string;
   times: number;
 }
+/** One follow-up message sent to a person (email or WhatsApp). */
+export interface SentMessage {
+  channel: "Email" | "WhatsApp";
+  when: string;
+  subject: string;
+  /** What was offered, e.g. "10% off this item · code NE10-Z96 · expires 3 Nov". */
+  offer: string;
+  /** Opened / Not opened (email), Delivered / Read (WhatsApp). */
+  status: string;
+}
 export interface BrowserRow {
   id: string;
   name: string;
   email: string;
+  /** Mobile number, "—" when we don't have one. */
+  phone: string;
   how: string;
+  /** Agreed to marketing messages ("Send me offers and news"). */
   optin: boolean;
+  /** When they left the site with items in the bag, as shown ("Today 20:14"). */
   last: string;
+  /** Sort key for `last` (ISO date-time), newest first. */
+  leftAt: string;
   visits: number;
+  /** The items in their bag (times = quantity). */
   views: BrowserView[];
   stop: BrowserStop;
   stopTxt: string;
   intent: "Hot" | "Warm" | "Cool";
   src: string;
   device: string;
-  sent: { when: string; subject: string; status: string }[];
+  sent: SentMessage[];
   /** Linked customer record, when this person has ordered before. */
   customer: { id: string; orders: number; spent: number } | null;
 }

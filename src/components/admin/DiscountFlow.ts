@@ -23,13 +23,13 @@ export const PROMOTION_TYPES: {
     value: "offer",
     label: "Special offer / BOGO",
     hint: "Automatic discounts or buy-X-get-Y deals on catalogue products.",
-    badge: "bg-hover text-foreground",
+    badge: "bg-warn-bg text-warn",
   },
   {
     value: "cartDiscount",
     label: "Cart auto-discount",
     hint: "Automatic price cut or free gift when the cart reaches a threshold.",
-    badge: "bg-ok-bg text-ok",
+    badge: "bg-good-bg text-good",
   },
 ];
 export const MODES: { value: Mode; label: string }[] = [
@@ -128,6 +128,13 @@ const SEED_DATES: Record<string, [string, string]> = {
   SUMMER500: ["2026-07-01", "2026-08-31"],
 };
 
+/** Saved limits that the list rows don't carry. */
+const SEED_EXTRA: Record<string, Partial<Promotion>> = {
+  WELCOME10: { perUser: "1", newUsers: false, showInWebsite: true },
+  MOTHERSDAY: { perUser: "1", newUsers: false, showInWebsite: true },
+  SUMMER500: { perUser: "1", newUsers: false, showInWebsite: true },
+};
+
 export function fromRow(r: DiscountRow, i: number): Promotion {
   const [used, limit] = r.uses.split("/").map((s) => s.trim());
   const all = /all/i.test(r.scope);
@@ -145,7 +152,9 @@ export function fromRow(r: DiscountRow, i: number): Promotion {
     min: r.min === "—" ? "" : num(r.min),
     usageLimit: limit && limit !== "∞" ? limit : "",
     used: Number(used) || 0,
-    active: r.status.label === "Active" || r.status.label === "Scheduled",
+    // Only "Inactive" means switched off; an expired promotion is still switched on.
+    active: r.status.label !== "Inactive",
+    ...SEED_EXTRA[r.code],
   };
   if (r.type === "Percentage") return { ...p, couponMode: "percentage", value: num(r.value) };
   if (r.type === "Fixed amount") return { ...p, couponMode: "discount", value: num(r.value) };

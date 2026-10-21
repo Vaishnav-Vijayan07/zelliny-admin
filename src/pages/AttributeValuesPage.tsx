@@ -1,4 +1,5 @@
 // One attribute's values: add, edit, reorder and delete the options customers pick on a product.
+import { OwnerOnly } from "@/components/admin/OwnerOnly";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -416,7 +417,9 @@ export default function AttributeValuesPage({ attributeId }: { attributeId: stri
                       >
                         Edit
                       </Button>
-                      <Button onClick={() => setDeleting(v)}>Delete</Button>
+                      <OwnerOnly>
+                        <Button onClick={() => setDeleting(v)}>Delete</Button>
+                      </OwnerOnly>
                     </div>
                   </td>
                 </tr>

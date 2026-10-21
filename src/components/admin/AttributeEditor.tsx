@@ -1,5 +1,6 @@
 // The attribute editor (name, preview type, categories, status), used for "+ Add attribute" and for each existing attribute.
 // Saves go to the shared attribute store (AttributeFlow) — swap for API mutations later.
+import { useIsOwner } from "@/pages/StaffPage";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
@@ -149,6 +150,7 @@ export function AttributeEditor({ attribute }: { attribute: AttributeRow | null 
   const [active, setActive] = useState(attribute ? attribute.status.label !== "Inactive" : true);
   const [bad, setBad] = useState(false);
   const [askDelete, setAskDelete] = useState(false);
+  const owner = useIsOwner();
 
   const save = () => {
     const trimmed = name.trim();
@@ -341,7 +343,7 @@ export function AttributeEditor({ attribute }: { attribute: AttributeRow | null 
         </div>
       </Card>
 
-      {attribute && (
+      {attribute && owner && (
         <section className="mt-[18px] rounded-[10px] border border-bad-bg bg-surface">
           <div className="border-b border-bad-bg px-5 py-3.5 text-[10.5px] uppercase tracking-[.16em] text-bad">
             Danger zone

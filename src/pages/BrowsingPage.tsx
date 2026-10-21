@@ -15,24 +15,10 @@ import {
   Pager,
   type Column,
 } from "@/components/admin/page";
-import { IntentBadge, STOP_LABEL, SendOfferDialog } from "@/components/admin/BrowsingUi";
-import {
-  OFFERS,
-  defaultSubject,
-  recordSent,
-  useExcluded,
-  useSentMails,
-} from "@/components/admin/BrowsingFlow";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { SendDialog, STOP_LABEL, canEmail } from "@/components/admin/BrowsingUi";
+import { useExcluded, useSentMails } from "@/components/admin/BrowsingFlow";
 
 const STOPS = ["All", "Bag", "Checkout"];
-const INTENTS = ["Any intent", "Hot", "Warm"];
 
 export default function BrowsingPage() {
   const { data } = useSuspenseQuery(browsingQuery());
@@ -40,29 +26,24 @@ export default function BrowsingPage() {
   const excluded = useExcluded();
   const sent = useSentMails();
   const [stop, setStop] = useState("All");
-  const [intent, setIntent] = useState("Any intent");
   const [sel, setSel] = useState<string[]>([]);
-  const [one, setOne] = useState<BrowserRow | null>(null);
-  const [bulk, setBulk] = useState(false);
-  const [offer, setOffer] = useState(OFFERS[0]!);
+  const [sendTo, setSendTo] = useState<BrowserRow[] | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const people = data.rows.filter((b) => !excluded.includes(b.id));
-  const rows = people.filter(
-    (b) =>
-      (stop === "All" || STOP_LABEL[b.stop] === stop) &&
-      (intent === "Any intent" || b.intent === intent),
-  );
+  // Only people who left at the bag or at checkout are followed up, newest first.
+  // A person who completes their order leaves this list (the API stops returning them).
+  const people = data.rows
+    .filter((b) => (b.stop === "bag" || b.stop === "checkout") && !excluded.includes(b.id))
+    .sort((a, b) => b.leftAt.localeCompare(a.leftAt));
+  const rows = people.filter((b) => stop === "All" || STOP_LABEL[b.stop] === stop);
   const cur = Math.min(page, Math.max(1, Math.ceil(rows.length / pageSize)));
   const shown = rows.slice((cur - 1) * pageSize, cur * pageSize);
-  const allOn = rows.length > 0 && rows.every((b) => sel.includes(b.id));
+  const pickable = rows.filter(canEmail);
+  const allOn = pickable.length > 0 && pickable.every((b) => sel.includes(b.id));
   const toggle = (id: string) =>
     setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const chosen = people.filter((b) => sel.includes(b.id));
-  const sendable = chosen.filter((b) => b.optin);
-  const skipped = chosen.length - sendable.length;
-  const known = Math.round(data.visitors * 0.14);
 
   const columns: Column<BrowserRow>[] = [
     {
@@ -76,50 +57,40 @@ export default function BrowsingPage() {
           onChange={() =>
             setSel(
               allOn
-                ? sel.filter((id) => !rows.some((b) => b.id === id))
-                : [...new Set([...sel, ...rows.map((b) => b.id)])],
+                ? sel.filter((id) => !pickable.some((b) => b.id === id))
+                : [...new Set([...sel, ...pickable.map((b) => b.id)])],
             )
           }
         />
       ),
-      cell: (b) => (
-        <input
-          type="checkbox"
-          aria-label={`Select ${b.name}`}
-          checked={sel.includes(b.id)}
-          onClick={(e) => e.stopPropagation()}
-          onChange={() => toggle(b.id)}
-        />
-      ),
+      cell: (b) =>
+        canEmail(b) ? (
+          <input
+            type="checkbox"
+            aria-label={`Select ${b.name}`}
+            checked={sel.includes(b.id)}
+            onClick={(e) => e.stopPropagation()}
+            onChange={() => toggle(b.id)}
+          />
+        ) : null,
     },
     {
       header: "Person",
       cell: (b) => (
         <div className="flex items-center gap-2.5">
           <Avatar name={b.name} className="size-8" />
-          <div>
-            <b className="font-medium">{b.name}</b>
-          </div>
+          <b className="font-medium">{b.name}</b>
         </div>
       ),
     },
-    {
-      header: "Email",
-      cell: (b) => b.email,
-    },
-    {
-      header: "Phone",
-      cell: (b) => "+1452654478",
-    },
+    { header: "Email", cell: (b) => b.email },
+    { header: "Phone", cell: (b) => b.phone },
     {
       header: "Cart Items",
       cell: (b) => (
         <div className="flex items-center gap-1">
-          {b.views.map((i) => (
-            <Thumb
-              color={i.color}
-              className="group-hover:outline group-hover:outline-2 group-hover:outline-offset-2 group-hover:outline-primary"
-            />
+          {b.views.slice(0, 3).map((i) => (
+            <Thumb key={i.productId} color={i.color} />
           ))}
         </div>
       ),
@@ -127,55 +98,43 @@ export default function BrowsingPage() {
     {
       header: "Stopped at",
       cell: (b) => (
-        <div className="flex flex-col gap-0.5 text-[12.5px]">
+        <div className="text-[12.5px]">
           <b className="font-medium">{STOP_LABEL[b.stop]}</b>
+          {b.stop === "checkout" && (
+            <div className="text-[12px] text-muted-foreground">{b.stopTxt}</div>
+          )}
         </div>
       ),
     },
+    { header: "Left on", className: "whitespace-nowrap", cell: (b) => b.last },
     {
       header: "",
       cell: (b) =>
-        b.optin ? (
+        canEmail(b) ? (
           <span onClick={(e) => e.stopPropagation()}>
-            <Button primary onClick={() => setOne(b)}>
-              {sent[b.id]?.length ? "Send again" : "Send offer"}
+            <Button primary className="whitespace-nowrap" onClick={() => setSendTo([b])}>
+              {sent[b.id]?.length || b.sent.length ? "Send again" : "Send offer"}
             </Button>
           </span>
         ) : (
-          <span className="text-[12px] text-muted-foreground">Ads only</span>
+          <span className="text-[12px] text-muted-foreground">
+            No email consent
+            <br />
+            ads only
+          </span>
         ),
     },
   ];
 
-  const sendBulk = () => {
-    sendable.forEach((b) => recordSent(b.id, defaultSubject(b.name)));
-    toast(`${sendable.length} personalised email${sendable.length === 1 ? "" : "s"} sent`);
-    setSel([]);
-    setBulk(false);
-  };
-
   const exportRows = () => {
     downloadCsv(
       `zelliny-browsing-${rows.length}.csv`,
-      [
-        "Name",
-        "Email",
-        "Stopped at",
-        "Intent",
-        "Source",
-        "Device",
-        "Visits",
-        "Last seen",
-        "Opted in",
-      ],
+      ["Name", "Email", "Phone", "Stopped at", "Left on", "Marketing consent"],
       rows.map((b) => [
         b.name,
         b.email,
-        STOP_LABEL[b.stop],
-        b.intent,
-        b.src,
-        b.device,
-        b.visits,
+        b.phone,
+        b.stop === "checkout" ? `${STOP_LABEL[b.stop]} · ${b.stopTxt}` : STOP_LABEL[b.stop],
         b.last,
         b.optin ? "Yes" : "No",
       ]),
@@ -227,7 +186,7 @@ export default function BrowsingPage() {
           </span>
           {sel.length > 0 && (
             <span className="flex items-center gap-3">
-              <Button primary onClick={() => setBulk(true)}>
+              <Button primary onClick={() => setSendTo(chosen)}>
                 Email selected
               </Button>
               <button
@@ -244,7 +203,7 @@ export default function BrowsingPage() {
           columns={columns}
           rows={shown}
           rowKey={(b) => b.id}
-          empty="Nobody matches these filters."
+          empty="No one here right now."
           onRowClick={(b) => navigate({ to: "/browsing/$browserId", params: { browserId: b.id } })}
         />
         <Pager
@@ -258,48 +217,14 @@ export default function BrowsingPage() {
             setPage(1);
           }}
         />
+        <p className="mt-3 text-[12.5px] text-muted-foreground">
+          Newest first. When a person completes their order, they leave this list automatically.
+        </p>
       </Card>
 
-      {one && <SendOfferDialog b={one} open onClose={() => setOne(null)} />}
-      <Dialog open={bulk} onOpenChange={setBulk}>
-        <DialogContent className="max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="font-head text-[18px] font-normal">
-              Email {sendable.length} {sendable.length === 1 ? "person" : "people"}
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-[13.5px]">
-            Each person gets an email with the product <b>they</b> looked at — not the same email
-            for everyone.
-          </p>
-          <label className="grid gap-1 text-[13px]">
-            <span className="text-[12px] text-muted-foreground">Offer</span>
-            <select
-              value={offer}
-              onChange={(e) => setOffer(e.target.value)}
-              className="h-9 rounded-lg border border-border bg-surface px-3 text-[14px]"
-            >
-              {OFFERS.map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          </label>
-          {skipped > 0 && (
-            <p className="text-[12px] text-muted-foreground">
-              {skipped} selected {skipped > 1 ? "people are" : "person is"} not opted in to offers
-              and will be skipped.
-            </p>
-          )}
-          <DialogFooter>
-            <Button onClick={() => setBulk(false)}>Cancel</Button>
-            {sendable.length > 0 && (
-              <Button primary onClick={sendBulk}>
-                Send {sendable.length} email{sendable.length === 1 ? "" : "s"}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {sendTo && (
+        <SendDialog people={sendTo} onClose={() => setSendTo(null)} onSent={() => setSel([])} />
+      )}
     </>
   );
 }

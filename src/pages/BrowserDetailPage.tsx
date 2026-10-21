@@ -1,3 +1,4 @@
+import { StickyCol } from "@/components/admin/StickyCol";
 import { useState, type ReactNode } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -10,7 +11,7 @@ import {
   IntentBadge,
   MailPreview,
   STOP_LABEL,
-  SendOfferDialog,
+  SendDialog,
   egp,
 } from "@/components/admin/BrowsingUi";
 import {
@@ -75,21 +76,23 @@ export default function BrowserDetailPage({ id }: { id: string }) {
   const sentNow = useSentMails();
   const excluded = useExcluded();
   const [send, setSend] = useState(false);
+  const [allSent, setAllSent] = useState(false);
   const b = data.rows.find((x) => x.id === id);
   if (!b)
     return <p className="py-24 text-center text-muted-foreground">This person was not found.</p>;
 
   const isOut = excluded.includes(b.id);
-  const stopIdx = STEPS.indexOf(b.stop);
+  const stopIdx = STEPS.indexOf(b.stop as (typeof STEPS)[number]);
   const sentAll = [...(sentNow[b.id] ?? []), ...b.sent];
+  const shownSent = allSent ? sentAll : sentAll.slice(0, 3);
+  // The cards and the table both count only what is in the bag.
   const totalViews = b.views.reduce((a, v) => a + v.times, 0);
-  const value = b.views.reduce((a, v) => a + (v.price ?? 0), 0);
+  const value = b.views.reduce((a, v) => a + (v.price ?? 0) * v.times, 0);
   const kpis: [string, string][] = [
     ["Products In Cart", `${totalViews}`],
     ["Value of Cart", egp(value)],
-    ["Main interest", b.views[0]!.category],
+    ["Main interest", b.views[0]?.category ?? "—"],
   ];
-  const inBag = b.stop === "bag" || b.stop === "checkout";
 
   const cols: Column<BrowserRow["views"][number]>[] = [
     {
@@ -111,17 +114,12 @@ export default function BrowserDetailPage({ id }: { id: string }) {
       align: "right",
       cell: (v) => <b className="font-medium">{v.times}</b>,
     },
-    { header: "Last added", cell: () => b.last },
+    { header: "Added", cell: () => b.last },
     {
-      header: "Bag",
-      cell: (v) =>
-        inBag && v.productId === b.views[0]!.productId ? (
-          <span className="text-warn">In bag</span>
-        ) : (
-          "—"
-        ),
+      header: "Price",
+      align: "right",
+      cell: (v) => (v.price ? egp(v.price * v.times) : "Enquiry only"),
     },
-    { header: "Price", align: "right", cell: (v) => (v.price ? egp(v.price) : "Enquiry only") },
   ];
 
   return (
@@ -169,7 +167,7 @@ export default function BrowserDetailPage({ id }: { id: string }) {
         }
       />
       {isOut && (
-        <p className="mb-4 rounded-lg bg-hover px-3 py-2 text-[13px]">
+        <p className="mb-4 rounded-lg border border-[#e8d3ae] bg-warn-bg px-3 py-2 text-[13px] text-warn">
           Excluded from follow-ups — this person no longer appears in the follow-up list.
         </p>
       )}
@@ -181,21 +179,35 @@ export default function BrowserDetailPage({ id }: { id: string }) {
           </div>
         ))}
       </div>
-      <div className="grid items-start gap-[18px] min-[981px]:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0">
+      <div className="grid items-stretch gap-[18px] min-[981px]:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col">
           <Card>
-            <h3 className="mb-3 text-[15px]">What they looked at</h3>
+            <h3 className="mb-3 text-[15px]">In their bag</h3>
             <DataTable columns={cols} rows={b.views} rowKey={(v) => v.productId} />
           </Card>
-          <Card>
-            <h3 className="mb-3 text-[15px]">Follow-ups sent</h3>
+          <Card className="flex-1">
+            <h3 className="mb-3 flex items-center justify-between text-[15px]">
+              Follow-ups sent
+              {sentAll.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setAllSent(!allSent)}
+                  className="text-[12.5px] font-normal underline underline-offset-[3px]"
+                >
+                  {allSent ? "Show latest 3" : `View all (${sentAll.length})`}
+                </button>
+              )}
+            </h3>
             {sentAll.length ? (
-              <ul className="space-y-3">
-                {sentAll.map((x, i) => (
-                  <li key={i} className="text-[13px]">
+              <ul className="divide-y divide-line-soft">
+                {shownSent.map((x, i) => (
+                  <li key={i} className="py-3 text-[13px] first:pt-0">
+                    <span className="mr-2 rounded border border-border px-1.5 py-px text-[11px] text-muted-foreground">
+                      {x.channel}
+                    </span>
                     <b className="font-medium">{x.subject}</b>
-                    <div className="text-[12px] text-muted-foreground">
-                      {x.when} · {x.status}
+                    <div className="mt-0.5 text-[12px] text-muted-foreground">
+                      {x.when} · Sent · {x.offer} · {x.status}
                     </div>
                   </li>
                 ))}
@@ -205,7 +217,7 @@ export default function BrowserDetailPage({ id }: { id: string }) {
             )}
           </Card>
         </div>
-        <div className="min-w-0">
+        <StickyCol>
           <Card>
             <h3 className="mb-2 text-[15px]">Where they stopped</h3>
             {STEPS.map((s, i) => (
@@ -233,7 +245,11 @@ export default function BrowserDetailPage({ id }: { id: string }) {
               rows={[
                 ["Name", b.name],
                 ["Email", b.email],
-                ["Mobile", b.customer?.mobile ?? "—"],
+                ["Mobile", b.phone],
+                [
+                  "Marketing emails",
+                  b.optin ? "Agreed" : <span className="text-warn">Didn't agree · ads only</span>,
+                ],
               ]}
             />
           </Card>
@@ -243,9 +259,9 @@ export default function BrowserDetailPage({ id }: { id: string }) {
               <MailPreview b={b} />
             </Card>
           )}
-        </div>
+        </StickyCol>
       </div>
-      {send && <SendOfferDialog b={b} open onClose={() => setSend(false)} />}
+      {send && <SendDialog people={[b]} onClose={() => setSend(false)} />}
     </>
   );
 }

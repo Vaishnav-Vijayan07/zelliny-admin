@@ -1,4 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { OwnerOnly } from "@/components/admin/OwnerOnly";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -133,9 +134,11 @@ function AddressesPanel({ c }: { c: LiveCustomer }) {
                       Make default
                     </button>
                   )}
-                  <button type="button" onClick={() => setDel(a.id)} className={link}>
-                    Delete
-                  </button>
+                  <OwnerOnly>
+                    <button type="button" onClick={() => setDel(a.id)} className={link}>
+                      Delete
+                    </button>
+                  </OwnerOnly>
                 </div>
               </li>
             ))}

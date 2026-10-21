@@ -1,5 +1,6 @@
 // The product editor (prototype `P.product`), used for "+ Add product" and for each existing product.
 // Saves go to the shared product store (ProductFlow) — swap for API mutations later.
+import { StickyCol } from "@/components/admin/StickyCol";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -1492,7 +1493,7 @@ export function ProductEditor({
         <div className="flex min-w-0 flex-col [&>section:last-child]:mb-0 [&>section:last-child]:flex-1">
           {bodies[tab]}
         </div>
-        <div className="min-w-0">
+        <StickyCol>
           <div
             ref={sideRef}
             className="min-[981px]:sticky min-[981px]:top-[84px] [&>section:last-child]:mb-0"
@@ -1592,7 +1593,7 @@ export function ProductEditor({
               </Card>
             )}
           </div>
-        </div>
+        </StickyCol>
       </div>
 
       <Dialog open={!!gate} onOpenChange={(o) => !o && setGate(null)}>
