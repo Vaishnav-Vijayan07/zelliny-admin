@@ -14,6 +14,7 @@ import {
   addBrand,
   addCategory,
   deleteBrand,
+  deleteCategory,
   editBrand,
   editCategory,
   isCart,
@@ -778,21 +779,21 @@ export function CatalogueEditor({
           </div>
         </StickyCol>
       </div>
-      {!isCat && brand && !isNew && owner && (
+      {row && !isNew && owner && (
         <section className="mt-[18px] rounded-[10px] border border-bad-bg bg-surface">
           <div className="border-b border-bad-bg px-5 py-3.5 text-[10.5px] uppercase tracking-[.16em] text-bad">
             Danger zone
           </div>
           <div className="flex flex-wrap items-center justify-between gap-5 px-5 py-4">
             <p className="max-w-[640px] text-[13px] text-muted-foreground">
-              <b className="font-medium text-foreground">Delete this maison permanently.</b>{" "}
+              <b className="font-medium text-foreground">Delete this {word} permanently.</b>{" "}
               {list.length > 0 ? (
                 <>
                   It has{" "}
                   <b className="font-medium text-foreground">
                     {formatNumber(list.length)} products
                   </b>{" "}
-                  — it can’t be deleted. Switch “Show this maison on the site” off instead.
+                  — it can’t be deleted. Switch “Show this {word} on the site” off instead.
                 </>
               ) : (
                 "It has no products, so it can be deleted."
@@ -803,7 +804,7 @@ export function CatalogueEditor({
               onClick={() => setAskDelete(true)}
               className="border-bad text-bad enabled:hover:border-bad"
             >
-              Delete maison
+              Delete {word}
             </Button>
           </div>
         </section>
@@ -918,7 +919,7 @@ export function CatalogueEditor({
         <DialogContent className="max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="font-head text-[18px] font-normal">
-              Delete {brand?.name}?
+              Delete {row?.name}?
             </DialogTitle>
           </DialogHeader>
           <p className="text-[13.5px]">It has no products. This cannot be undone.</p>
@@ -926,10 +927,16 @@ export function CatalogueEditor({
             <Button onClick={() => setAskDelete(false)}>Cancel</Button>
             <Button
               onClick={() => {
-                if (!brand) return;
-                deleteBrand(brand.id);
-                toast(`${brand.name} deleted`);
-                navigate({ to: "/brands" });
+                if (!row) return;
+                if (isCat) {
+                  deleteCategory(row.id);
+                  toast(`${row.name} deleted`);
+                  navigate({ to: "/categories" });
+                } else {
+                  deleteBrand(row.id);
+                  toast(`${row.name} deleted`);
+                  navigate({ to: "/brands" });
+                }
               }}
               className="border-bad bg-bad text-white hover:opacity-90"
             >

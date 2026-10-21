@@ -827,7 +827,7 @@ export default function DeliveryPage() {
       )}
       {tab === "options" && (
         <>
-          <Card>
+          {/* <Card>
             <h3 className="mb-1 flex items-center justify-between text-[15px]">
               Same-day delivery
               <span className="flex items-center gap-2.5">
@@ -902,9 +902,9 @@ export default function DeliveryPage() {
               <BiField label="Name at checkout" labelAr="الاسم عند الدفع" v={sameDay.lab} />
               <BiField label="Line under it" labelAr="السطر تحته" v={sameDay.note} />
             </div>
-          </Card>
+          </Card> */}
 
-          <Card>
+          {/* <Card>
             <h3 className="mb-1 flex items-center justify-between text-[15px]">
               Collect from store
               <span className="flex items-center gap-2.5">
@@ -976,7 +976,7 @@ export default function DeliveryPage() {
             >
               + Add store
             </Button>
-          </Card>
+          </Card> */}
 
           <Card>
             <h3 className="mb-1 flex items-center justify-between text-[15px]">

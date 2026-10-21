@@ -35,6 +35,7 @@ let catOrder: string[] = [];
 const NO_ORDER: string[] = [];
 let newBrands: BrandRow[] = [];
 let deletedBrands: string[] = [];
+let deletedCats: string[] = [];
 let catEdits: Record<string, CatEdit> = {};
 let brandEdits: Record<string, BrandEdit> = {};
 const NO_C: CategoryRow[] = [];
@@ -66,6 +67,11 @@ export function editBrand(id: string, e: BrandEdit) {
 /** Removes a maison from the store. Only ever called when it has no products. */
 export function deleteBrand(id: string) {
   deletedBrands = [...deletedBrands, id];
+  emit();
+}
+/** Removes a category from the store. Only ever called when it has no products. */
+export function deleteCategory(id: string) {
+  deletedCats = [...deletedCats, id];
   emit();
 }
 
@@ -109,6 +115,11 @@ export function useCatalogue(
     () => deletedBrands,
     () => NO_IDS,
   );
+  const dc = useSyncExternalStore(
+    sub,
+    () => deletedCats,
+    () => NO_IDS,
+  );
   const ce = useSyncExternalStore(
     sub,
     () => catEdits,
@@ -138,6 +149,7 @@ export function useCatalogue(
     });
     const rank = new Map(co.map((id, i) => [id, i]));
     const categoriesLive: LiveCategory[] = [...categories, ...nc]
+      .filter((x) => !dc.includes(x.id))
       .map((x, i) => {
         const m = { ...x, ...ce[x.id] };
         return {
@@ -168,7 +180,7 @@ export function useCatalogue(
       return { ...q, hiddenBy: hiddenReason(q, catOff, brandOff) ?? p.hiddenBy };
     });
     return { categories: categoriesLive, brands: brandsLive, products };
-  }, [categories, brandRows, base, c, b, nc, nb, ce, be, co, db]);
+  }, [categories, brandRows, base, c, b, nc, nb, ce, be, co, db, dc]);
 }
 
 /** Switch every priced product in the list to a selling mode. Returns how many changed / were skipped. */

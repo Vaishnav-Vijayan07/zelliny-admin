@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { productsQuery } from "@/lib/api/sections.functions";
+import { attributesQuery, productsQuery } from "@/lib/api/sections.functions";
 import { pageHead } from "@/lib/seo";
 import ProductsPage from "@/pages/ProductsPage";
 
@@ -10,6 +10,10 @@ export const Route = createFileRoute("/products")({
       "Products",
       "The Zelliny catalogue: prices, offers, stock and selling mode for every product.",
     ),
-  loader: ({ context }) => context.queryClient.ensureQueryData(productsQuery()),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(productsQuery()),
+      context.queryClient.ensureQueryData(attributesQuery()),
+    ]),
   component: ProductsPage,
 });

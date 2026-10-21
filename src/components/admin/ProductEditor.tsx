@@ -1,17 +1,25 @@
 // The product editor (prototype `P.product`), used for "+ Add product" and for each existing product.
 // Saves go to the shared product store (ProductFlow) — swap for API mutations later.
 import { StickyCol } from "@/components/admin/StickyCol";
+import { useIsOwner } from "@/pages/StaffPage";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { attributesQuery } from "@/lib/api/sections.functions";
+import { attributesQuery, productsQuery } from "@/lib/api/sections.functions";
+import { useVariants, withCurrentType } from "@/components/admin/VariantFlow";
 import { PREVIEW_LABEL, useAttributes, valueLabel } from "@/components/admin/AttributeFlow";
 import type { ProductRow } from "@/lib/api/section-types";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ModeSwitch, StatusBadge, Toggle } from "@/components/admin/primitives";
-import { addProduct, deleteProduct, editProduct, statusOf } from "@/components/admin/ProductFlow";
+import {
+  addProduct,
+  deleteProduct,
+  editProduct,
+  statusOf,
+  useProducts,
+} from "@/components/admin/ProductFlow";
 import { SearchSelect } from "@/components/admin/SearchSelect";
 import { useStickyFit } from "@/components/admin/useStickyFit";
 import {
@@ -463,6 +471,16 @@ export function ProductEditor({
     product ? Array.from({ length: product.imageCount }, (_, v) => ({ c: product.color, v })) : [],
   );
   const { data: attrData } = useSuspenseQuery(attributesQuery());
+  const { data: rawProducts } = useSuspenseQuery(productsQuery());
+  const allAttributes = useAttributes(attrData);
+  const currentProducts = useProducts(rawProducts.rows);
+  const variantBase = useMemo(
+    () => withCurrentType(rawProducts.rows, currentProducts),
+    [rawProducts.rows, currentProducts],
+  );
+  const productVariants = useVariants(variantBase, allAttributes).filter(
+    (x) => x.productId === product?.id,
+  );
   // Only attributes meant for this product's category (none ticked = offered everywhere).
   const attributes = useAttributes(attrData).filter(
     (a) =>
@@ -470,7 +488,9 @@ export function ProductEditor({
       a.values.length > 0 &&
       (a.categories.length === 0 || a.categories.includes(p.category)),
   );
-  const [productType, setProductType] = useState<"simple" | "variable">("simple");
+  const [productType, setProductType] = useState<"simple" | "variable">(
+    product?.variable ? "variable" : "simple",
+  );
   /** attribute id → ticked value ids */
   const [attrSel, setAttrSel] = useState<Record<string, string[]>>({});
   const [variants, setVariants] = useState<Variant[]>([]);
@@ -480,6 +500,7 @@ export function ProductEditor({
   const [priceInput, setPriceInput] = useState("");
   const [askDelete, setAskDelete] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const owner = useIsOwner();
   const fileRef = useRef<HTMLInputElement>(null);
   const pickRef = useRef<(srcs: string[]) => void>(() => {});
   const dragFrom = useRef<number | null>(null);
@@ -599,6 +620,7 @@ export function ProductEditor({
       // A draft never goes on the site; Publish always does.
       visible: publish ? true : isDraft ? false : p.visible,
       imageCount: imgs.length,
+      variable: isVariable,
       hiddenBy: product?.hiddenBy ?? null,
       isDraft,
     };
@@ -699,6 +721,10 @@ export function ProductEditor({
   const doDelete = () => {
     if (!product || confirmText.trim().toUpperCase() !== "DELETE") {
       toast("Type DELETE to confirm");
+      return;
+    }
+    if (used) {
+      toast("This product has orders — it can't be deleted");
       return;
     }
     deleteProduct(product.id);
@@ -885,6 +911,70 @@ export function ProductEditor({
             </Field>
           </Grid>
         </Card>
+        {product && isVariable && (
+          <Card
+            title={`Product variants${productVariants.length ? ` · ${productVariants.length}` : ""}`}
+          >
+            {productVariants.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="border-b border-border text-left text-[11px] uppercase tracking-[.12em] text-muted-foreground">
+                      {["Variant", "SKU", "Price", "Stock", ""].map((h, i) => (
+                        <th key={i} className="px-3 py-2 font-normal">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productVariants.map((x) => (
+                      <tr key={x.id} className="border-b border-line-soft last:border-0">
+                        <td className="px-3 py-2.5">
+                          <div className="flex flex-wrap gap-1">
+                            {x.attrs.map((a) => (
+                              <span
+                                key={a.name}
+                                className="rounded-full border border-border px-2 py-0.5 text-[11.5px]"
+                              >
+                                <span className="text-muted-foreground">{a.name}:</span> {a.value}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-[12px]">{x.sku}</td>
+                        <td className="px-3 py-2.5">
+                          {x.offer || x.price
+                            ? `${formatNumber(x.offer || x.price || 0)} EGP`
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2.5">{x.stock}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          <Link
+                            to="/inventory/variant/$variantId"
+                            params={{ variantId: x.id }}
+                            className="underline underline-offset-[3px]"
+                          >
+                            Edit
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-[13px] text-muted-foreground">
+                No variants yet — tick attributes in Price &amp; action and generate the
+                combinations.
+              </p>
+            )}
+            <p className="mt-2.5 text-[12px] text-muted-foreground">
+              Each variant opens the same editor as in Inventory: name, SKU, barcode, price, stock,
+              images, shipping and SEO.
+            </p>
+          </Card>
+        )}
         <Card title="Organisation">
           <Grid cols={2}>
             <Field label="Maison" req>
@@ -1595,6 +1685,41 @@ export function ProductEditor({
           </div>
         </StickyCol>
       </div>
+
+      {product && !isNew && owner && (
+        <section className="mt-[18px] rounded-[10px] border border-bad-bg bg-surface">
+          <div className="border-b border-bad-bg px-5 py-3.5 text-[10.5px] uppercase tracking-[.16em] text-bad">
+            Danger zone
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-5 px-5 py-4">
+            <p className="max-w-[640px] text-[13px] text-muted-foreground">
+              <b className="font-medium text-foreground">Delete this product permanently.</b>{" "}
+              {used ? (
+                <>
+                  It has{" "}
+                  <b className="font-medium text-foreground">
+                    {formatNumber(isCart ? product.sold : product.enquiries)}{" "}
+                    {isCart ? "units sold" : "enquiries"}
+                  </b>{" "}
+                  — it can’t be deleted. Switch “Visible on site” off instead.
+                </>
+              ) : (
+                "It has no orders, so it can be deleted. This cannot be undone."
+              )}
+            </p>
+            <Btn
+              danger
+              disabled={used}
+              onClick={() => {
+                setConfirmText("");
+                setAskDelete(true);
+              }}
+            >
+              Delete product
+            </Btn>
+          </div>
+        </section>
+      )}
 
       <Dialog open={!!gate} onOpenChange={(o) => !o && setGate(null)}>
         <DialogContent className="max-w-[480px]">

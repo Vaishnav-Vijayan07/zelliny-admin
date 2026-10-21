@@ -148,6 +148,8 @@ export interface ProductRow {
   /** The product's own "On site" switch. */
   visible: boolean;
   imageCount: number;
+  /** A variable product is sold in several variants (attribute combinations); a simple one is not. */
+  variable?: boolean | undefined;
   /** Set when the product's maison or category is switched off, e.g. "Chloé maison is off". */
   hiddenBy: string | null;
   isDraft: boolean;

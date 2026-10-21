@@ -521,6 +521,8 @@ export function mockProducts(): T.ProductsData {
       gender: p.gender ?? SAMPLE_GENDER[p.id] ?? "Unisex",
       visible: !isDraft,
       imageCount: 5,
+      // Fragrance and bags are sold in sizes / colours; the rest are simple products.
+      variable: ["fragrance", "bags"].includes(String(p.cat)),
       hiddenBy,
       isDraft,
     };

@@ -1,8 +1,10 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { productsQuery } from "@/lib/api/sections.functions";
+import { attributesQuery, productsQuery } from "@/lib/api/sections.functions";
+import { useAttributes } from "@/components/admin/AttributeFlow";
+import { useVariants, withCurrentType } from "@/components/admin/VariantFlow";
 import type { ProductRow } from "@/lib/api/section-types";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -85,6 +87,13 @@ export default function ProductsPage() {
   const [askBulk, setAskBulk] = useState<"cart" | "enq" | "hide" | "show" | null>(null);
 
   const products = useProducts(data.rows);
+  const { data: attrData } = useSuspenseQuery(attributesQuery());
+  const attributes = useAttributes(attrData);
+  const variantBase = useMemo(() => withCurrentType(data.rows, products), [data.rows, products]);
+  const variants = useVariants(variantBase, attributes);
+  /** A variable product's variants (empty for a simple product). */
+  const variantsOf = (p: ProductRow) =>
+    p.variable ? variants.filter((x) => x.productId === p.id) : [];
   const setFilter = (k: keyof typeof f) => (v: string) => {
     setF((x) => ({ ...x, [k]: v }));
     setPage(1);
@@ -278,8 +287,22 @@ export default function ProductsPage() {
     {
       header: "Price",
       align: "right",
-      cell: (p) =>
-        p.price ? (
+      cell: (p) => {
+        // a variable product shows the range across all its variants
+        const vs = variantsOf(p);
+        const prices = vs.map((x) => x.offer || x.price || 0).filter(Boolean);
+        if (prices.length) {
+          const lo = Math.min(...prices),
+            hi = Math.max(...prices);
+          return (
+            <b className="font-semibold whitespace-nowrap">
+              {lo === hi
+                ? `${formatNumber(lo)} EGP`
+                : `${formatNumber(lo)} – ${formatNumber(hi)} EGP`}
+            </b>
+          );
+        }
+        return p.price ? (
           p.offer ? (
             <>
               <b className="font-semibold whitespace-nowrap">{formatNumber(p.offer)} EGP</b>
@@ -292,9 +315,35 @@ export default function ProductsPage() {
           )
         ) : (
           <span className="text-muted-foreground">No price</span>
-        ),
+        );
+      },
     },
-    { header: "Stock", align: "right", cell: (p) => p.stock },
+    {
+      header: "Stock",
+      align: "right",
+      cell: (p) => {
+        const vs = variantsOf(p);
+        if (!vs.length) return p.stock;
+        return (
+          <div>
+            <b className="font-medium">{vs.reduce((a, x) => a + x.stock, 0)}</b>
+            <div className="whitespace-nowrap text-[12px] text-muted-foreground">
+              from {vs.length} variants
+            </div>
+            <button
+              type="button"
+              className="whitespace-nowrap text-[12px] underline underline-offset-[3px]"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate({ to: "/inventory", search: { product: p.id } });
+              }}
+            >
+              View variants
+            </button>
+          </div>
+        );
+      },
+    },
     {
       header: "On site",
       cell: (p) => (

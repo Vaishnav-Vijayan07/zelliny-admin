@@ -59,6 +59,7 @@ import { Route as ScriptsScriptIdRouteImport } from './routes/scripts_.$scriptId
 import { Route as ScriptsNewRouteImport } from './routes/scripts_.new'
 import { Route as AttributesAttributeIdValuesRouteImport } from './routes/attributes_.$attributeId_.values'
 import { Route as InventoryPreordersProductIdRouteImport } from './routes/inventory_.preorders.$productId'
+import { Route as InventoryVariantVariantIdRouteImport } from './routes/inventory_.variant.$variantId'
 import { Route as InventoryWaitingProductIdRouteImport } from './routes/inventory_.waiting.$productId'
 import { Route as StaffMemberMemberIdRouteImport } from './routes/staff_.member.$memberId'
 import { Route as StaffRoleRoleIdRouteImport } from './routes/staff_.role.$roleId'
@@ -315,6 +316,12 @@ const InventoryPreordersProductIdRoute =
     path: '/inventory/preorders/$productId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const InventoryVariantVariantIdRoute =
+  InventoryVariantVariantIdRouteImport.update({
+    id: '/inventory_/variant/$variantId',
+    path: '/inventory/variant/$variantId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const InventoryWaitingProductIdRoute =
   InventoryWaitingProductIdRouteImport.update({
     id: '/inventory_/waiting/$productId',
@@ -383,6 +390,7 @@ export interface FileRoutesByFullPath {
   '/scripts/new': typeof ScriptsNewRoute
   '/attributes/$attributeId/values': typeof AttributesAttributeIdValuesRoute
   '/inventory/preorders/$productId': typeof InventoryPreordersProductIdRoute
+  '/inventory/variant/$variantId': typeof InventoryVariantVariantIdRoute
   '/inventory/waiting/$productId': typeof InventoryWaitingProductIdRoute
   '/staff/member/$memberId': typeof StaffMemberMemberIdRoute
   '/staff/role/$roleId': typeof StaffRoleRoleIdRoute
@@ -438,6 +446,7 @@ export interface FileRoutesByTo {
   '/scripts/new': typeof ScriptsNewRoute
   '/attributes/$attributeId/values': typeof AttributesAttributeIdValuesRoute
   '/inventory/preorders/$productId': typeof InventoryPreordersProductIdRoute
+  '/inventory/variant/$variantId': typeof InventoryVariantVariantIdRoute
   '/inventory/waiting/$productId': typeof InventoryWaitingProductIdRoute
   '/staff/member/$memberId': typeof StaffMemberMemberIdRoute
   '/staff/role/$roleId': typeof StaffRoleRoleIdRoute
@@ -494,6 +503,7 @@ export interface FileRoutesById {
   '/scripts_/new': typeof ScriptsNewRoute
   '/attributes_/$attributeId_/values': typeof AttributesAttributeIdValuesRoute
   '/inventory_/preorders/$productId': typeof InventoryPreordersProductIdRoute
+  '/inventory_/variant/$variantId': typeof InventoryVariantVariantIdRoute
   '/inventory_/waiting/$productId': typeof InventoryWaitingProductIdRoute
   '/staff_/member/$memberId': typeof StaffMemberMemberIdRoute
   '/staff_/role/$roleId': typeof StaffRoleRoleIdRoute
@@ -551,6 +561,7 @@ export interface FileRouteTypes {
     | '/scripts/new'
     | '/attributes/$attributeId/values'
     | '/inventory/preorders/$productId'
+    | '/inventory/variant/$variantId'
     | '/inventory/waiting/$productId'
     | '/staff/member/$memberId'
     | '/staff/role/$roleId'
@@ -606,6 +617,7 @@ export interface FileRouteTypes {
     | '/scripts/new'
     | '/attributes/$attributeId/values'
     | '/inventory/preorders/$productId'
+    | '/inventory/variant/$variantId'
     | '/inventory/waiting/$productId'
     | '/staff/member/$memberId'
     | '/staff/role/$roleId'
@@ -661,6 +673,7 @@ export interface FileRouteTypes {
     | '/scripts_/new'
     | '/attributes_/$attributeId_/values'
     | '/inventory_/preorders/$productId'
+    | '/inventory_/variant/$variantId'
     | '/inventory_/waiting/$productId'
     | '/staff_/member/$memberId'
     | '/staff_/role/$roleId'
@@ -717,6 +730,7 @@ export interface RootRouteChildren {
   ScriptsNewRoute: typeof ScriptsNewRoute
   AttributesAttributeIdValuesRoute: typeof AttributesAttributeIdValuesRoute
   InventoryPreordersProductIdRoute: typeof InventoryPreordersProductIdRoute
+  InventoryVariantVariantIdRoute: typeof InventoryVariantVariantIdRoute
   InventoryWaitingProductIdRoute: typeof InventoryWaitingProductIdRoute
   StaffMemberMemberIdRoute: typeof StaffMemberMemberIdRoute
   StaffRoleRoleIdRoute: typeof StaffRoleRoleIdRoute
@@ -1074,6 +1088,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InventoryPreordersProductIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inventory_/variant/$variantId': {
+      id: '/inventory_/variant/$variantId'
+      path: '/inventory/variant/$variantId'
+      fullPath: '/inventory/variant/$variantId'
+      preLoaderRoute: typeof InventoryVariantVariantIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inventory_/waiting/$productId': {
       id: '/inventory_/waiting/$productId'
       path: '/inventory/waiting/$productId'
@@ -1149,6 +1170,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScriptsNewRoute: ScriptsNewRoute,
   AttributesAttributeIdValuesRoute: AttributesAttributeIdValuesRoute,
   InventoryPreordersProductIdRoute: InventoryPreordersProductIdRoute,
+  InventoryVariantVariantIdRoute: InventoryVariantVariantIdRoute,
   InventoryWaitingProductIdRoute: InventoryWaitingProductIdRoute,
   StaffMemberMemberIdRoute: StaffMemberMemberIdRoute,
   StaffRoleRoleIdRoute: StaffRoleRoleIdRoute,

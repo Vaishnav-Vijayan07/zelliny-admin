@@ -1,8 +1,8 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { inventoryQuery, productsQuery } from "@/lib/api/sections.functions";
+import { attributesQuery, inventoryQuery, productsQuery } from "@/lib/api/sections.functions";
 import type { ProductRow } from "@/lib/api/section-types";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,14 @@ import {
 } from "@/components/admin/page";
 import { Dropdown } from "@/components/admin/Dropdown";
 import { editProducts, stockLabel, useProducts } from "@/components/admin/ProductFlow";
+import { useAttributes } from "@/components/admin/AttributeFlow";
+import { SearchSelect } from "@/components/admin/SearchSelect";
+import {
+  editVariants,
+  useVariants,
+  withCurrentType,
+  type Variant,
+} from "@/components/admin/VariantFlow";
 import {
   FeatureBanner,
   HowItWorks,
@@ -49,9 +57,17 @@ const ProductCell = ({ p }: { p: ProductRow }) => (
   </div>
 );
 
-export default function InventoryPage({ tab: initialTab }: { tab?: string | undefined }) {
+export default function InventoryPage({
+  tab: initialTab,
+  product: initialProduct,
+}: {
+  tab?: string | undefined;
+  product?: string | undefined;
+}) {
   const { data: productsData } = useSuspenseQuery(productsQuery());
   const { data } = useSuspenseQuery(inventoryQuery());
+  const { data: attrData } = useSuspenseQuery(attributesQuery());
+  const attributes = useAttributes(attrData);
   const navigate = useNavigate();
   const products = useProducts(productsData.rows);
   const inv = useInventory(data);
@@ -64,7 +80,53 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
   const prod = (id: string) => products.find((p) => p.id === id);
 
   /* ---------- Stock ---------- */
-  const [f, setF] = useState({ q: "", cat: "", st: "" });
+  // Variable products are listed one row per variant (attribute values); simple products stay one row.
+  const variantBase = useMemo(
+    () => withCurrentType(productsData.rows, products),
+    [productsData.rows, products],
+  );
+  const variants = useVariants(variantBase, attributes);
+  type StockRow = {
+    key: string;
+    p: ProductRow;
+    v: Variant | null;
+    sku: string;
+    stock: number;
+    sold: number;
+    price: number | null;
+    /** Normal price and offer price (the offer replaces the price when set). */
+    list: number | null;
+    offer: number | null;
+  };
+  const stockRows: StockRow[] = products.flatMap((p): StockRow[] => {
+    const vs = p.variable ? variants.filter((x) => x.productId === p.id) : [];
+    return vs.length
+      ? vs.map((v) => ({
+          key: v.id,
+          p,
+          v,
+          sku: v.sku,
+          stock: v.stock,
+          sold: v.sold,
+          price: v.offer || v.price,
+          list: v.price,
+          offer: v.offer,
+        }))
+      : [
+          {
+            key: p.id,
+            p,
+            v: null,
+            sku: p.sku,
+            stock: p.stock,
+            sold: p.sold || 0,
+            price: p.offer || p.price,
+            list: p.price,
+            offer: p.offer,
+          },
+        ];
+  });
+  const [f, setF] = useState({ q: "", product: initialProduct ?? "", cat: "", st: "" });
   const [adjust, setAdjust] = useState<Record<string, number>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -73,34 +135,84 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
     setPage(1);
   };
   const q = f.q.toLowerCase();
-  const stockOf = (p: ProductRow) => adjust[p.id] ?? p.stock;
-  const rows = products
+  const stockOf = (r: StockRow) => adjust[r.key] ?? r.stock;
+  const rows = stockRows
     .filter(
-      (p) =>
-        (!q || `${p.name} ${p.sku}`.toLowerCase().includes(q)) &&
-        (!f.cat || p.category === f.cat) &&
-        (!f.st || stockLabel(p.stock) === f.st),
+      (r) =>
+        (!q || `${r.p.name} ${r.v?.label ?? ""} ${r.sku}`.toLowerCase().includes(q)) &&
+        (!f.product || r.p.id === f.product) &&
+        (!f.cat || r.p.category === f.cat) &&
+        (!f.st || stockLabel(r.stock) === f.st),
     )
     .sort((a, b) => a.stock - b.stock);
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const cur = Math.min(page, pages);
-  const changed = Object.entries(adjust).filter(([id, n]) => prod(id)?.stock !== n);
+  const changed = stockRows.filter((r) => adjust[r.key] !== undefined && adjust[r.key] !== r.stock);
   const saveStock = () => {
     if (!changed.length) {
       toast("No stock changes to save");
       return;
     }
-    editProducts(Object.fromEntries(changed.map(([id, stock]) => [id, { stock }])));
+    editVariants(
+      Object.fromEntries(changed.filter((r) => r.v).map((r) => [r.key, { stock: adjust[r.key]! }])),
+    );
+    // a product's stock is the total of its variants
+    const totals: Record<string, { stock: number }> = {};
+    changed.forEach((r) => {
+      totals[r.p.id] = {
+        stock: stockRows
+          .filter((x) => x.p.id === r.p.id)
+          .reduce((a, x) => a + (adjust[x.key] ?? x.stock), 0),
+      };
+    });
+    editProducts(totals);
     setAdjust({});
-    toast(`Stock updated · ${changed.length} product${changed.length > 1 ? "s" : ""}`);
+    toast(`Stock updated · ${changed.length} row${changed.length > 1 ? "s" : ""}`);
   };
-  const stockCols: Column<ProductRow>[] = [
-    { header: "Product", cell: (p) => <ProductCell p={p} /> },
-    { header: "SKU", cell: (p) => <SkuChip>{p.sku}</SkuChip> },
+  const stockCols: Column<StockRow>[] = [
+    { header: "Product", cell: (r) => <ProductCell p={r.p} /> },
+    {
+      header: "Variant",
+      cell: (r) =>
+        r.v && r.v.attrs.length ? (
+          <div className="flex flex-wrap gap-1">
+            {r.v.attrs.map((a) => (
+              <span
+                key={a.name}
+                className="rounded-full border border-border px-2 py-0.5 text-[11.5px]"
+              >
+                <span className="text-muted-foreground">{a.name}:</span> {a.value}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    { header: "SKU", cell: (r) => <SkuChip>{r.sku}</SkuChip> },
+    {
+      header: "Price",
+      align: "right",
+      cell: (r) =>
+        r.list ? (
+          r.offer ? (
+            <>
+              <b className="whitespace-nowrap font-medium">{formatNumber(r.offer)} EGP</b>
+              <div className="text-[12px] text-muted-foreground line-through">
+                {formatNumber(r.list)}
+              </div>
+            </>
+          ) : (
+            <b className="whitespace-nowrap font-medium">{formatNumber(r.list)} EGP</b>
+          )
+        ) : (
+          <span className="text-muted-foreground">No price</span>
+        ),
+    },
     {
       header: "Status",
-      cell: (p) => {
-        const l = stockLabel(stockOf(p));
+      cell: (r) => {
+        const l = stockLabel(stockOf(r));
         return (
           <StatusBadge tone={l === "In stock" ? "ok" : l === "Low stock" ? "warn" : "bad"}>
             {l}
@@ -111,15 +223,15 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
     {
       header: "On hand",
       align: "right",
-      cell: (p) => (
-        <b className={cn("font-medium", stockOf(p) !== p.stock && "text-info")}>{stockOf(p)}</b>
+      cell: (r) => (
+        <b className={cn("font-medium", stockOf(r) !== r.stock && "text-info")}>{stockOf(r)}</b>
       ),
     },
-    { header: "Sold · 30 days", align: "right", cell: (p) => p.sold || 0 },
+    { header: "Sold · 30 days", align: "right", cell: (r) => r.sold },
     {
       header: "Adjust",
       align: "right",
-      cell: (p) => (
+      cell: (r) => (
         <div
           className="inline-flex h-8 overflow-hidden rounded-lg border border-border"
           onClick={(e) => e.stopPropagation()}
@@ -127,16 +239,16 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
           <button
             type="button"
             className="w-7"
-            onClick={() => setAdjust((a) => ({ ...a, [p.id]: Math.max(0, stockOf(p) - 1) }))}
+            onClick={() => setAdjust((a) => ({ ...a, [r.key]: Math.max(0, stockOf(r) - 1) }))}
           >
             −
           </button>
           <input
-            value={stockOf(p)}
+            value={stockOf(r)}
             onChange={(e) =>
               setAdjust((a) => ({
                 ...a,
-                [p.id]: Math.max(0, Number(e.target.value.replace(/\D/g, "")) || 0),
+                [r.key]: Math.max(0, Number(e.target.value.replace(/\D/g, "")) || 0),
               }))
             }
             className="w-[46px] border-x border-border bg-surface text-center"
@@ -144,7 +256,7 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
           <button
             type="button"
             className="w-7"
-            onClick={() => setAdjust((a) => ({ ...a, [p.id]: stockOf(p) + 1 }))}
+            onClick={() => setAdjust((a) => ({ ...a, [r.key]: stockOf(r) + 1 }))}
           >
             +
           </button>
@@ -152,9 +264,8 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
       ),
     },
   ];
-  const lowN = products.filter((p) => p.stock > 0 && p.stock <= 2).length,
-    outN = products.filter((p) => p.stock === 0).length;
-
+  const lowN = stockRows.filter((r) => r.stock > 0 && r.stock <= 2).length,
+    outN = stockRows.filter((r) => r.stock === 0).length;
   /* ---------- Back-in-stock ---------- */
   const waitN = inv.waitlists.reduce(
     (a, w) => a + w.customers.filter((c) => !c.notified).length,
@@ -323,10 +434,10 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
         <>
           <Kpis
             items={[
-              ["Total units", formatNumber(products.reduce((a, p) => a + p.stock, 0))],
+              ["Total units", formatNumber(stockRows.reduce((a, r) => a + r.stock, 0))],
               [
                 "Stock value (retail)",
-                formatMoney(products.reduce((a, p) => a + (p.price ?? 0) * p.stock, 0)),
+                formatMoney(stockRows.reduce((a, r) => a + (r.price ?? 0) * r.stock, 0)),
               ],
               ["Low stock", lowN],
               ["Out of stock", outN],
@@ -344,7 +455,18 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
           </div>
           <Card>
             <FilterBar>
-              <SearchInput value={f.q} onChange={setFilter("q")} placeholder="Product or SKU" />
+              <SearchInput
+                value={f.q}
+                onChange={setFilter("q")}
+                placeholder="Product, variant or SKU"
+              />
+              <SearchSelect
+                value={f.product}
+                allLabel="All products"
+                items={products.map((p) => ({ value: p.id, label: p.name }))}
+                onChange={setFilter("product")}
+                className="w-auto min-w-[190px] bg-background text-[13px]"
+              />
               <Dropdown
                 value={f.cat}
                 onChange={setFilter("cat")}
@@ -369,17 +491,19 @@ export default function InventoryPage({ tab: initialTab }: { tab?: string | unde
             <DataTable
               columns={stockCols}
               rows={rows.slice((cur - 1) * pageSize, cur * pageSize)}
-              rowKey={(p) => p.id}
+              rowKey={(r) => r.key}
               empty="No product matches these filters."
-              onRowClick={(p) =>
-                navigate({ to: "/products/$productId", params: { productId: p.id } })
+              onRowClick={(r) =>
+                r.v
+                  ? navigate({ to: "/inventory/variant/$variantId", params: { variantId: r.v.id } })
+                  : navigate({ to: "/products/$productId", params: { productId: r.p.id } })
               }
             />
             <Pager
               page={cur}
               pageSize={pageSize}
               total={rows.length}
-              noun="products"
+              noun="rows"
               onPage={setPage}
               onPageSize={(n) => {
                 setPageSize(n);
