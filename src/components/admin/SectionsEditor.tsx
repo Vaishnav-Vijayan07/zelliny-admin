@@ -15,13 +15,11 @@ import {
   BiField,
   DragList,
   Fld,
-  ImgPair,
+  ImgOne,
   ImgSlot,
   LinkField,
-  PosRow,
   Remove,
   Rte,
-  ScheduleBlock,
   SubHead,
   SwitchRow,
   Tag,
@@ -37,7 +35,6 @@ import {
   reorder,
   type Bi,
   type Chapter,
-  type HeroMedia,
   type Panel,
   type Section,
   type SectionKind,
@@ -47,15 +44,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 const SIZE = {
   bannerD: "2400 × 900 px",
-  bannerM: "1080 × 1350 px",
-  heroD: "2560 × 1100 px",
   heroM: "1080 × 1600 px",
   panelD: "1200 × 1500 px",
-  panelM: "1080 × 1350 px",
   chapD: "1600 × 1100 px",
-  chapM: "1080 × 1350 px",
   splitD: "1600 × 1200 px",
-  splitM: "1080 × 1350 px",
 };
 const GRAD = (n: number) => imgStyle(`seed:${n % 8}`);
 
@@ -138,12 +130,7 @@ function HeadFields({ s, noSmall }: { s: Extract<Section, { h: Bi }>; noSmall?: 
   return (
     <>
       <BiField label="Heading" labelAr="العنوان" v={s.h} />
-      {!noSmall && "s" in s && (
-        <>
-          <BiField label="Small line" labelAr="السطر الصغير" v={s.s} />
-          <PosRow o={s} />
-        </>
-      )}
+      {!noSmall && "s" in s && <BiField label="Small line" labelAr="السطر الصغير" v={s.s} />}
     </>
   );
 }
@@ -180,7 +167,6 @@ function ButtonFields({ s }: { s: Extract<Section, { kind: "hero" | "banner" }> 
 
 function HeroMediaList({ s }: { s: Extract<Section, { kind: "hero" }> }) {
   const touch = useTouch();
-  const [sched, setSched] = useState<HeroMedia | null>(null);
   const add = () => {
     const el = document.createElement("input");
     el.type = "file";
@@ -195,7 +181,6 @@ function HeroMediaList({ s }: { s: Extract<Section, { kind: "hero" }> }) {
           id: nid("h"),
           on: true,
           name: f.name,
-          mobile: "",
           video: f.type.startsWith("video"),
           secs: 5,
           src: URL.createObjectURL(f),
@@ -211,7 +196,7 @@ function HeroMediaList({ s }: { s: Extract<Section, { kind: "hero" }> }) {
     <>
       <SubHead
         title={`Banner media · ${s.media.length} of 8`}
-        note="Each item needs a desktop and a mobile version · drag to reorder"
+        note={`One image per item · Mobile ${SIZE.heroM} · drag to reorder`}
       />
       <DragList
         items={s.media}
@@ -224,8 +209,21 @@ function HeroMediaList({ s }: { s: Extract<Section, { kind: "hero" }> }) {
           <div className="flex flex-wrap items-center gap-3 p-2.5">
             {h}
             <span className="w-4 text-[12px] text-muted-foreground">{i + 1}</span>
-            <span
-              className="grid h-[44px] w-[74px] flex-none place-items-center overflow-hidden rounded-md text-[16px] text-white/80"
+            <button
+              type="button"
+              title="Replace image"
+              onClick={() =>
+                pickImage(
+                  (url, name) => {
+                    m.src = url;
+                    m.name = name;
+                    m.video = /\.(mp4|webm|mov|m4v)$/i.test(name);
+                    touch();
+                  },
+                  m.video ? "video/*" : "image/*",
+                )
+              }
+              className="grid h-[64px] w-[44px] flex-none place-items-center overflow-hidden rounded-md text-[16px] text-white/80"
               style={
                 m.src && !m.video
                   ? imgStyle(m.src)
@@ -233,55 +231,15 @@ function HeroMediaList({ s }: { s: Extract<Section, { kind: "hero" }> }) {
               }
             >
               {m.video ? "▶" : m.src ? "" : "▣"}
-            </span>
-            <span
-              className={cn(
-                "h-[44px] w-[26px] flex-none rounded-[5px]",
-                m.mobile
-                  ? "bg-[linear-gradient(160deg,#4A3A2C,#1F1712)]"
-                  : "border-[1.5px] border-dashed border-[#e8d3ae] bg-[#fbf6ec]",
-              )}
-              title="Mobile"
-            />
+            </button>
             <div className="min-w-0 flex-1">
               <b className="block truncate text-[13.5px] font-medium">{m.name}</b>
               <span className="block text-[12px] text-muted-foreground">
                 {m.video ? "Video · plays to the end, muted" : `Image · shows for ${m.secs} s`} ·
-                Desktop {SIZE.heroD}
+                Mobile {SIZE.heroM}
               </span>
-              {m.mobile ? (
-                <span className="block text-[12px] text-muted-foreground">
-                  Mobile: {m.mobile} · {SIZE.heroM}
-                </span>
-              ) : (
-                <span className="block text-[11.5px] text-[#7a4e00]">
-                  No mobile version — phones will crop the desktop image.{" "}
-                  <button
-                    type="button"
-                    className="underline underline-offset-[3px]"
-                    onClick={() =>
-                      pickImage(
-                        (_u, name) => {
-                          m.mobile = name;
-                          touch();
-                        },
-                        m.video ? "video/*" : "image/*",
-                      )
-                    }
-                  >
-                    Add mobile version
-                  </button>
-                </span>
-              )}
             </div>
-            {statusPill(m, "Showing")}
-            <button
-              type="button"
-              className="text-[12.5px] underline underline-offset-[3px]"
-              onClick={() => setSched(m)}
-            >
-              Schedule
-            </button>
+            {statusPill({ on: m.on }, "Showing")}
             <Remove
               label={m.name}
               onClick={() => {
@@ -300,29 +258,9 @@ function HeroMediaList({ s }: { s: Extract<Section, { kind: "hero" }> }) {
       <div className="mt-2.5 flex flex-wrap items-center gap-3">
         <Button onClick={add}>+ Add images or videos</Button>
         <span className="text-[12px] text-muted-foreground">
-          JPG, PNG, WebP or MP4 · videos under 15 MB · Desktop {SIZE.heroD} · Mobile {SIZE.heroM}
+          JPG, PNG, WebP or MP4 · videos under 15 MB · Mobile {SIZE.heroM}
         </span>
       </div>
-      {sched && (
-        <Dialog open onOpenChange={(o) => !o && setSched(null)}>
-          <DialogContent className="max-w-[520px]">
-            <DialogHeader>
-              <DialogTitle className="font-head text-[18px] font-normal">
-                Schedule · {sched.name}
-              </DialogTitle>
-            </DialogHeader>
-            <p className="text-[13.5px]">
-              Show this banner item only between these dates. Leave empty to always show it.
-            </p>
-            <ScheduleBlock o={sched} what="this item" />
-            <div className="flex justify-end">
-              <Button primary onClick={() => setSched(null)}>
-                Done
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </>
   );
 }
@@ -337,7 +275,7 @@ function PanelsEditor({ s }: { s: Extract<Section, { kind: "panels" }> }) {
     <>
       <SubHead
         title={`Panels · ${s.panels.length}`}
-        note={`Panel image: Desktop ${SIZE.panelD} · Mobile ${SIZE.panelM} · drag to reorder`}
+        note={`Panel image: ${SIZE.panelD} · drag to reorder`}
       />
       <DragList
         items={s.panels}
@@ -353,25 +291,14 @@ function PanelsEditor({ s }: { s: Extract<Section, { kind: "panels" }> }) {
                 onClick={() => upd(s.panels.filter((x) => x !== p))}
               />
             </div>
-            <div className="grid gap-4 md:grid-cols-[220px_1fr]">
-              <div className="grid grid-cols-[1.4fr_1fr] gap-2">
+            <div className="grid gap-4 md:grid-cols-[320px_1fr]">
+              <div>
                 <ImgSlot
                   value={p.img.d}
-                  label="Desktop"
                   size={SIZE.panelD}
-                  className="min-h-[110px]"
+                  className="aspect-[1200/1500] min-h-[200px]"
                   onChange={(v) => {
                     p.img.d = v;
-                    touch();
-                  }}
-                />
-                <ImgSlot
-                  value={p.img.m}
-                  label="Mobile"
-                  size={SIZE.panelM}
-                  className="min-h-[110px]"
-                  onChange={(v) => {
-                    p.img.m = v;
                     touch();
                   }}
                 />
@@ -413,7 +340,7 @@ function ChaptersEditor({ s }: { s: Extract<Section, { kind: "chapters" }> }) {
     <>
       <SubHead
         title={`Chapters · ${s.ch.length}`}
-        note={`Each chapter is a tab · image: Desktop ${SIZE.chapD} · Mobile ${SIZE.chapM} · drag to reorder`}
+        note={`Each chapter is a tab · image: ${SIZE.chapD} · drag to reorder`}
       />
       <DragList
         items={s.ch}
@@ -426,25 +353,14 @@ function ChaptersEditor({ s }: { s: Extract<Section, { kind: "chapters" }> }) {
               <b className="flex-1 text-[13.5px] font-medium">Chapter {i + 1}</b>
               <Remove label={`chapter ${i + 1}`} onClick={() => upd(s.ch.filter((x) => x !== c))} />
             </div>
-            <div className="grid gap-4 md:grid-cols-[220px_1fr]">
-              <div className="grid grid-cols-[1.4fr_1fr] gap-2">
+            <div className="grid gap-4 md:grid-cols-[320px_1fr]">
+              <div>
                 <ImgSlot
                   value={c.img.d}
-                  label="Desktop"
                   size={SIZE.chapD}
-                  className="min-h-[110px]"
+                  className="aspect-[1600/1100] min-h-[180px]"
                   onChange={(v) => {
                     c.img.d = v;
-                    touch();
-                  }}
-                />
-                <ImgSlot
-                  value={c.img.m}
-                  label="Mobile"
-                  size={SIZE.chapM}
-                  className="min-h-[110px]"
-                  onChange={(v) => {
-                    c.img.m = v;
                     touch();
                   }}
                 />
@@ -683,11 +599,12 @@ export function SectionsEditor({ page }: { page: SitePage }) {
         main = (
           <>
             <HeadFields s={s} />
-            <SubHead
-              title="Images"
-              note={`Desktop ${SIZE.bannerD} · Mobile ${SIZE.bannerM} · JPG, PNG or WebP`}
+            <SubHead title="Images" note={`${SIZE.bannerD} · JPG, PNG or WebP`} />
+            <ImgOne
+              im={s.img}
+              size={SIZE.bannerD}
+              className="aspect-[2400/900] w-full min-h-[240px]"
             />
-            <ImgPair im={s.img} desktop={SIZE.bannerD} mobile={SIZE.bannerM} />
             <ButtonFields s={s} />
           </>
         );
@@ -751,7 +668,7 @@ export function SectionsEditor({ page }: { page: SitePage }) {
               v={s.st2}
             />
             <BiField label="Text" labelAr="النص" v={s.x} rows={4} />
-            <SubHead title="Image" note={`Desktop ${SIZE.splitD} · Mobile ${SIZE.splitM}`} />
+            <SubHead title="Image" note={SIZE.splitD} />
             <div className="mb-3 flex items-center gap-2.5 text-[12.5px] text-muted-foreground">
               Image on the
               <div className="inline-flex rounded-full border border-border p-0.5">
@@ -773,7 +690,11 @@ export function SectionsEditor({ page }: { page: SitePage }) {
                 ))}
               </div>
             </div>
-            <ImgPair im={s.img} desktop={SIZE.splitD} mobile={SIZE.splitM} />
+            <ImgOne
+              im={s.img}
+              size={SIZE.splitD}
+              className="aspect-[1600/1200] max-w-[560px] min-h-[240px]"
+            />
           </>
         );
         break;

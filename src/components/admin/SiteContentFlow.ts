@@ -24,8 +24,6 @@ export interface HeroMedia extends Sched {
   id: string;
   on: boolean;
   name: string;
-  /** Mobile version file name, "" when missing. */
-  mobile: string;
   video: boolean;
   secs: number;
   src: string;
@@ -160,7 +158,7 @@ export const reorder = <T>(list: T[], from: number, to: number) => {
   return n;
 };
 const bi = (a = "", b = ""): Bi => [a, b];
-const img = (d = "", m = ""): Img => ({ d, m });
+const img = (d = ""): Img => ({ d, m: "" });
 const sc = (): Sched => ({ from: "", to: "" });
 const nowLabel = () => {
   const d = new Date();
@@ -226,7 +224,7 @@ const panel = (t: Bi, l: Bi, link: string, im: Img): Panel => ({
   link,
   img: im,
 });
-const SEED = img("seed:1", "seed:2");
+const SEED = img("seed:1");
 
 const HOME: Section[] = [
   sec({
@@ -245,8 +243,7 @@ const HOME: Section[] = [
       {
         id: "h1",
         on: true,
-        name: "hero-desktop.mp4",
-        mobile: "hero-mobile.mp4",
+        name: "hero-banner.mp4",
         video: true,
         secs: 0,
         src: "",
@@ -256,7 +253,6 @@ const HOME: Section[] = [
         id: "h2",
         on: true,
         name: "autumn-gifting.jpg",
-        mobile: "",
         video: false,
         secs: 5,
         src: "",
@@ -286,7 +282,7 @@ const HOME: Section[] = [
     bi("House of Zelliny", "بيت زيليني"),
     bi("Explore gifting", "اكتشف الهدايا"),
     "/corporate-gifting",
-    img("seed:1", "seed:2"),
+    img("seed:1"),
   ),
   sec({
     id: "curated",
@@ -306,7 +302,7 @@ const HOME: Section[] = [
     bi("Our promise", "وعدنا"),
     bi("About Zelliny", "عن زيليني"),
     "/about-us",
-    img("seed:3", "seed:4"),
+    img("seed:3"),
   ),
   sec({
     id: "maisons",
@@ -334,19 +330,19 @@ const HOME: Section[] = [
         bi("Client Appreciation", "تقدير العملاء"),
         bi("Thank the clients who matter", "اشكر العملاء الأهم"),
         "/corporate-gifting/client-appreciation",
-        img("seed:1", "seed:2"),
+        img("seed:1"),
       ),
       panel(
         bi("Employee Recognition", "تقدير الموظفين"),
         bi("Reward your team", "كافئ فريقك"),
         "/corporate-gifting/employee-recognition",
-        img("seed:3", "seed:4"),
+        img("seed:3"),
       ),
       panel(
         bi("Executive & VIP Gifts", "هدايا كبار الشخصيات"),
         bi("Considered gifts for leaders", "هدايا مختارة للقادة"),
         "/corporate-gifting/executive-vip-gifts",
-        img("seed:5", "seed:6"),
+        img("seed:5"),
       ),
     ],
     ...sc(),
@@ -365,19 +361,19 @@ const HOME: Section[] = [
         bi("Ribbon wrapping", "تغليف بالشريط"),
         bi("Custom ribbon wrapping with your branding", "تغليف بالشريط بعلامتك"),
         "/gift-services",
-        img("seed:2", "seed:3"),
+        img("seed:2"),
       ),
       panel(
         bi("Embossing", "الحفر البارز"),
         bi("Embossed logo with your company name", "شعار بارز باسم شركتك"),
         "/gift-services",
-        img("seed:4", "seed:5"),
+        img("seed:4"),
       ),
       panel(
         bi("Engraving", "النقش"),
         bi("Personalized engraving and bespoke finishing", "نقش شخصي ولمسات خاصة"),
         "/gift-services",
-        img("seed:6", "seed:7"),
+        img("seed:6"),
       ),
     ],
     ...sc(),
@@ -390,7 +386,7 @@ const HOME: Section[] = [
     bi("The Zelliny Concierge", "كونسيرج زيليني"),
     bi("Speak with our Concierge", "تحدث مع الكونسيرج"),
     "whatsapp",
-    img("seed:5", "seed:6"),
+    img("seed:5"),
   ),
 ];
 
@@ -413,7 +409,6 @@ const ABOUT: Section[] = [
         id: "m1",
         on: true,
         name: "about-ribbon-box.jpg",
-        mobile: "about-ribbon-box-mobile.jpg",
         video: false,
         secs: 6,
         src: "",
@@ -423,7 +418,6 @@ const ABOUT: Section[] = [
         id: "m2",
         on: true,
         name: "about-gold-emboss.jpg",
-        mobile: "",
         video: false,
         secs: 6,
         src: "",
@@ -470,7 +464,7 @@ const ABOUT: Section[] = [
           "Years spent alongside the world's leading houses, and the clients who expect only the exceptional.",
           "سنوات بجانب أرقى البيوت العالمية.",
         ),
-        img: img("seed:1", "seed:2"),
+        img: img("seed:1"),
       },
       {
         id: "c2",
@@ -480,7 +474,7 @@ const ABOUT: Section[] = [
           "From that experience, Zelliny was born — gathering everything we have learned under a single name.",
           "من هذه الخبرة وُلدت زيليني.",
         ),
-        img: img("seed:3", "seed:4"),
+        img: img("seed:3"),
       },
       {
         id: "c3",
@@ -490,7 +484,7 @@ const ABOUT: Section[] = [
           "Every piece we offer and every gift we compose is held to the same quiet promise: it should be remembered long after it is opened.",
           "كل قطعة نقدمها تحمل الوعد نفسه.",
         ),
-        img: img("seed:5", "seed:6"),
+        img: img("seed:5"),
       },
     ],
     ...sc(),
@@ -509,7 +503,7 @@ const ABOUT: Section[] = [
       "باختيار أرقى البيوت العالمية مع عشرين عاماً من الخبرة.",
     ),
     side: "left",
-    img: img("seed:2", "seed:3"),
+    img: img("seed:2"),
     ...sc(),
   }),
   sec({
@@ -526,7 +520,7 @@ const ABOUT: Section[] = [
       "باختيار أرقى البيوت العالمية مع عشرين عاماً من الخبرة.",
     ),
     side: "left",
-    img: img("seed:4", "seed:5"),
+    img: img("seed:4"),
     ...sc(),
   }),
   sec({
@@ -539,9 +533,9 @@ const ABOUT: Section[] = [
     pos: "above",
     h: bi("What We Stand For", "ما نؤمن به"),
     panels: [
-      panel(bi("CURATED", "مختار بعناية"), bi("", ""), "", img("seed:1", "seed:2")),
-      panel(bi("CONSIDERED", "مدروس"), bi("", ""), "", img("seed:3", "seed:4")),
-      panel(bi("REMEMBERED", "لا يُنسى"), bi("", ""), "", img("seed:5", "seed:6")),
+      panel(bi("CURATED", "مختار بعناية"), bi("", ""), "", img("seed:1")),
+      panel(bi("CONSIDERED", "مدروس"), bi("", ""), "", img("seed:3")),
+      panel(bi("REMEMBERED", "لا يُنسى"), bi("", ""), "", img("seed:5")),
     ],
     ...sc(),
   }),
@@ -573,7 +567,7 @@ const CORP: Section[] = [
     bi("Zelliny for Business", "زيليني للأعمال"),
     bi("Start an enquiry", "ابدأ طلبك"),
     "/corporate-gifting/enquiry",
-    img("seed:3", "seed:4"),
+    img("seed:3"),
   ),
   sec({
     id: "c2",
@@ -623,7 +617,7 @@ const CORP: Section[] = [
     bi("", ""),
     bi("Start an enquiry", "ابدأ طلبك"),
     "/corporate-gifting/enquiry",
-    img("seed:5", "seed:6"),
+    img("seed:5"),
   ),
 ];
 

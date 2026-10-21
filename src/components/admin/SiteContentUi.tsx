@@ -293,7 +293,7 @@ export function pickImage(onPick: (url: string, name: string) => void, accept = 
   el.click();
 }
 
-/** One upload slot, e.g. "Desktop · 2400 × 900 px". */
+/** One upload slot, e.g. "2400 × 900 px". The label is optional. */
 export function ImgSlot({
   value,
   onChange,
@@ -303,9 +303,9 @@ export function ImgSlot({
 }: {
   value: string;
   onChange: (v: string) => void;
-  label: string;
+  label?: string | undefined;
   size: string;
-  className?: string;
+  className?: string | undefined;
 }) {
   const has = !!value;
   return (
@@ -321,7 +321,7 @@ export function ImgSlot({
         className,
       )}
     >
-      <b className="font-medium">{label}</b>
+      {label && <b className="font-medium">{label}</b>}
       <em className="not-italic opacity-80">
         {has ? "" : "No image yet — click to upload · "}
         {size}
@@ -335,47 +335,27 @@ export function ImgSlot({
   );
 }
 
-/** Desktop + Mobile image pair. */
-export function ImgPair({
+/** One image slot for a section — the picture; phones crop it. */
+export function ImgOne({
   im,
-  desktop,
-  mobile,
-  compact,
+  size,
+  className,
 }: {
   im: Img;
-  desktop: string;
-  mobile: string;
-  compact?: boolean;
+  size: string;
+  className?: string | undefined;
 }) {
   const touch = useTouch();
   return (
-    <div
-      className={cn(
-        "grid gap-3",
-        compact ? "grid-cols-[1.4fr_1fr]" : "max-w-[820px] grid-cols-[2fr_1fr]",
-      )}
-    >
-      <ImgSlot
-        value={im.d}
-        label="Desktop"
-        size={desktop}
-        className={compact ? "min-h-[110px]" : ""}
-        onChange={(v) => {
-          im.d = v;
-          touch();
-        }}
-      />
-      <ImgSlot
-        value={im.m}
-        label="Mobile"
-        size={mobile}
-        className={compact ? "min-h-[110px]" : ""}
-        onChange={(v) => {
-          im.m = v;
-          touch();
-        }}
-      />
-    </div>
+    <ImgSlot
+      value={im.d}
+      size={size}
+      className={className}
+      onChange={(v) => {
+        im.d = v;
+        touch();
+      }}
+    />
   );
 }
 
@@ -480,39 +460,6 @@ export function ScheduleBlock({ o, what }: { o: Sched; what: string }) {
         </span>
       </div>
     </>
-  );
-}
-
-/** Above / below the heading. */
-export function PosRow({ o }: { o: { pos: "above" | "below" } }) {
-  const touch = useTouch();
-  return (
-    <div className="-mt-1 mb-4 flex items-center gap-2.5 text-[12.5px] text-muted-foreground">
-      Show the small line
-      <div className="inline-flex rounded-full border border-border p-0.5">
-        {(
-          [
-            ["above", "Above the heading"],
-            ["below", "Below the heading"],
-          ] as const
-        ).map(([k, l]) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => {
-              o.pos = k;
-              touch();
-            }}
-            className={cn(
-              "h-[26px] rounded-full px-3 text-[12.5px]",
-              o.pos === k ? "bg-primary text-primary-foreground" : "text-muted-foreground",
-            )}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 
