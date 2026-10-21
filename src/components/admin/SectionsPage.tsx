@@ -2,7 +2,6 @@
 import { toast } from "sonner";
 import { Button } from "@/components/admin/page";
 import { SectionsEditor } from "@/components/admin/SectionsEditor";
-import { AddressBlock, LangSwitches } from "@/components/admin/SitePageBits";
 import { SeoBlock, TouchCtx } from "@/components/admin/SiteContentUi";
 import {
   getPage,
@@ -85,17 +84,10 @@ export function SectionsPage({
       <SectionsEditor page={page} />
 
       {!home && (
-        <>
-          <section className="mb-5 mt-6 rounded-[10px] border border-border bg-surface p-5">
-            <h3 className="mb-3 text-[15px]">Search engines (SEO) for this page</h3>
-            <SeoBlock seo={page.seo} address={page.address} fallback={name} />
-          </section>
-          <section className="mb-5 rounded-[10px] border border-border bg-surface p-5">
-            <h3 className="mb-1 text-[15px]">Page address and languages</h3>
-            <AddressBlock page={page} done={done} />
-            <LangSwitches page={page} />
-          </section>
-        </>
+        <section className="mb-5 mt-6 rounded-[10px] border border-border bg-surface p-5">
+          <h3 className="mb-3 text-[15px]">Search engines (SEO) for this page</h3>
+          <SeoBlock seo={page.seo} address={page.address} fallback={name} />
+        </section>
       )}
 
       {askPub && (

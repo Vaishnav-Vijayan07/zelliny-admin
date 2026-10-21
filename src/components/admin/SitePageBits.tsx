@@ -1,8 +1,7 @@
-// Pieces shared by the text-page window and the section-page editor: page address, language
-// switches, the text / FAQ editor and the window that edits a text page.
+// Pieces shared by the text-page window and the section-page editor: the text / FAQ editor and
+// the window that edits a text page.
 import { useReducer, useState } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/admin/page";
 import {
   BiBox,
@@ -28,152 +27,6 @@ import {
 } from "@/components/ui/dialog";
 
 type Done = (title: string, line: string) => void;
-
-/** The page address is locked; "Change" opens a warning and the old address forwards to the new one. */
-export function AddressBlock({ page, done }: { page: SitePage; done: Done }) {
-  const touch = useTouch();
-  const [ask, setAsk] = useState(false);
-  const [v, setV] = useState(page.address);
-  return (
-    <div className="mt-5">
-      <Fld label="Page address" hint="Locked so links to this page don't break.">
-        <div className="flex items-center gap-3">
-          <input
-            readOnly
-            value={`zelliny.com${page.address}`}
-            className={cn(inputCls, "bg-[#f7f7f7] text-muted-foreground")}
-          />
-          <button
-            type="button"
-            onClick={() => {
-              setV(page.address);
-              setAsk(true);
-            }}
-            className="whitespace-nowrap text-[13px] underline underline-offset-[3px]"
-          >
-            Change
-          </button>
-        </div>
-      </Fld>
-      {ask && (
-        <Dialog open onOpenChange={(o) => !o && setAsk(false)}>
-          <DialogContent className="max-w-[540px]">
-            <DialogHeader>
-              <DialogTitle className="font-head text-[18px] font-normal">
-                Change the page address?
-              </DialogTitle>
-            </DialogHeader>
-            <p className="text-[13.5px]">
-              Links already shared, and Google, point to <b>zelliny.com{page.address}</b>. The old
-              address will forward to the new one automatically, so nothing breaks.
-            </p>
-            <Fld label="New address">
-              <input value={v} onChange={(e) => setV(e.target.value)} className={inputCls} />
-            </Fld>
-            <DialogFooter>
-              <Button onClick={() => setAsk(false)}>Cancel</Button>
-              <Button
-                primary
-                onClick={() => {
-                  const n = v.trim();
-                  if (!n.startsWith("/")) {
-                    toast("Start the address with /");
-                    return;
-                  }
-                  const old = page.address;
-                  page.address = n;
-                  setAsk(false);
-                  touch();
-                  done("Address changed", `zelliny.com${old} now forwards to zelliny.com${n}.`);
-                }}
-              >
-                Change address
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
-  );
-}
-
-function Switch({
-  on,
-  disabled,
-  onClick,
-  label,
-}: {
-  on: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      aria-disabled={!!disabled}
-      onClick={onClick}
-      className={cn(
-        "relative h-[22px] w-[38px] flex-none rounded-full transition-colors",
-        on ? "bg-primary" : "bg-[#c9c9c9]",
-        disabled && "cursor-not-allowed opacity-40",
-      )}
-    >
-      <i
-        className={cn(
-          "absolute top-[3px] size-4 rounded-full bg-white transition-all",
-          on ? "left-[19px]" : "left-[3px]",
-        )}
-      />
-    </button>
-  );
-}
-
-/** English is always published. Arabic can only be switched on once its title and content are filled in. */
-export function LangSwitches({ page }: { page: SitePage }) {
-  const touch = useTouch();
-  const ok = arReady(page);
-  const on = ok && page.arOn;
-  const need = page.type === "Sections" ? "title" : "title and content";
-  return (
-    <div className="mt-4 grid gap-x-8 border-t border-line-soft pt-2 sm:grid-cols-2">
-      <div className="flex items-center justify-between gap-3.5 py-2.5">
-        <span className="text-[13.5px]">English version published</span>
-        <Switch
-          on
-          label="English version published"
-          onClick={() => toast("The English version is always published")}
-        />
-      </div>
-      <div className="flex items-center justify-between gap-3.5 py-2.5">
-        <span className="text-[13.5px]">
-          Arabic version published
-          {!ok && (
-            <small className="mt-0.5 block text-[12px] text-warn">
-              Fill in the Arabic {need} first
-            </small>
-          )}
-        </span>
-        <Switch
-          on={on}
-          disabled={!ok}
-          label="Arabic version published"
-          onClick={() => {
-            if (!ok) {
-              toast(`Fill in the Arabic ${need} first`);
-              return;
-            }
-            page.arOn = !page.arOn;
-            touch();
-          }}
-        />
-      </div>
-    </div>
-  );
-}
 
 /** Contact, Returns, Privacy…: formatted text in English and Arabic. FAQ: a list of questions. */
 function TextBody({ page }: { page: SitePage }) {
@@ -291,8 +144,6 @@ export function TextPageDialog({
             <h4 className="mb-3 text-[14px] font-medium">Search engines (SEO)</h4>
             <SeoBlock seo={copy.seo} address={copy.address} fallback={copy.name[0]} />
           </div>
-          <AddressBlock page={copy} done={done} />
-          <LangSwitches page={copy} />
           <DialogFooter>
             <Button onClick={onClose}>Cancel</Button>
             <Button primary onClick={save}>

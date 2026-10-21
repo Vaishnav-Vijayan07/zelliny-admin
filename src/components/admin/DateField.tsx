@@ -50,7 +50,14 @@ export function DateField({
           <CalendarIcon className="size-4 flex-none" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" side="bottom" avoidCollisions={false} className="w-auto p-0">
+      <PopoverContent
+        align="start"
+        side="bottom"
+        sideOffset={6}
+        avoidCollisions
+        collisionPadding={12}
+        className="w-auto p-0"
+      >
         <Calendar
           mode="single"
           selected={value ? fromIso(value) : undefined}

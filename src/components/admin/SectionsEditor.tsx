@@ -1,5 +1,5 @@
 // Sections editor used by the Homepage, About Us and Corporate Gifting: switch sections on / off,
-// drag to reorder, open one to edit its text, images, button, schedule and what it lists.
+// drag to reorder, open one to edit its text, images, button and what it lists.
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
@@ -59,7 +59,7 @@ const SIZE = {
 };
 const GRAD = (n: number) => imgStyle(`seed:${n % 8}`);
 
-function statusPill(s: { on: boolean; from: string; to: string }, where: string) {
+function statusPill(s: { on: boolean; from?: string; to?: string }, where: string) {
   const t = todayIso();
   const [label, cls] = !s.on
     ? ["Switched off", "bg-muted text-muted-foreground"]
@@ -840,12 +840,7 @@ export function SectionsEditor({ page }: { page: SitePage }) {
         );
         break;
     }
-    return (
-      <>
-        {main}
-        <ScheduleBlock o={s} what="this section" />
-      </>
-    );
+    return main;
   };
 
   const options = (() => {
@@ -954,7 +949,7 @@ export function SectionsEditor({ page }: { page: SitePage }) {
                     {count}
                   </span>
                 </div>
-                {statusPill(s, where)}
+                {statusPill({ on: s.on }, where)}
                 <button
                   type="button"
                   onClick={() => setOpen(expanded ? null : s.id)}
