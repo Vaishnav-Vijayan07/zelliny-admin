@@ -24,6 +24,8 @@ export interface HeroMedia extends Sched {
   id: string;
   on: boolean;
   name: string;
+  /** Mobile version file name, "" when missing. */
+  mobile: string;
   video: boolean;
   secs: number;
   src: string;
@@ -243,7 +245,8 @@ const HOME: Section[] = [
       {
         id: "h1",
         on: true,
-        name: "hero-banner.mp4",
+        name: "hero-desktop.mp4",
+        mobile: "hero-mobile.mp4",
         video: true,
         secs: 0,
         src: "",
@@ -253,6 +256,7 @@ const HOME: Section[] = [
         id: "h2",
         on: true,
         name: "autumn-gifting.jpg",
+        mobile: "",
         video: false,
         secs: 5,
         src: "",
@@ -409,6 +413,7 @@ const ABOUT: Section[] = [
         id: "m1",
         on: true,
         name: "about-ribbon-box.jpg",
+        mobile: "about-ribbon-box-mobile.jpg",
         video: false,
         secs: 6,
         src: "",
@@ -418,6 +423,7 @@ const ABOUT: Section[] = [
         id: "m2",
         on: true,
         name: "about-gold-emboss.jpg",
+        mobile: "",
         video: false,
         secs: 6,
         src: "",

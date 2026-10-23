@@ -359,6 +359,50 @@ export function ImgOne({
   );
 }
 
+/** Desktop + Mobile image pair. */
+export function ImgPair({
+  im,
+  desktop,
+  mobile,
+  compact,
+}: {
+  im: Img;
+  desktop: string;
+  mobile: string;
+  compact?: boolean;
+}) {
+  const touch = useTouch();
+  return (
+    <div
+      className={cn(
+        "grid gap-3",
+        compact ? "grid-cols-[1.4fr_1fr]" : "max-w-[820px] grid-cols-[2fr_1fr]",
+      )}
+    >
+      <ImgSlot
+        value={im.d}
+        label="Desktop"
+        size={desktop}
+        className={compact ? "min-h-[110px]" : ""}
+        onChange={(v) => {
+          im.d = v;
+          touch();
+        }}
+      />
+      <ImgSlot
+        value={im.m}
+        label="Mobile"
+        size={mobile}
+        className={compact ? "min-h-[110px]" : ""}
+        onChange={(v) => {
+          im.m = v;
+          touch();
+        }}
+      />
+    </div>
+  );
+}
+
 /* ---------- links ---------- */
 export function LinkField({ o }: { o: { link: string } }) {
   const touch = useTouch();
