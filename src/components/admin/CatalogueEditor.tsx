@@ -4,6 +4,7 @@ import { useIsOwner } from "@/pages/StaffPage";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
+import { ImageBox } from "@/components/admin/ImageBox";
 import { toast } from "sonner";
 import { brandsQuery, categoriesQuery, productsQuery } from "@/lib/api/sections.functions";
 import { formatNumber } from "@/lib/format";
@@ -160,34 +161,47 @@ const Swatch = ({
   size?: string;
   /** A new category has no image yet. */
   empty?: boolean;
-}) => (
-  <div>
-    <div className="mb-1.5 text-[12px] text-muted-foreground">{label}</div>
-    {empty ? (
-      <button
-        type="button"
-        onClick={() => toast("Image upload connects to your API later")}
-        className="grid aspect-[16/10] w-full place-items-center rounded-lg border-[1.5px] border-dashed border-[#c9c9c9] bg-hover text-[13px] text-muted-foreground hover:border-primary hover:text-foreground"
-      >
-        + Upload image
-      </button>
-    ) : (
-      <button
-        type="button"
-        onClick={() => toast("Image upload connects to your API later")}
-        className="relative block aspect-[16/10] w-full rounded-lg border border-border"
-        style={{
-          background: `linear-gradient(145deg, ${c}, color-mix(in srgb, ${c} 55%, #000))`,
-        }}
-      >
-        <em className="absolute bottom-2 right-2.5 text-[10.5px] not-italic text-white/85">
-          Replace
-        </em>
-      </button>
-    )}
-    {size && <div className="mt-1.5 text-[11.5px] text-muted-foreground">{size}</div>}
-  </div>
-);
+}) => {
+  const [src, setSrc] = useState("");
+  const onFiles = (files: File[]) => {
+    const f = files[0];
+    if (!f) return;
+    setSrc(URL.createObjectURL(f));
+    toast(`${label} updated`);
+  };
+  return (
+    <div>
+      <div className="mb-1.5 text-[12px] text-muted-foreground">{label}</div>
+      {empty && !src ? (
+        <ImageBox
+          onFiles={onFiles}
+          className="grid aspect-[16/10] w-full place-items-center rounded-lg border-[1.5px] border-dashed border-[#c9c9c9] bg-hover text-[13px] text-muted-foreground hover:border-primary hover:text-foreground"
+        >
+          + Upload image · or drop it here
+        </ImageBox>
+      ) : (
+        <ImageBox
+          onFiles={onFiles}
+          className="relative block aspect-[16/10] w-full rounded-lg border border-border"
+          style={
+            src
+              ? {
+                  backgroundImage: `url(${src})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : { background: `linear-gradient(145deg, ${c}, color-mix(in srgb, ${c} 55%, #000))` }
+          }
+        >
+          <em className="absolute bottom-2 right-2.5 text-[10.5px] not-italic text-white/85">
+            Replace · or drop an image
+          </em>
+        </ImageBox>
+      )}
+      {size && <div className="mt-1.5 text-[11.5px] text-muted-foreground">{size}</div>}
+    </div>
+  );
+};
 
 export function CatalogueEditor({
   kind,

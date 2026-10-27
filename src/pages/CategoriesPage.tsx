@@ -3,10 +3,11 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { brandsQuery, categoriesQuery, productsQuery } from "@/lib/api/sections.functions";
 import { cn } from "@/lib/utils";
-import { Button, PageHeader, Pager } from "@/components/admin/page";
+import { Button, PageHeader } from "@/components/admin/page";
 import { toast } from "sonner";
 import { setCategoryOrder, useCatalogue } from "@/components/admin/CatalogueFlow";
 import { MixBar, useVisibility } from "@/components/admin/CatalogueUi";
+import { DROP_ON, chooseFiles, useFileDrop } from "@/lib/image-upload";
 
 const TILE = [
   "#cdb8a3",
@@ -25,10 +26,17 @@ export default function CategoriesPage() {
   const { data: prods } = useSuspenseQuery(productsQuery());
   const live = useCatalogue(cats, brands, prods.rows);
   const vis = useVisibility();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(8);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const { over: dropOver, bind } = useFileDrop();
+  /** Tile pictures changed from the tile itself (kept for this visit until the API is connected). */
+  const [tileImg, setTileImg] = useState<Record<string, string>>({});
+  const setTile = (id: string, name: string, files: File[]) => {
+    const f = files[0];
+    if (!f) return;
+    setTileImg((x) => ({ ...x, [id]: URL.createObjectURL(f) }));
+    toast(`${name} tile image updated`);
+  };
   /** Moves a card to where another one is; the menu and homepage follow this order. */
   const move = (from: string, to: string) => {
     if (from === to) return;
@@ -38,8 +46,6 @@ export default function CategoriesPage() {
     setCategoryOrder(ids);
     toast("Order saved — the website menu and homepage follow it");
   };
-  const cur = Math.min(page, Math.max(1, Math.ceil(live.categories.length / pageSize)));
-  const shown = live.categories.slice((cur - 1) * pageSize, cur * pageSize);
 
   return (
     <>
@@ -62,7 +68,7 @@ export default function CategoriesPage() {
         follow this order.
       </p>
       <div className="grid gap-[18px] sm:grid-cols-2 lg:grid-cols-3 min-[1300px]:grid-cols-4">
-        {shown.map((c) => {
+        {live.categories.map((c) => {
           const list = live.products.filter((p) => p.category === c.name);
           return (
             <div
@@ -106,20 +112,41 @@ export default function CategoriesPage() {
               >
                 ⋮⋮
               </span>
-              <Link to="/categories/$categoryId" params={{ categoryId: c.id }}>
-                <div
-                  className={cn("relative aspect-[4/3]", !c.visible && "opacity-45 grayscale")}
-                  style={{
-                    background: `linear-gradient(145deg, ${TILE[(c.order - 1) % TILE.length]}, color-mix(in srgb, ${TILE[(c.order - 1) % TILE.length]} 55%, #000))`,
-                  }}
+              <div
+                {...bind(c.id, (f) => setTile(c.id, c.name, f))}
+                className={cn("relative", dropOver === c.id && DROP_ON)}
+              >
+                <Link to="/categories/$categoryId" params={{ categoryId: c.id }}>
+                  <div
+                    className={cn("relative aspect-[4/3]", !c.visible && "opacity-45 grayscale")}
+                    style={
+                      tileImg[c.id]
+                        ? {
+                            backgroundImage: `url(${tileImg[c.id]})`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }
+                        : {
+                            background: `linear-gradient(145deg, ${TILE[(c.order - 1) % TILE.length]}, color-mix(in srgb, ${TILE[(c.order - 1) % TILE.length]} 55%, #000))`,
+                          }
+                    }
+                  >
+                    {!c.visible && (
+                      <span className="absolute inset-x-2.5 bottom-2.5 mr-14 rounded bg-white px-2 py-1 text-center text-[10px] tracking-[.14em] text-black">
+                        HIDDEN FROM SITE
+                      </span>
+                    )}
+                  </div>
+                </Link>
+                <button
+                  type="button"
+                  title="Change the tile image — choose a file or drop one on the tile"
+                  onClick={() => chooseFiles((f) => setTile(c.id, c.name, f))}
+                  className="absolute bottom-2.5 right-2.5 z-10 rounded-md bg-white/90 px-2.5 py-1 text-[11.5px] text-black shadow hover:bg-white"
                 >
-                  {!c.visible && (
-                    <span className="absolute inset-x-2.5 bottom-2.5 rounded bg-white px-2 py-1 text-center text-[10px] tracking-[.14em] text-black">
-                      HIDDEN FROM SITE
-                    </span>
-                  )}
-                </div>
-              </Link>
+                  Edit
+                </button>
+              </div>
               <div className="flex flex-col gap-2.5 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <Link to="/categories/$categoryId" params={{ categoryId: c.id }}>
@@ -145,18 +172,6 @@ export default function CategoriesPage() {
           );
         })}
       </div>
-      <Pager
-        page={cur}
-        pageSize={pageSize}
-        total={live.categories.length}
-        noun="categories"
-        sizes={[8, 12, 24, 48]}
-        onPage={setPage}
-        onPageSize={(n) => {
-          setPageSize(n);
-          setPage(1);
-        }}
-      />
       {vis.dialog}
     </>
   );

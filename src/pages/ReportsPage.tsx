@@ -9,9 +9,16 @@ import { cn } from "@/lib/utils";
 import { StatusBadge, Thumb } from "@/components/admin/primitives";
 import { BarList, Button, Card, PageHeader } from "@/components/admin/page";
 import { LineChart } from "@/components/admin/LineChart";
+import { RangeTabs, type DateFilter } from "@/components/admin/DateRangeFilter";
 
-const RANGES = ["Today", "7d", "30d", "90d", "YTD"] as const;
-type Range = (typeof RANGES)[number];
+type Range = "Today" | "7d" | "30d" | "90d" | "YTD";
+const KEY_RANGE: Record<string, Range> = {
+  today: "Today",
+  "7d": "7d",
+  "30d": "30d",
+  "90d": "90d",
+  ytd: "YTD",
+};
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 const seeded = (seed: number) => {
@@ -53,7 +60,7 @@ interface Period {
   status: [string, number][];
   newCust: number;
 }
-function period(r: Range): Period {
+function presetPeriod(r: Range): Period {
   if (r === "Today") {
     const w = [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0.4, 0.7, 1.1, 1.6, 1.2, 0.9, 1.3, 1.8, 1.2, 1.5, 2.2, 2.6, 1.9,
@@ -201,6 +208,54 @@ function period(r: Range): Period {
   };
 }
 
+const fmtDay = (d: Date) => `${d.getDate()} ${MON[d.getMonth()]}`;
+
+/** Mock figures for an arbitrary from–to range (daily points, weekly once past 90 days). */
+function customPeriod(from: Date, to: Date): { p: Period; days: number } {
+  const days = Math.max(1, Math.round((to.getTime() - from.getTime()) / 864e5) + 1);
+  const rnd = seeded(from.getTime() % 9973);
+  const step = days > 90 ? 7 : 1;
+  const labels: string[] = [],
+    rev: number[] = [],
+    ord: number[] = [];
+  for (let i = 0; i < days; i += step) {
+    const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + i);
+    const n = Math.min(step, days - i);
+    labels.push(fmtDay(d));
+    const v = Math.round((n * (20000 + rnd() * 18000)) / 50) * 50;
+    rev.push(v);
+    ord.push(Math.max(1, Math.round(v / 5900)));
+  }
+  const orders = sum(ord),
+    total = sum(rev);
+  return {
+    days,
+    p: {
+      label: days === 1 ? fmtDay(from) : `${fmtDay(from)} – ${fmtDay(to)}`,
+      vs: "vs previous period",
+      labels,
+      rev,
+      ord,
+      orders,
+      conv: 2,
+      visitors: Math.round(orders / 0.02),
+      refunds: Math.round((total * 0.03) / 50) * 50,
+      refundN: Math.round(orders * 0.015),
+      returns: Math.round(orders * 0.035),
+      d: ["+10.0%", "+8.0%", "+2.0%", "+0.2 pt"],
+      mix: [60, 17, 23],
+      status: [
+        ["Delivered", Math.round(orders * 0.82)],
+        ["Shipped", Math.round(orders * 0.06)],
+        ["Processing", Math.round(orders * 0.04)],
+        ["Cancelled", Math.round(orders * 0.04)],
+        ["Returned", Math.round(orders * 0.04)],
+      ],
+      newCust: Math.round(orders * 0.2),
+    },
+  };
+}
+
 const unit = (p: ProductRow) => p.offer ?? p.price ?? 0;
 const tone = (s: string): "ok" | "info" | "warn" | "bad" | "mute" =>
   (
@@ -247,8 +302,15 @@ function Rank({ rows, unitLabel }: { rows: { p: ProductRow; n: number }[]; unitL
 export default function ReportsPage() {
   const { data: prods } = useSuspenseQuery(productsQuery());
   const { data: rets } = useSuspenseQuery(returnsQuery());
-  const [range, setRange] = useState<Range>("30d");
-  const d = useMemo(() => period(range), [range]);
+  const [filter, setFilter] = useState<DateFilter>({ key: "30d" });
+  const { d, days } = useMemo(() => {
+    if (filter.key === "custom" && filter.from) {
+      const c = customPeriod(filter.from, filter.to ?? filter.from);
+      return { d: c.p, days: c.days };
+    }
+    const r = KEY_RANGE[filter.key] ?? "30d";
+    return { d: presetPeriod(r), days: r === "Today" ? 1 : r === "7d" ? 7 : 30 };
+  }, [filter]);
   const total = sum(d.rev),
     f = total / FULL_YEAR_REVENUE,
     aov = Math.round(total / Math.max(d.orders, 1));
@@ -289,7 +351,7 @@ export default function ReportsPage() {
     .map((p) => ({ p, n: Math.max(1, Math.round(p.enquiries * Math.max(f, 0.14))) }))
     .sort((a, b) => b.n - a.n)
     .slice(0, 10);
-  const retRows = range === "Today" ? [] : rets.rows.slice(0, range === "7d" ? 3 : 4);
+  const retRows = days <= 1 ? [] : rets.rows.slice(0, days <= 7 ? 3 : 4);
 
   const kpis: [string, string, string][] = [
     ["Revenue", `${formatNumber(total)} EGP`, d.d[0]!],
@@ -310,21 +372,7 @@ export default function ReportsPage() {
         }
         actions={
           <>
-            <div className="inline-flex rounded-lg border border-border bg-surface p-[3px]">
-              {RANGES.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRange(r)}
-                  className={cn(
-                    "rounded-md px-3 py-1 text-[12.5px]",
-                    r === range ? "bg-primary text-primary-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
+            <RangeTabs value={filter} onChange={setFilter} />
             <Button primary onClick={() => toast(`Report for ${d.label} downloaded · Excel`)}>
               Download Excel
             </Button>

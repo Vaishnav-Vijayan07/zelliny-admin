@@ -1,6 +1,7 @@
 // The product editor (prototype `P.product`), used for "+ Add product" and for each existing product.
 // Saves go to the shared product store (ProductFlow) — swap for API mutations later.
 import { StickyCol } from "@/components/admin/StickyCol";
+import { DROP_ON, chooseFiles, fileToDataUrl, useFileDrop } from "@/lib/image-upload";
 import { useIsOwner } from "@/pages/StaffPage";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
@@ -501,8 +502,6 @@ export function ProductEditor({
   const [askDelete, setAskDelete] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const owner = useIsOwner();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const pickRef = useRef<(srcs: string[]) => void>(() => {});
   const dragFrom = useRef<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
 
@@ -734,41 +733,32 @@ export function ProductEditor({
   };
 
   /* images */
-  const pickFiles = (multi: boolean, cb: (srcs: string[]) => void) => {
-    const el = fileRef.current;
-    if (!el) return;
-    el.multiple = multi;
-    pickRef.current = cb;
-    el.value = "";
-    el.click();
+  const { over: dropOver, bind: dropBind } = useFileDrop();
+  const readAll = (files: File[]) => Promise.all(files.map(fileToDataUrl));
+  const addImgs = (srcs: string[]) => {
+    const room = 6 - imgs.length;
+    if (room <= 0) {
+      toast("Max 6 images per product");
+      return;
+    }
+    setImgs((x) => [...x, ...srcs.slice(0, room).map((src) => ({ src, v: 0 }))]);
+    toast(
+      `${Math.min(srcs.length, room)} image(s) added${srcs.length > room ? " · max 6 per product" : ""}`,
+    );
   };
-  const onFiles = (files: FileList | null) => {
-    Promise.all(
-      [...(files ?? [])].map(
-        (f) =>
-          new Promise<string>((r) => {
-            const fr = new FileReader();
-            fr.onload = () => r(String(fr.result));
-            fr.readAsDataURL(f);
-          }),
-      ),
-    ).then(pickRef.current);
+  const replaceImg = (i: number, srcs: string[]) => {
+    const src = srcs[0];
+    if (!src) return;
+    setImgs((x) => x.map((s, k) => (k === i ? { src, v: 0 } : s)));
+    toast(i === 0 ? "Hero image replaced" : `Image ${i + 1} replaced`);
   };
-  const imgAdd = () =>
-    pickFiles(true, (srcs) => {
-      const room = 6 - imgs.length;
-      setImgs((x) => [...x, ...srcs.slice(0, room).map((src) => ({ src, v: 0 }))]);
-      toast(
-        `${Math.min(srcs.length, room)} image(s) added${srcs.length > room ? " · max 6 per product" : ""}`,
-      );
-    });
-  const imgReplace = (i: number) =>
-    pickFiles(false, (srcs) => {
-      const src = srcs[0];
-      if (!src) return;
-      setImgs((x) => x.map((s, k) => (k === i ? { src, v: 0 } : s)));
-      toast(i === 0 ? "Hero image replaced" : `Image ${i + 1} replaced`);
-    });
+  const imgAdd = () => chooseFiles((f) => readAll(f).then(addImgs), { multiple: true });
+  const imgReplace = (i: number) => chooseFiles((f) => readAll(f).then((s) => replaceImg(i, s)));
+  /** Files dropped from a folder: onto an empty box they are added, onto a picture they replace it. */
+  const dropAdd = (key: string) =>
+    dropBind(key, (f) => readAll(f).then(addImgs), { multiple: true });
+  const dropReplace = (key: string, i: number) =>
+    dropBind(key, (f) => readAll(f).then((s) => replaceImg(i, s)));
   const imgRemove = (i: number) => {
     setImgs((x) => x.filter((_, k) => k !== i));
     toast(i === 0 ? "Hero removed — next image is now the hero" : "Image removed");
@@ -809,11 +799,25 @@ export function ProductEditor({
       toast(i === 0 ? "New hero image set" : "Image order saved");
     },
   });
+  /** Reorder drags and folder drops on the same picture. */
+  const tileProps = (i: number) => {
+    const reorder = dragProps(i);
+    const file = dropReplace(`img${i}`, i);
+    return {
+      ...reorder,
+      onDragEnter: file.onDragEnter,
+      onDragLeave: file.onDragLeave,
+      onDragOver: (e: DragEvent) =>
+        dragFrom.current !== null ? reorder.onDragOver(e) : file.onDragOver(e),
+      onDrop: (e: DragEvent) => (dragFrom.current !== null ? reorder.onDrop(e) : file.onDrop(e)),
+    };
+  };
   const imgBox = (i: number, extra?: string) =>
     cn(
       "group relative aspect-square cursor-grab overflow-hidden rounded-lg border border-border bg-cover bg-center transition hover:shadow-[0_6px_20px_rgba(0,0,0,.12)]",
       dragFrom.current === i && "opacity-40",
       over === i && "scale-[1.02] outline-2 outline-dashed outline-offset-[3px] outline-primary",
+      dropOver === `img${i}` && "outline-2 outline-dashed outline-offset-[3px] outline-primary",
       extra,
     );
   const imgActs = (children: ReactNode) => (
@@ -1294,7 +1298,14 @@ export function ProductEditor({
     ),
     Images: (
       <>
-        <Card title="Product images" extra={<Btn onClick={imgAdd}>Upload images</Btn>}>
+        <Card
+          title="Product images"
+          extra={
+            <span {...dropAdd("btn")} className={cn("rounded-lg", dropOver === "btn" && DROP_ON)}>
+              <Btn onClick={imgAdd}>Upload images</Btn>
+            </span>
+          }
+        >
           <div className="grid gap-[22px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
             <div id="f_hero">
               <div className="mb-2.5 flex flex-col">
@@ -1306,7 +1317,7 @@ export function ProductEditor({
                 </span>
               </div>
               {imgs[0] ? (
-                <div {...dragProps(0)} className={imgBox(0, "w-full")} style={imgStyle(imgs[0])}>
+                <div {...tileProps(0)} className={imgBox(0, "w-full")} style={imgStyle(imgs[0])}>
                   <span className="absolute left-2.5 top-2.5 rounded bg-white px-[9px] py-[3px] text-[10.5px] font-semibold tracking-[.14em] text-black">
                     HERO
                   </span>
@@ -1321,9 +1332,11 @@ export function ProductEditor({
                 <button
                   type="button"
                   onClick={imgAdd}
+                  {...dropAdd("hero")}
                   className={cn(
                     emptyBox,
                     "w-full",
+                    dropOver === "hero" && DROP_ON,
                     flag.includes("hero") && "border-bad bg-bad-bg",
                   )}
                 >
@@ -1344,7 +1357,7 @@ export function ProductEditor({
                   return (
                     <div
                       key={`${i}-${im.src?.slice(-24) ?? im.v}`}
-                      {...dragProps(i)}
+                      {...tileProps(i)}
                       className={imgBox(i)}
                       style={imgStyle(im)}
                     >
@@ -1362,8 +1375,14 @@ export function ProductEditor({
                   );
                 })}
                 {imgs.length < 6 && (
-                  <button type="button" onClick={imgAdd} className={emptyBox}>
-                    + Add image<span className="text-[10.5px]">JPG · PNG · WebP</span>
+                  <button
+                    type="button"
+                    onClick={imgAdd}
+                    {...dropAdd("gallery")}
+                    className={cn(emptyBox, dropOver === "gallery" && DROP_ON)}
+                  >
+                    + Add image
+                    <span className="text-[10.5px]">Click or drop · JPG · PNG · WebP</span>
                   </button>
                 )}
               </div>
@@ -1378,13 +1397,6 @@ export function ProductEditor({
             <span>Replace swaps one image without touching the rest</span>
             <span>Recommended: square, 2000 × 2000 px, white or lifestyle background</span>
           </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => onFiles(e.target.files)}
-          />
         </Card>
         <Card title="Image text (for Google & accessibility)">
           <Grid cols={2}>

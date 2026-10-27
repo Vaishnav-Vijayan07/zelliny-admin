@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { cn } from "@/lib/utils";
+import { DROP_ON, useFileDrop } from "@/lib/image-upload";
 import { Button } from "@/components/admin/page";
 import { DateField } from "@/components/admin/DateField";
 import { Dropdown } from "@/components/admin/Dropdown";
@@ -308,10 +309,12 @@ export function ImgSlot({
   className?: string | undefined;
 }) {
   const has = !!value;
+  const { over, bind } = useFileDrop();
   return (
     <button
       type="button"
       onClick={() => pickImage((u) => onChange(u))}
+      {...bind("slot", (f) => onChange(URL.createObjectURL(f[0]!)))}
       style={imgStyle(value)}
       className={cn(
         "relative flex min-h-[130px] flex-col justify-end rounded-[10px] p-3 text-left text-[12.5px]",
@@ -319,11 +322,12 @@ export function ImgSlot({
           ? "border border-transparent text-white"
           : "border-[1.5px] border-dashed border-[#e8d3ae] bg-[#fbf6ec] text-[#7a4e00]",
         className,
+        over && DROP_ON,
       )}
     >
       {label && <b className="font-medium">{label}</b>}
       <em className="not-italic opacity-80">
-        {has ? "" : "No image yet — click to upload · "}
+        {has ? "" : "No image yet — click to upload or drop one here · "}
         {size}
       </em>
       {has && (

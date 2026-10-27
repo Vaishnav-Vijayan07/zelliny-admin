@@ -15,18 +15,21 @@ export const getShell = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const getDashboard = createServerFn({ method: "GET" })
-  .inputValidator((d: { range: DateRange }) => z.object({ range: rangeSchema }).parse(d))
+  .inputValidator((d: { range: DateRange; custom?: string | undefined }) =>
+    z.object({ range: rangeSchema, custom: z.string().max(40).optional() }).parse(d),
+  )
   .handler(async ({ data }) => {
     // e.g. return fetch(`${process.env.API_URL}/dashboard?range=${data.range}`).then(r => r.json())
-    return mockDashboard(data.range);
+    return mockDashboard(data.range, data.custom);
   });
 
 export const shellQuery = () =>
   queryOptions({ queryKey: ["shell"], queryFn: () => getShell(), staleTime: 60_000 });
 
-export const dashboardQuery = (range: DateRange) =>
+/** `custom` is a label like "3 Sep – 20 Sep" when the user picked their own dates. */
+export const dashboardQuery = (range: DateRange, custom?: string) =>
   queryOptions({
-    queryKey: ["dashboard", range],
-    queryFn: () => getDashboard({ data: { range } }),
+    queryKey: ["dashboard", range, custom ?? null],
+    queryFn: () => getDashboard({ data: { range, custom } }),
     staleTime: 30_000,
   });

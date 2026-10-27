@@ -77,12 +77,17 @@ export function parseOrderDate(s: string): Date {
   return day(new Date());
 }
 
-export function inDateFilter(dateText: string, f: DateFilter): boolean {
+/** Whether a calendar date falls inside the chosen range (no range = everything). */
+export function dateInFilter(date: Date, f: DateFilter): boolean {
   if (!f.key) return true;
   const r = f.key === "custom" ? { from: f.from, to: f.to ?? f.from } : presetRange(f.key);
   if (!r?.from) return true;
-  const d = parseOrderDate(dateText).getTime();
+  const d = day(date).getTime();
   return d >= day(r.from).getTime() && d <= day(r.to ?? r.from).getTime();
+}
+
+export function inDateFilter(dateText: string, f: DateFilter): boolean {
+  return dateInFilter(parseOrderDate(dateText), f);
 }
 
 const EXTRA_PRESETS: { key: Exclude<RangeKey, "" | "custom">; label: string }[] = [

@@ -642,6 +642,16 @@ export default function DeliveryPage() {
     },
   ];
   const afZone = af ? zoneById(af.zoneId) : undefined;
+  /** Greys out a switched-off zone's row, but never its Edit / Delete buttons. */
+  const dimWhenOff = <T,>(cols: Column<T>[], isOff: (r: T) => boolean): Column<T>[] =>
+    cols.map((c) =>
+      c.header === "actions"
+        ? c
+        : {
+            ...c,
+            cell: (r: T) => (isOff(r) ? <div className="opacity-55">{c.cell(r)}</div> : c.cell(r)),
+          },
+    );
 
   /* ---------- options ---------- */
   const { sameDay, store, cod } = SETTINGS;
@@ -675,7 +685,7 @@ export default function DeliveryPage() {
           ) : undefined
         }
       />
-      <div className="mb-[18px] flex gap-1 overflow-x-auto border-b border-border">
+      <div className="mb-[18px] flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border pb-px">
         {TABS.map(([k, label]) => (
           <button
             key={k}
@@ -726,11 +736,10 @@ export default function DeliveryPage() {
               delivering there — its fee and areas stay saved.
             </p>
             <DataTable
-              columns={zoneCols}
+              columns={dimWhenOff(zoneCols, (z) => !z.on)}
               rows={zones}
               rowKey={(z) => z.id}
               empty="No zones yet"
-              rowClassName={(z) => (z.on ? undefined : "opacity-55")}
             />
           </Card>
         </>
@@ -747,11 +756,10 @@ export default function DeliveryPage() {
             />
           </FilterBar>
           <DataTable
-            columns={areaCols}
+            columns={dimWhenOff(areaCols, (r) => !r.zone.on)}
             rows={areaRows}
             rowKey={(r) => r.area.en}
             empty="No area matches"
-            rowClassName={(r) => (r.zone.on ? undefined : "opacity-55")}
           />
           <p className="mt-3 text-[12.5px] text-muted-foreground">
             Fee and delivery time come from the zone. To change them, edit the zone.

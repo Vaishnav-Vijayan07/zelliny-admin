@@ -3,6 +3,7 @@ import { useState } from "react";
 import { dashboardQuery } from "@/lib/api/admin.functions";
 import type { DateRange } from "@/lib/api/types";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { rangeLabel, type DateFilter } from "@/components/admin/DateRangeFilter";
 import { NeedsNow } from "@/components/dashboard/NeedsNow";
 import { RevenueHero } from "@/components/dashboard/RevenueHero";
 import { LatestOrders } from "@/components/dashboard/LatestOrders";
@@ -11,11 +12,21 @@ import { PipelineCard } from "@/components/dashboard/PipelineCard";
 import { useSessionUser } from "@/hooks/use-session";
 import { canSeePage, canSeeWidget, roleFocus } from "@/lib/roles";
 
+const KEY_RANGE: Record<string, DateRange> = {
+  today: "Today",
+  "7d": "7d",
+  "30d": "30d",
+  "90d": "90d",
+  ytd: "YTD",
+};
+
 export default function Dashboard() {
-  const [range, setRange] = useState<DateRange>("30d");
+  const [filter, setFilter] = useState<DateFilter>({ key: "30d" });
+  const range = KEY_RANGE[filter.key] ?? "30d";
+  const custom = filter.key === "custom" ? rangeLabel(filter) : undefined;
   const initial = useSuspenseQuery(dashboardQuery("30d")).data;
   const { data = initial } = useQuery({
-    ...dashboardQuery(range),
+    ...dashboardQuery(range, custom),
     placeholderData: keepPreviousData,
   });
   const user = useSessionUser();
@@ -34,8 +45,8 @@ export default function Dashboard() {
         name={user?.name.split(" ")[0] ?? data.greetingName}
         dateLabel={data.dateLabel}
         liveVisitors={data.liveVisitors}
-        range={range}
-        onRangeChange={setRange}
+        filter={filter}
+        onFilterChange={setFilter}
       />
       <p className="-mt-5 mb-6 text-[13px] text-muted-foreground">
         {role} dashboard · {roleFocus(role)}

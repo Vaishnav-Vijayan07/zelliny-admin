@@ -3,6 +3,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
+import { DROP_ON, chooseFiles, isMediaFile, useFileDrop } from "@/lib/image-upload";
 import { toast } from "sonner";
 import { brandsQuery, categoriesQuery, productsQuery } from "@/lib/api/sections.functions";
 import { formatNumber } from "@/lib/format";
@@ -171,34 +172,31 @@ function ButtonFields({ s }: { s: Extract<Section, { kind: "hero" | "banner" }> 
 
 function HeroMediaList({ s }: { s: Extract<Section, { kind: "hero" }> }) {
   const touch = useTouch();
-  const add = () => {
-    const el = document.createElement("input");
-    el.type = "file";
-    el.multiple = true;
-    el.accept = "image/*,video/*";
-    el.onchange = () => {
-      const room = 8 - s.media.length;
-      const files = [...(el.files ?? [])].slice(0, room);
-      if ((el.files?.length ?? 0) > room) toast("A banner can have up to 8 images and videos");
-      files.forEach((f) =>
-        s.media.push({
-          id: nid("h"),
-          on: true,
-          name: f.name,
-          mobile: "",
-          video: f.type.startsWith("video"),
-          secs: 5,
-          src: URL.createObjectURL(f),
-          from: "",
-          to: "",
-        }),
-      );
-      touch();
-    };
-    el.click();
+  const { over, bind } = useFileDrop();
+  const addFiles = (all: File[]) => {
+    const room = 8 - s.media.length;
+    if (all.length > room) toast("A banner can have up to 8 images and videos");
+    all.slice(0, Math.max(0, room)).forEach((f) =>
+      s.media.push({
+        id: nid("h"),
+        on: true,
+        name: f.name,
+        mobile: "",
+        video: f.type.startsWith("video"),
+        secs: 5,
+        src: URL.createObjectURL(f),
+        from: "",
+        to: "",
+      }),
+    );
+    touch();
   };
+  const add = () => chooseFiles(addFiles, { multiple: true, accept: "image/*,video/*" });
   return (
-    <>
+    <div
+      {...bind("media", addFiles, { multiple: true, accept: isMediaFile })}
+      className={cn("rounded-lg", over && DROP_ON)}
+    >
       <SubHead
         title={`Banner media · ${s.media.length} of 8`}
         note="Each item needs a desktop and a mobile version · drag to reorder"
@@ -228,7 +226,20 @@ function HeroMediaList({ s }: { s: Extract<Section, { kind: "hero" }> }) {
                   m.video ? "video/*" : "image/*",
                 )
               }
-              className="grid h-[44px] w-[74px] flex-none place-items-center overflow-hidden rounded-md text-[16px] text-white/80"
+              {...bind(
+                m.id,
+                (f) => {
+                  m.src = URL.createObjectURL(f[0]!);
+                  m.name = f[0]!.name;
+                  m.video = f[0]!.type.startsWith("video");
+                  touch();
+                },
+                { accept: isMediaFile },
+              )}
+              className={cn(
+                "grid h-[44px] w-[74px] flex-none place-items-center overflow-hidden rounded-md text-[16px] text-white/80",
+                over === m.id && DROP_ON,
+              )}
               style={
                 m.src && !m.video
                   ? imgStyle(m.src)
@@ -296,10 +307,11 @@ function HeroMediaList({ s }: { s: Extract<Section, { kind: "hero" }> }) {
       <div className="mt-2.5 flex flex-wrap items-center gap-3">
         <Button onClick={add}>+ Add images or videos</Button>
         <span className="text-[12px] text-muted-foreground">
-          JPG, PNG, WebP or MP4 · videos under 15 MB · Desktop {SIZE.heroD} · Mobile {SIZE.heroM}
+          JPG, PNG, WebP or MP4 · videos under 15 MB · or drop files here · Desktop {SIZE.heroD} ·
+          Mobile {SIZE.heroM}
         </span>
       </div>
-    </>
+    </div>
   );
 }
 

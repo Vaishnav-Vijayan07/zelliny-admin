@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { SET } from "@/components/admin/SettingsFlow";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { DROP_ON, useFileDrop } from "@/lib/image-upload";
 import { Button } from "@/components/admin/page";
 import { SearchSelect } from "@/components/admin/SearchSelect";
 import { Toggle } from "@/components/admin/primitives";
@@ -357,17 +358,29 @@ export function FooterTab({ done }: { done: Done }) {
 /* ---------- Top menu ---------- */
 const MI_SIZE = "1600 × 1050 px · JPG, PNG or WebP";
 
-function Thumb2({ v, big }: { v: string; big?: boolean }) {
+function Thumb2({
+  v,
+  big,
+  onChange,
+}: {
+  v: string;
+  big?: boolean;
+  /** Lets an image be dropped straight onto the thumbnail. */
+  onChange?: (v: string) => void;
+}) {
+  const { over, bind } = useFileDrop();
   return (
     <span
+      {...(onChange ? bind("thumb", (f) => onChange(URL.createObjectURL(f[0]!))) : {})}
       className={cn(
+        over && DROP_ON,
         "grid flex-none place-items-center rounded-md text-[10.5px]",
         big ? "h-[100px] w-[150px]" : "h-[44px] w-[64px]",
         !v && "border-[1.5px] border-dashed border-[#e8d3ae] bg-[#fbf6ec] text-[#9a6200]",
       )}
       style={imgStyle(v)}
     >
-      {v ? "" : "No image"}
+      {v ? "" : onChange ? "Drop image" : "No image"}
     </span>
   );
 }
@@ -384,8 +397,12 @@ function ImageActions({
   onRemove: () => void;
 }) {
   const act = "underline underline-offset-[3px]";
+  const { over, bind } = useFileDrop();
   return (
-    <span className="flex gap-2.5 whitespace-nowrap text-[12.5px]">
+    <span
+      {...bind("actions", (f) => onChange(URL.createObjectURL(f[0]!)))}
+      className={cn("flex gap-2.5 whitespace-nowrap rounded-md text-[12.5px]", over && DROP_ON)}
+    >
       <button type="button" className={act} onClick={() => pickImage((u) => onChange(u))}>
         {value ? "Replace" : "Upload"}
       </button>
@@ -434,7 +451,13 @@ function LinkRow({
   return (
     <div className="grid items-center gap-2.5 p-2 md:grid-cols-[16px_64px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.25fr)_auto]">
       {handle}
-      <Thumb2 v={l.img} />
+      <Thumb2
+        v={l.img}
+        onChange={(u) => {
+          l.img = u;
+          touch();
+        }}
+      />
       <div className="flex flex-col gap-1.5">
         <BiBox v={l.n} i={0} placeholder="Name" />
         {l.desc && <BiBox v={l.desc} i={0} placeholder="Line under the name" />}
@@ -602,7 +625,14 @@ function MenuBody({ m, askRemove }: { m: MenuItem; askRemove: (l: MenuLink | Men
         note={`Shows when the dropdown opens, before hovering on a link · ${MI_SIZE}`}
       />
       <div className="flex items-start gap-4">
-        <Thumb2 v={m.main} big />
+        <Thumb2
+          v={m.main}
+          big
+          onChange={(u) => {
+            m.main = u;
+            touch();
+          }}
+        />
         <div className="min-w-0 flex-1">
           <BiField
             label={'"Spotlight on" title under the main image'}

@@ -68,7 +68,7 @@ const RANGE_LABEL: Record<DateRange, string> = {
   YTD: "year to date",
 };
 
-export function mockDashboard(range: DateRange): DashboardData {
+export function mockDashboard(range: DateRange, custom?: string): DashboardData {
   const labels = seriesLabels();
   return {
     greetingName: "Ramy",
@@ -106,11 +106,11 @@ export function mockDashboard(range: DateRange): DashboardData {
       },
     ],
     revenue: {
-      label: `Revenue · ${RANGE_LABEL[range]}`,
+      label: `Revenue · ${custom ?? RANGE_LABEL[range]}`,
       total: 907350,
       currency: "EGP",
       delta: "+18.4%",
-      comparison: "vs previous 30 days",
+      comparison: custom ? "vs previous period" : "vs previous 30 days",
       metrics: [
         { label: "Orders", value: "152", delta: "+12.1%" },
         { label: "Average order", value: "5,969 EGP", delta: "+5.6%" },

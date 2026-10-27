@@ -1,6 +1,8 @@
 // Homepage tab of Site content: section order and on/off, plus the lists behind category / product / maison sections.
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { ImageBox } from "@/components/admin/ImageBox";
+import { DROP_ON, chooseFiles, isMediaFile, useFileDrop } from "@/lib/image-upload";
 import { toast } from "sonner";
 import { brandsQuery, categoriesQuery, productsQuery } from "@/lib/api/sections.functions";
 import { formatNumber } from "@/lib/format";
@@ -197,33 +199,54 @@ function Picker({
   );
 }
 
+function SectionImage() {
+  const [src, setSrc] = useState("");
+  return (
+    <ImageBox
+      onFiles={(f) => f[0] && setSrc(URL.createObjectURL(f[0]))}
+      className="relative block aspect-[21/7] w-full max-w-[560px] rounded-lg border border-border"
+      style={
+        src
+          ? {
+              backgroundImage: `url(${src})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }
+          : { background: "linear-gradient(120deg,#1a1712,#5e4d3b)" }
+      }
+    >
+      <em className="absolute bottom-2 right-3 text-[11px] not-italic text-white/85">
+        Replace image · or drop one here
+      </em>
+    </ImageBox>
+  );
+}
+
 function HeroMedia({ items }: { items: HeroItem[] }) {
-  const pickFiles = () => {
-    const el = document.createElement("input");
-    el.type = "file";
-    el.multiple = true;
-    el.accept = "image/*,video/*";
-    el.onchange = () => {
-      const room = 8 - items.length;
-      const files = [...(el.files ?? [])].slice(0, room);
-      if ((el.files?.length ?? 0) > room) toast("A hero banner can have up to 8 images and videos");
-      setHero([
-        ...items,
-        ...files.map((f) => ({
-          id: `h${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
-          kind: (f.type.startsWith("video") ? "video" : "image") as HeroItem["kind"],
-          src: URL.createObjectURL(f),
-          name: f.name,
-          seconds: 5,
-        })),
-      ]);
-    };
-    el.click();
+  const addFiles = (all: File[]) => {
+    const room = 8 - items.length;
+    const files = all.slice(0, Math.max(0, room));
+    if (all.length > room) toast("A hero banner can have up to 8 images and videos");
+    setHero([
+      ...items,
+      ...files.map((f) => ({
+        id: `h${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
+        kind: (f.type.startsWith("video") ? "video" : "image") as HeroItem["kind"],
+        src: URL.createObjectURL(f),
+        name: f.name,
+        seconds: 5,
+      })),
+    ]);
   };
+  const pickFiles = () => chooseFiles(addFiles, { multiple: true, accept: "image/*,video/*" });
+  const { over, bind } = useFileDrop();
   const upd = (id: string, patch: Partial<HeroItem>) =>
     setHero(items.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   return (
-    <div className="mb-4">
+    <div
+      {...bind("media", addFiles, { multiple: true, accept: isMediaFile })}
+      className={cn("mb-4 rounded-lg", over && DROP_ON)}
+    >
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[13px] font-medium">Banner media · {items.length} of 8</span>
         <span className="text-[12px] text-muted-foreground">
@@ -284,7 +307,7 @@ function HeroMedia({ items }: { items: HeroItem[] }) {
       <div className="mt-2.5 flex items-center gap-3">
         <Button onClick={pickFiles}>+ Add images or videos</Button>
         <span className="text-[12px] text-muted-foreground">
-          JPG, PNG, WebP or MP4 · videos under 15 MB
+          JPG, PNG, WebP or MP4 · videos under 15 MB · or drop files here
         </span>
       </div>
     </div>
@@ -528,16 +551,7 @@ export function HomepageEditor() {
         return (
           <>
             <CopyFields k={k} copy={copy} showSub={k !== "lifestyle"} />
-            <button
-              type="button"
-              onClick={() => toast("Image upload connects to your API later")}
-              className="relative block aspect-[21/7] w-full max-w-[560px] rounded-lg border border-border"
-              style={{ background: "linear-gradient(120deg,#1a1712,#5e4d3b)" }}
-            >
-              <em className="absolute bottom-2 right-3 text-[11px] not-italic text-white/85">
-                Replace image
-              </em>
-            </button>
+            <SectionImage />
             {k === "concierge" && (
               <label className="mt-3.5 flex max-w-[320px] flex-col gap-1.5 text-[12px] text-muted-foreground">
                 Button text

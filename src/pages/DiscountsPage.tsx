@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { discountsQuery } from "@/lib/api/sections.functions";
-import { StatusBadge } from "@/components/admin/primitives";
+import { toast } from "sonner";
+import { StatusBadge, Toggle } from "@/components/admin/primitives";
 import {
   Button,
   Card,
@@ -19,6 +20,7 @@ import {
   appliesTo,
   benefit,
   datesLabel,
+  editPromotion,
   statusOf,
   typeMeta,
   usePromotions,
@@ -90,7 +92,19 @@ export default function DiscountsPage() {
       header: "Status",
       cell: (p) => {
         const s = statusOf(p);
-        return <StatusBadge tone={s.tone}>{s.label}</StatusBadge>;
+        return (
+          <div className="flex items-center gap-3">
+            <Toggle
+              on={p.active}
+              label={p.active ? `Turn off ${p.name}` : `Turn on ${p.name}`}
+              onChange={() => {
+                editPromotion(p.id, { active: !p.active });
+                toast(`${p.name} turned ${p.active ? "off" : "on"}`);
+              }}
+            />
+            <StatusBadge tone={s.tone}>{s.label}</StatusBadge>
+          </div>
+        );
       },
     },
   ];

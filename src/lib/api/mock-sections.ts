@@ -1209,9 +1209,18 @@ export function mockPayments(): T.PaymentsData {
       status: tag(o.payStatus),
     };
   });
+  // Paid card / wallet payments are what Paymob settles in the next payout.
+  const payout = rows
+    .filter((r) => r.method !== "Cash on Delivery" && r.status.label === "Paid")
+    .reduce((a, r) => a + r.amount, 0);
   return {
     // Collected / COD due / Refunded depend on the date range, so the page computes them from `rows`.
-    summary: [{ label: "Next Paymob payout", value: "Mon 28 Sep" }],
+    summary: [
+      {
+        label: "Next Paymob payout",
+        value: `Mon 28 Sep – ${payout.toLocaleString("en-US")} EGP`,
+      },
+    ],
     rows,
   };
 }

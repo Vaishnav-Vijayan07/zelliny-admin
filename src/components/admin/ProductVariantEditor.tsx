@@ -1,6 +1,7 @@
 // Product variant editor — one combination of a product (e.g. Size 100 ml / Concentration EDP).
 // Opened from Inventory and from the product page. Tabs: General · Images · Shipping · SEO.
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { DROP_ON, chooseFiles, useFileDrop } from "@/lib/image-upload";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useReducer, useState, type ReactNode } from "react";
 import { attributesQuery, productsQuery } from "@/lib/api/sections.functions";
@@ -16,7 +17,6 @@ import {
   TxtField,
   imgStyle,
   inputCls,
-  pickImage,
   useDone,
 } from "@/components/admin/SiteContentUi";
 import {
@@ -88,6 +88,7 @@ export function ProductVariantEditor({ variantId }: { variantId: string }) {
   const [draft] = useState<Variant | undefined>(() => (v ? structuredClone(v) : undefined));
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   const [savedJson, setSavedJson] = useState(() => JSON.stringify(v ?? null));
+  const { over: dropOver, bind: dropBind } = useFileDrop();
 
   if (!v || !draft)
     return <p className="py-24 text-center text-muted-foreground">This variant was not found.</p>;
@@ -107,17 +108,23 @@ export function ProductVariantEditor({ variantId }: { variantId: string }) {
     done("Variant saved", `${d.name[0]} · ${d.sku} is saved.`);
   };
 
-  const addImages = () =>
-    pickImage((url) => {
-      if (d.images.length >= 6) return;
-      d.images.push(url);
-      refresh();
-    });
-  const replaceImage = (i: number) =>
-    pickImage((url) => {
-      d.images[i] = url;
-      refresh();
-    });
+  const addFiles = (files: File[]) => {
+    files
+      .slice(0, Math.max(0, 6 - d.images.length))
+      .forEach((f) => d.images.push(URL.createObjectURL(f)));
+    refresh();
+  };
+  const replaceFile = (i: number, files: File[]) => {
+    const f = files[0];
+    if (!f) return;
+    d.images[i] = URL.createObjectURL(f);
+    refresh();
+  };
+  const addImages = () => chooseFiles(addFiles, { multiple: true });
+  const replaceImage = (i: number) => chooseFiles((f) => replaceFile(i, f));
+  const dropAdd = (key: string) => dropBind(key, addFiles, { multiple: true });
+  const dropReplace = (i: number) => dropBind(`img${i}`, (f) => replaceFile(i, f));
+  const hot = (key: string) => dropOver === key && DROP_ON;
   const removeImage = (i: number) => {
     d.images.splice(i, 1);
     refresh();
@@ -210,7 +217,14 @@ export function ProductVariantEditor({ variantId }: { variantId: string }) {
     ),
     Images: (
       <>
-        <Card title="Variant images" extra={<Button onClick={addImages}>Upload images</Button>}>
+        <Card
+          title="Variant images"
+          extra={
+            <span {...dropAdd("btn")} className={cn("rounded-lg", hot("btn"))}>
+              <Button onClick={addImages}>Upload images</Button>
+            </span>
+          }
+        >
           <div className="grid gap-[22px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
             <div>
               <div className="mb-2.5 flex flex-col">
@@ -220,7 +234,11 @@ export function ProductVariantEditor({ variantId }: { variantId: string }) {
                 </span>
               </div>
               {d.images[0] ? (
-                <div className={cn(box, "w-full")} style={imgStyle(d.images[0])}>
+                <div
+                  {...dropReplace(0)}
+                  className={cn(box, "w-full", hot("img0"))}
+                  style={imgStyle(d.images[0])}
+                >
                   <span className="absolute left-2.5 top-2.5 rounded bg-white px-[9px] py-[3px] text-[10.5px] font-semibold tracking-[.14em] text-black">
                     HERO
                   </span>
@@ -237,12 +255,14 @@ export function ProductVariantEditor({ variantId }: { variantId: string }) {
                 <button
                   type="button"
                   onClick={addImages}
+                  {...dropAdd("hero")}
                   className={cn(
                     box,
                     "grid w-full place-items-center border-dashed bg-[#f7f7f7] text-[13px] text-muted-foreground",
+                    hot("hero"),
                   )}
                 >
-                  + Upload hero image
+                  + Upload hero image · or drop it here
                 </button>
               )}
             </div>
@@ -257,7 +277,12 @@ export function ProductVariantEditor({ variantId }: { variantId: string }) {
                 {d.images.slice(1).map((src, k) => {
                   const i = k + 1;
                   return (
-                    <div key={`${i}-${src.slice(-24)}`} className={box} style={imgStyle(src)}>
+                    <div
+                      key={`${i}-${src.slice(-24)}`}
+                      {...dropReplace(i)}
+                      className={cn(box, hot(`img${i}`))}
+                      style={imgStyle(src)}
+                    >
                       <span className="absolute left-2 top-2 grid size-[22px] place-items-center rounded-full bg-white/90 text-[11px] text-black">
                         {i + 1}
                       </span>
@@ -279,12 +304,14 @@ export function ProductVariantEditor({ variantId }: { variantId: string }) {
                   <button
                     type="button"
                     onClick={addImages}
+                    {...dropAdd("gallery")}
                     className={cn(
                       box,
                       "grid place-items-center border-dashed bg-[#f7f7f7] text-[12.5px] text-muted-foreground",
+                      hot("gallery"),
                     )}
                   >
-                    + Add image
+                    + Add image · or drop
                   </button>
                 )}
               </div>

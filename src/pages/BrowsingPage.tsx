@@ -15,6 +15,8 @@ import {
   Pager,
   type Column,
 } from "@/components/admin/page";
+import { ExportRangeDialog } from "@/components/admin/ExportRangeDialog";
+import { dateInFilter, rangeLabel, type DateFilter } from "@/components/admin/DateRangeFilter";
 import { SendDialog, STOP_LABEL, canEmail } from "@/components/admin/BrowsingUi";
 import { useExcluded, useSentMails } from "@/components/admin/BrowsingFlow";
 
@@ -28,6 +30,7 @@ export default function BrowsingPage() {
   const [stop, setStop] = useState("All");
   const [sel, setSel] = useState<string[]>([]);
   const [sendTo, setSendTo] = useState<BrowserRow[] | null>(null);
+  const [askExport, setAskExport] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -126,11 +129,14 @@ export default function BrowsingPage() {
     },
   ];
 
-  const exportRows = () => {
+  /** Everyone who left in the chosen period — all of them, whatever the screen is showing. */
+  const inPeriod = (f: DateFilter) => people.filter((b) => dateInFilter(new Date(b.leftAt), f));
+  const exportRows = (f: DateFilter) => {
+    const list = inPeriod(f);
     downloadCsv(
-      `zelliny-browsing-${rows.length}.csv`,
+      `zelliny-browsing-${rangeLabel(f).replace(/\s/g, "")}-${list.length}.csv`,
       ["Name", "Email", "Phone", "Stopped at", "Left on", "Marketing consent"],
-      rows.map((b) => [
+      list.map((b) => [
         b.name,
         b.email,
         b.phone,
@@ -139,7 +145,9 @@ export default function BrowsingPage() {
         b.optin ? "Yes" : "No",
       ]),
     );
-    toast.success(`Excel downloaded · ${rows.length} row${rows.length === 1 ? "" : "s"}`);
+    toast.success(
+      `Excel downloaded · ${list.length} ${list.length === 1 ? "person" : "people"} · ${rangeLabel(f)}`,
+    );
   };
 
   return (
@@ -147,7 +155,7 @@ export default function BrowsingPage() {
       <PageHeader
         title="Browsing & follow-up"
         subtitle="What visitors looked at before they left — so you can email the people you know and advertise to the ones you don't."
-        actions={<Button onClick={exportRows}>Export</Button>}
+        actions={<Button onClick={() => setAskExport(true)}>Export</Button>}
       />
       <p className="mb-[18px] text-[12px] text-muted-foreground">
         Browsing is recorded only after the visitor accepts cookies on the site.
@@ -222,6 +230,13 @@ export default function BrowsingPage() {
         </p>
       </Card>
 
+      <ExportRangeDialog
+        open={askExport}
+        onClose={() => setAskExport(false)}
+        onExport={exportRows}
+        count={(f) => inPeriod(f).length}
+        noun="people"
+      />
       {sendTo && (
         <SendDialog people={sendTo} onClose={() => setSendTo(null)} onSent={() => setSel([])} />
       )}

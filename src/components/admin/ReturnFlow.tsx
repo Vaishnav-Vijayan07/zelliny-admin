@@ -7,6 +7,7 @@ import type { OrderEvent, OrderRow, RefundRecord, ReturnRow } from "@/lib/api/se
 import type { Tone } from "@/lib/api/types";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { DROP_ON, useFileDrop } from "@/lib/image-upload";
 import { useSessionUser } from "@/hooks/use-session";
 import { Button } from "./page";
 import { Thumb } from "./primitives";
@@ -802,6 +803,7 @@ export function LogReturnDialog({
   const [words, setWords] = useState("");
   const [via, setVia] = useState("Phone call");
   const [photos, setPhotos] = useState(0);
+  const photoDrop = useFileDrop();
   const [err, setErr] = useState("");
 
   const openRet = (id: string) =>
@@ -1100,8 +1102,16 @@ export function LogReturnDialog({
               </div>
               <div className="mt-3.5 flex items-center gap-3 text-[12px] text-muted-foreground">
                 Photos from the customer (optional)
-                <label className="cursor-pointer rounded-lg border border-border px-3 py-1.5 text-[12.5px] text-foreground hover:bg-hover">
-                  + Add photos
+                <label
+                  {...photoDrop.bind("photos", (f) => setPhotos(Math.min(6, photos + f.length)), {
+                    multiple: true,
+                  })}
+                  className={cn(
+                    "cursor-pointer rounded-lg border border-border px-3 py-1.5 text-[12.5px] text-foreground hover:bg-hover",
+                    photoDrop.over && DROP_ON,
+                  )}
+                >
+                  + Add photos · or drop
                   <input
                     type="file"
                     accept="image/*"

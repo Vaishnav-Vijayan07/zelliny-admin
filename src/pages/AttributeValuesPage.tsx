@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { attributesQuery } from "@/lib/api/sections.functions";
 import type { AttributeRow, AttributeValueRow } from "@/lib/api/section-types";
 import { cn } from "@/lib/utils";
+import { DROP_ON, fileToDataUrl, useFileDrop } from "@/lib/image-upload";
 import { Chip, StatusBadge } from "@/components/admin/primitives";
 import { Button, Card, PageHeader } from "@/components/admin/page";
 import {
@@ -69,12 +70,11 @@ function ValueFormDialog({
   const fileRef = useRef<HTMLInputElement>(null);
   const isHexColor = /^#[0-9A-Fa-f]{6}$/.test(color);
 
-  const onFile = (files: FileList | null) => {
+  const { over, bind } = useFileDrop();
+  const onFile = (files: FileList | File[] | null) => {
     const f = files?.[0];
     if (!f) return;
-    const fr = new FileReader();
-    fr.onload = () => setIcon(String(fr.result));
-    fr.readAsDataURL(f);
+    fileToDataUrl(f).then(setIcon);
   };
 
   const save = () => {
@@ -183,7 +183,11 @@ function ValueFormDialog({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="grid h-[90px] place-items-center rounded-[10px] border-[1.5px] border-dashed border-[#cfcfcf] bg-surface text-[13px] text-muted-foreground hover:border-primary"
+              {...bind("icon", onFile)}
+              className={cn(
+                "grid h-[90px] place-items-center rounded-[10px] border-[1.5px] border-dashed border-[#cfcfcf] bg-surface text-[13px] text-muted-foreground hover:border-primary",
+                over && DROP_ON,
+              )}
             >
               {icon ? (
                 <span className="flex items-center gap-3 text-foreground">
@@ -195,7 +199,7 @@ function ValueFormDialog({
                   Replace
                 </span>
               ) : (
-                "+ Upload image · square, 200 × 200 px"
+                "+ Upload or drop image · square, 200 × 200 px"
               )}
             </button>
             <input

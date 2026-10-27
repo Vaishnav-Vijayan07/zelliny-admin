@@ -215,7 +215,14 @@ export default function PaymentsPage() {
         {summary.map((s) => (
           <div key={s.label} className="rounded-[10px] border border-border bg-surface px-4 py-3">
             <div className="text-[12px] text-muted-foreground">{s.label}</div>
-            <div className="mt-1 font-head text-[20px]">{s.value}</div>
+            <div className="mt-1 font-head text-[20px]">
+              {s.value.split(" – ")[0]}
+              {s.value.includes(" – ") && (
+                <span className="ml-1.5 font-body text-[13px] text-muted-foreground">
+                  – {s.value.split(" – ")[1]}
+                </span>
+              )}
+            </div>
           </div>
         ))}
       </div>

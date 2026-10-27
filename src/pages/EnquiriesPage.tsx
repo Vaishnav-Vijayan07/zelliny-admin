@@ -120,6 +120,38 @@ function SortHead({
   );
 }
 
+function ContactRow({ e }: { e: EnquiryRow }) {
+  return (
+    <div className="grid items-center gap-[18px] rounded-lg border border-border bg-surface px-[18px] py-3.5 md:grid-cols-[1.2fr_1fr_1.4fr_1fr_auto]">
+      <div>
+        <b className="block text-[14px] font-medium">{e.contact}</b>
+        <span className="text-[11.5px] text-muted-foreground">{e.company}</span>
+      </div>
+      <div>
+        <span className="block text-[11.5px] text-muted-foreground">Mobile</span>
+        <b className="select-all text-[14px] font-medium">{e.phone}</b>
+      </div>
+      <div>
+        <span className="block text-[11.5px] text-muted-foreground">Email</span>
+        <b className="select-all break-words text-[14px] font-medium">{e.email}</b>
+      </div>
+      <div>
+        <span className="block text-[11.5px] text-muted-foreground">Received</span>
+        <b className="text-[14px] font-medium">
+          {e.date} · {e.src.channel}
+        </b>
+      </div>
+      <Link
+        to="/enquiries/$enquiryId"
+        params={{ enquiryId: e.id }}
+        className="whitespace-nowrap text-[13px] underline underline-offset-[3px]"
+      >
+        Open enquiry →
+      </Link>
+    </div>
+  );
+}
+
 export default function EnquiriesPage() {
   const { data } = useSuspenseQuery(enquiriesQuery());
   const navigate = useNavigate();
@@ -414,140 +446,122 @@ export default function EnquiriesPage() {
                 Please call or email them today — their details are below.
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => pickTile("Not contacted")}
-              className="whitespace-nowrap text-[13px] underline underline-offset-[3px]"
-            >
-              Show only these in the list →
-            </button>
           </div>
           <div className="flex flex-col gap-2.5">
-            {notContacted.map((e) => (
-              <div
-                key={e.id}
-                className="grid items-center gap-[18px] rounded-lg border border-border bg-surface px-[18px] py-3.5 md:grid-cols-[1.2fr_1fr_1.4fr_1fr_auto]"
-              >
-                <div>
-                  <b className="block text-[14px] font-medium">{e.contact}</b>
-                  <span className="text-[11.5px] text-muted-foreground">{e.company}</span>
-                </div>
-                <div>
-                  <span className="block text-[11.5px] text-muted-foreground">Mobile</span>
-                  <b className="select-all text-[14px] font-medium">{e.phone}</b>
-                </div>
-                <div>
-                  <span className="block text-[11.5px] text-muted-foreground">Email</span>
-                  <b className="select-all break-words text-[14px] font-medium">{e.email}</b>
-                </div>
-                <div>
-                  <span className="block text-[11.5px] text-muted-foreground">Received</span>
-                  <b className="text-[14px] font-medium">
-                    {e.date} · {e.src.channel}
-                  </b>
-                </div>
-                <Link
-                  to="/enquiries/$enquiryId"
-                  params={{ enquiryId: e.id }}
-                  className="whitespace-nowrap text-[13px] underline underline-offset-[3px]"
-                >
-                  Open enquiry →
-                </Link>
-              </div>
+            {notContacted.slice(0, 2).map((e) => (
+              <ContactRow key={e.id} e={e} />
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              pickTile("Not contacted");
+              setTimeout(
+                () =>
+                  document
+                    .getElementById("enquiries-table")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                50,
+              );
+            }}
+            className="mt-3 text-[13px] underline underline-offset-[3px]"
+          >
+            Show all {notContacted.length} →
+          </button>
         </section>
       )}
 
-      <Card className="p-6">
-        {tile !== "All" && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-primary px-3.5 py-2.5 text-[13px]">
-            <span>
-              Showing <b className="font-semibold">{rows.length}</b> {TILE_TEXT[tile]}
-            </span>
-            <button
-              type="button"
-              onClick={() => pickTile("All")}
-              className="underline underline-offset-[3px]"
-            >
-              Show all enquiries
-            </button>
-          </div>
-        )}
-        <FilterBar>
-          <SearchInput
-            value={f.q}
-            onChange={setFilter("q")}
-            placeholder="Client, company, email or mobile"
-          />
-          {drop(
-            f.stage,
-            setFilter("stage"),
-            "All stages",
-            STAGES.map((s) => ({ value: s, label: s, dot: STAGE_COLOR[s] ?? "#767676" })),
+      <div id="enquiries-table" className="scroll-mt-4">
+        <Card className="p-6">
+          {tile !== "All" && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-primary px-3.5 py-2.5 text-[13px]">
+              <span>
+                Showing <b className="font-semibold">{rows.length}</b> {TILE_TEXT[tile]}
+              </span>
+              <button
+                type="button"
+                onClick={() => pickTile("All")}
+                className="underline underline-offset-[3px]"
+              >
+                Show all enquiries
+              </button>
+            </div>
           )}
-          {drop(f.owner, setFilter("owner"), "All owners", [...data.owners, "Unassigned"])}
-          {drop(f.ch, setFilter("ch"), "Came from · all", cameFromOptions)}
-          <DateRangeFilter
-            extended
-            allLabel="All time"
-            value={dateF}
-            onChange={(v) => {
-              setDateF(v);
-              setSel(new Set());
+          <FilterBar>
+            <SearchInput
+              value={f.q}
+              onChange={setFilter("q")}
+              placeholder="Client, company, email or mobile"
+            />
+            {drop(
+              f.stage,
+              setFilter("stage"),
+              "All stages",
+              STAGES.map((s) => ({ value: s, label: s, dot: STAGE_COLOR[s] ?? "#767676" })),
+            )}
+            {drop(f.owner, setFilter("owner"), "All owners", [...data.owners, "Unassigned"])}
+            {drop(f.ch, setFilter("ch"), "Came from · all", cameFromOptions)}
+            <DateRangeFilter
+              extended
+              allLabel="All time"
+              value={dateF}
+              onChange={(v) => {
+                setDateF(v);
+                setSel(new Set());
+                setPage(1);
+              }}
+            />
+          </FilterBar>
+          <div
+            className={cn(
+              "mb-3.5 flex min-h-[46px] flex-wrap items-center gap-2 rounded-lg px-4 py-3 text-[13.5px]",
+              sel.size ? "bg-primary text-primary-foreground" : "bg-hover",
+            )}
+          >
+            {sel.size ? (
+              <>
+                <b className="font-semibold">{sel.size} selected</b>
+                <BulkButton onClick={() => act.changeStage(selected)}>Change stage</BulkButton>
+                <BulkButton onClick={() => act.assign(selected)}>Assign to</BulkButton>
+                <BulkButton onClick={() => act.email(selected)}>Send email</BulkButton>
+                <BulkButton onClick={() => act.message(selected)}>WhatsApp / SMS</BulkButton>
+                <BulkButton onClick={() => act.exportTo(selected, "The enquiries you ticked.")}>
+                  Export
+                </BulkButton>
+                <button
+                  type="button"
+                  onClick={() => setSel(new Set())}
+                  className="text-white/70 underline"
+                >
+                  Clear
+                </button>
+              </>
+            ) : (
+              <span>
+                Tick enquiries to move them to a new stage together, assign them to someone, or send
+                them an email or WhatsApp.
+              </span>
+            )}
+          </div>
+          <DataTable
+            columns={columns}
+            rows={shown}
+            rowKey={(e) => e.id}
+            empty="No enquiries match."
+          />
+          <Pager
+            page={cur}
+            pageSize={pageSize}
+            total={rows.length}
+            noun="enquiries"
+            onPage={setPage}
+            onPageSize={(n) => {
+              setPageSize(n);
               setPage(1);
             }}
           />
-        </FilterBar>
-        <div
-          className={cn(
-            "mb-3.5 flex min-h-[46px] flex-wrap items-center gap-2 rounded-lg px-4 py-3 text-[13.5px]",
-            sel.size ? "bg-primary text-primary-foreground" : "bg-hover",
-          )}
-        >
-          {sel.size ? (
-            <>
-              <b className="font-semibold">{sel.size} selected</b>
-              <BulkButton onClick={() => act.changeStage(selected)}>Change stage</BulkButton>
-              <BulkButton onClick={() => act.assign(selected)}>Assign to</BulkButton>
-              <BulkButton onClick={() => act.email(selected)}>Send email</BulkButton>
-              <BulkButton onClick={() => act.message(selected)}>WhatsApp / SMS</BulkButton>
-              <BulkButton onClick={() => act.exportTo(selected, "The enquiries you ticked.")}>
-                Export
-              </BulkButton>
-              <button
-                type="button"
-                onClick={() => setSel(new Set())}
-                className="text-white/70 underline"
-              >
-                Clear
-              </button>
-            </>
-          ) : (
-            <span>
-              Tick enquiries to move them to a new stage together, assign them to someone, or send
-              them an email or WhatsApp.
-            </span>
-          )}
-        </div>
-        <DataTable
-          columns={columns}
-          rows={shown}
-          rowKey={(e) => e.id}
-          empty="No enquiries match."
-        />
-        <Pager
-          page={cur}
-          pageSize={pageSize}
-          total={rows.length}
-          noun="enquiries"
-          onPage={setPage}
-          onPageSize={(n) => {
-            setPageSize(n);
-            setPage(1);
-          }}
-        />
-      </Card>
+        </Card>
+      </div>
       {act.dialog}
     </div>
   );

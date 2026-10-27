@@ -3,6 +3,7 @@ import { StickyCol } from "@/components/admin/StickyCol";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
+import { ImageBox } from "@/components/admin/ImageBox";
 import { toast } from "sonner";
 import { bundlesQuery, productsQuery } from "@/lib/api/sections.functions";
 import type { BundleLine } from "@/lib/api/section-types";
@@ -141,6 +142,7 @@ export function BundleEditor({ id }: { id?: string | undefined }) {
   const [price, setPrice] = useState(b?.price ? formatNumber(b.price) : "");
   const [visible, setVisible] = useState(b?.visible ?? false);
   const [occasion, setOccasion] = useState(b?.occasion ?? OCCASIONS[0]!);
+  const [setImgs, setSetImgs] = useState<string[]>([]);
   const [pick, setPick] = useState(false);
   const [q, setQ] = useState("");
 
@@ -295,25 +297,48 @@ export function BundleEditor({ id }: { id?: string | undefined }) {
           </Card>
           <Card title="Set images">
             <div className="grid max-w-[420px] grid-cols-4 gap-2.5">
-              <button
-                type="button"
-                onClick={() => toast("Image upload connects to your API later")}
+              <ImageBox
+                onFiles={(f) =>
+                  f[0] && setSetImgs((x) => [URL.createObjectURL(f[0]!), ...x.slice(1)])
+                }
                 className="relative aspect-square rounded-lg border border-border"
-                style={{
-                  background: `linear-gradient(145deg, ${color}, color-mix(in srgb, ${color} 55%, #000))`,
-                }}
+                style={
+                  setImgs[0]
+                    ? {
+                        backgroundImage: `url(${setImgs[0]})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }
+                    : {
+                        background: `linear-gradient(145deg, ${color}, color-mix(in srgb, ${color} 55%, #000))`,
+                      }
+                }
               >
                 <span className="absolute left-2.5 top-2.5 rounded bg-white px-2 py-0.5 text-[10px] font-semibold tracking-[.14em] text-black">
                   HERO
                 </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => toast("Image upload connects to your API later")}
-                className="flex aspect-square flex-col items-center justify-center rounded-lg border-[1.5px] border-dashed border-[#c9c9c9] text-[12px] text-muted-foreground hover:border-primary"
-              >
-                + Add
-              </button>
+              </ImageBox>
+              {setImgs.slice(1).map((u) => (
+                <span
+                  key={u}
+                  className="aspect-square rounded-lg border border-border bg-cover bg-center"
+                  style={{ backgroundImage: `url(${u})` }}
+                />
+              ))}
+              {setImgs.length < 4 && (
+                <ImageBox
+                  multiple
+                  onFiles={(f) =>
+                    setSetImgs((x) => {
+                      const base = x.length ? x : [""];
+                      return [...base, ...f.map((i) => URL.createObjectURL(i))].slice(0, 4);
+                    })
+                  }
+                  className="flex aspect-square flex-col items-center justify-center rounded-lg border-[1.5px] border-dashed border-[#c9c9c9] text-[12px] text-muted-foreground hover:border-primary"
+                >
+                  + Add<span className="text-[10px]">or drop</span>
+                </ImageBox>
+              )}
             </div>
           </Card>
         </div>
