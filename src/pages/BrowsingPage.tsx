@@ -22,6 +22,14 @@ import { useExcluded, useSentMails } from "@/components/admin/BrowsingFlow";
 
 const STOPS = ["All", "Bag", "Checkout"];
 
+/** "28 Oct 2026, 20:14" — the export is read days later, so "Today" / "Yesterday" won't do. */
+const fullDate = (iso: string) => {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const day = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return `${day}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export default function BrowsingPage() {
   const { data } = useSuspenseQuery(browsingQuery());
   const navigate = useNavigate();
@@ -82,7 +90,9 @@ export default function BrowsingPage() {
       cell: (b) => (
         <div className="flex items-center gap-2.5">
           <Avatar name={b.name} className="size-8" />
-          <b className="font-medium">{b.name}</b>
+          <b dir="auto" className="font-medium">
+            {b.name}
+          </b>
         </div>
       ),
     },
@@ -135,13 +145,14 @@ export default function BrowsingPage() {
     const list = inPeriod(f);
     downloadCsv(
       `zelliny-browsing-${rangeLabel(f).replace(/\s/g, "")}-${list.length}.csv`,
-      ["Name", "Email", "Phone", "Stopped at", "Left on", "Marketing consent"],
+      ["Name", "Email", "Phone", "Cart items", "Stopped at", "Left on", "Marketing consent"],
       list.map((b) => [
         b.name,
         b.email,
         b.phone,
+        b.views.map((v) => (v.times > 1 ? `${v.name} ×${v.times}` : v.name)).join(", "),
         b.stop === "checkout" ? `${STOP_LABEL[b.stop]} · ${b.stopTxt}` : STOP_LABEL[b.stop],
-        b.last,
+        fullDate(b.leftAt),
         b.optin ? "Yes" : "No",
       ]),
     );

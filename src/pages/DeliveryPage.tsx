@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { deliveryQuery } from "@/lib/api/sections.functions";
 import type { CourierName, ZoneArea, ZoneRow } from "@/lib/api/section-types";
 import { formatMoney } from "@/lib/format";
+import { EGYPT_AREAS } from "@/lib/egypt-areas";
 import { cn } from "@/lib/utils";
 import { StatusBadge, Toggle } from "@/components/admin/primitives";
 import {
@@ -135,31 +136,20 @@ function ZoneDialog({
 }) {
   const [z] = useState<ZoneDraft>(start);
   const [, refresh] = useReducer((n: number) => n + 1, 0);
-  const [text, setText] = useState("");
+  const [search, setSearch] = useState("");
   useDeliverySettings();
 
-  const addAreas = () => {
-    const names = text
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const msgs: string[] = [];
-    for (const n of names) {
-      if (z.areas.some((a) => a[0].trim().toLowerCase() === n.toLowerCase())) {
-        msgs.push(`${n} is already in this zone`);
-        continue;
-      }
-      const owner = areaOwner(zones, n, z.id ?? undefined);
-      if (owner) {
-        msgs.push(`${n} is already in ${owner.name}`);
-        continue;
-      }
-      z.areas.push([n, ""]);
-    }
-    setText("");
+  const key = (s: string) => s.trim().toLowerCase();
+  const picked = (en: string) => z.areas.some((a) => key(a[0]) === key(en));
+  const toggleArea = (en: string, ar: string) => {
+    if (picked(en)) z.areas = z.areas.filter((a) => key(a[0]) !== key(en));
+    else z.areas.push([en, ar]);
     refresh();
-    if (msgs.length) toast(msgs.join(" · "));
   };
+  const q = key(search);
+  const options = EGYPT_AREAS.filter(
+    ([en, ar]) => !q || en.toLowerCase().includes(q) || ar.includes(search.trim()),
+  );
 
   const save = () => {
     const [name, nameAr] = [z.name[0].trim(), z.name[1].trim()];
@@ -204,60 +194,66 @@ function ZoneDialog({
           <BiField label="Zone name *" labelAr="اسم المنطقة *" v={z.name} />
           <Fld
             label="Areas in this zone *"
-            hint="Each area needs its English and Arabic name. Paste several separated by commas. An area already in another zone can't be added."
+            hint="Search in English or Arabic and tick as many areas as you need. Areas already in another zone are greyed out."
           >
-            <div className="flex gap-2">
-              <input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addAreas();
-                  }
-                }}
-                placeholder="e.g. Maadi, Zamalek"
-                className={inputCls}
-              />
-              <Button onClick={addAreas}>Add</Button>
-            </div>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search areas — Maadi, المعادي"
+              className={inputCls}
+            />
           </Fld>
-          <div className="mt-2.5 flex max-h-[220px] flex-col gap-2 overflow-auto">
-            {z.areas.map((a, k) => (
-              <div key={k} className="grid grid-cols-[1fr_1fr_24px] items-center gap-2">
-                <input
-                  value={a[0]}
-                  onChange={(e) => {
-                    a[0] = e.target.value;
-                    refresh();
-                  }}
-                  className={inputCls}
-                />
-                <input
-                  dir="rtl"
-                  value={a[1]}
-                  placeholder="الاسم بالعربي"
-                  onChange={(e) => {
-                    a[1] = e.target.value;
-                    refresh();
-                  }}
-                  className={cn(inputCls, "text-right", !a[1].trim() && "border-bad bg-[#fff8f7]")}
-                />
+          <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-border">
+            {options.map(([en, ar]) => {
+              const owner = areaOwner(zones, en, z.id ?? undefined);
+              const on = picked(en);
+              return (
+                <label
+                  key={en}
+                  className={cn(
+                    "flex items-center gap-2.5 border-b border-line-soft px-3 py-1.5 text-[13.5px] last:border-b-0",
+                    owner ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:bg-[#f7f7f7]",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={!!owner}
+                    onChange={() => toggleArea(en, ar)}
+                  />
+                  <span className="flex-1">{en}</span>
+                  {owner && (
+                    <span className="text-[11.5px] text-muted-foreground">in {owner.name}</span>
+                  )}
+                  <span dir="rtl" className="text-muted-foreground">
+                    {ar}
+                  </span>
+                </label>
+              );
+            })}
+            {!options.length && (
+              <p className="px-3 py-2 text-[12.5px] text-muted-foreground">No area matches.</p>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {z.areas.map((a) => (
+              <span
+                key={a[0]}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#f1f1f1] px-2.5 py-1 text-[12.5px]"
+              >
+                {a[0]}
                 <button
                   type="button"
                   aria-label={`Remove ${a[0]}`}
                   className="text-muted-foreground hover:text-bad"
-                  onClick={() => {
-                    z.areas.splice(k, 1);
-                    refresh();
-                  }}
+                  onClick={() => toggleArea(a[0], a[1])}
                 >
                   ✕
                 </button>
-              </div>
+              </span>
             ))}
             {!z.areas.length && (
-              <p className="text-[12.5px] text-muted-foreground">No areas yet.</p>
+              <p className="text-[12.5px] text-muted-foreground">No areas selected.</p>
             )}
           </div>
           <div className="mt-4 grid gap-3.5 sm:grid-cols-3">

@@ -97,10 +97,12 @@ export function Toggle({
   on,
   onChange,
   label,
+  disabled,
 }: {
   on: boolean;
   onChange: () => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -109,12 +111,14 @@ export function Toggle({
       aria-checked={on}
       aria-label={label}
       title={label}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
         onChange();
       }}
       className={cn(
         "relative h-[22px] w-[38px] flex-none rounded-full transition-colors",
+        disabled && "cursor-not-allowed opacity-50",
         on ? "bg-primary" : "bg-[#c9c9c9]",
       )}
     >

@@ -92,11 +92,19 @@ export default function DiscountsPage() {
       header: "Status",
       cell: (p) => {
         const s = statusOf(p);
+        const expired = s.label === "Expired";
         return (
           <div className="flex items-center gap-3">
             <Toggle
-              on={p.active}
-              label={p.active ? `Turn off ${p.name}` : `Turn on ${p.name}`}
+              on={p.active && !expired}
+              disabled={expired}
+              label={
+                expired
+                  ? "Expired — change the dates to use this offer again"
+                  : p.active
+                    ? `Turn off ${p.name}`
+                    : `Turn on ${p.name}`
+              }
               onChange={() => {
                 editPromotion(p.id, { active: !p.active });
                 toast(`${p.name} turned ${p.active ? "off" : "on"}`);
