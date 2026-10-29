@@ -416,6 +416,8 @@ export interface BundleRow {
 export interface ZoneArea {
   en: string;
   ar: string;
+  /** English name of the city it sits under (the same area name can exist in two cities). */
+  city?: string;
 }
 export type CourierName = "Bosta" | "Aramex";
 export interface ZoneRow {

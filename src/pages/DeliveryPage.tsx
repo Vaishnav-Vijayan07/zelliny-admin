@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { deliveryQuery } from "@/lib/api/sections.functions";
 import type { CourierName, ZoneArea, ZoneRow } from "@/lib/api/section-types";
 import { formatMoney } from "@/lib/format";
-import { EGYPT_AREAS } from "@/lib/egypt-areas";
+import { CITIES, type AreaPair, type City } from "@/lib/egypt-areas";
+import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusBadge, Toggle } from "@/components/admin/primitives";
 import {
@@ -15,6 +16,7 @@ import {
   FilterBar,
   FilterSelect,
   PageHeader,
+  Pager,
   SearchInput,
   type Column,
 } from "@/components/admin/page";
@@ -89,7 +91,7 @@ function SwitchLine({
 interface ZoneDraft {
   id: string | null;
   name: Bi;
-  areas: Bi[];
+  areas: ZoneArea[];
   fee: string;
   free: string;
   from: string;
@@ -113,7 +115,7 @@ const blankDraft = (): ZoneDraft => ({
 const draftOf = (z: ZoneRow): ZoneDraft => ({
   id: z.id,
   name: [z.name, z.nameAr],
-  areas: z.areas.map((a) => [a.en, a.ar]),
+  areas: z.areas.map((a) => ({ ...a })),
   fee: String(z.fee),
   free: z.free == null ? "" : String(z.free),
   from: String(z.etaFrom),
@@ -122,6 +124,29 @@ const draftOf = (z: ZoneRow): ZoneDraft => ({
   on: z.on,
   courier: z.courier,
 });
+
+const lower = (s: string) => s.trim().toLowerCase();
+const areaKey = (city: string | undefined, en: string) => `${lower(city ?? "")}|${lower(en)}`;
+/** Keys an area occupies. An older area saved without a city is matched by name in every city. */
+const areaKeys = (a: ZoneArea): string[] =>
+  a.city
+    ? [areaKey(a.city, a.en)]
+    : CITIES.filter((c) => c.areas.some(([en]) => lower(en) === lower(a.en))).map((c) =>
+        areaKey(c.en, a.en),
+      );
+const withCity = (a: ZoneArea): ZoneArea => {
+  if (a.city) return a;
+  const c = CITIES.find((c) => c.areas.some(([en]) => lower(en) === lower(a.en)));
+  return c ? { ...a, city: c.en } : a;
+};
+/** Lower-case, and fold the common Arabic letter variants so both spellings match. */
+const normSearch = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/[\s\-()]/g, "");
 
 function ZoneDialog({
   start,
@@ -134,22 +159,45 @@ function ZoneDialog({
   onClose: () => void;
   done: (t: string, l: string) => void;
 }) {
-  const [z] = useState<ZoneDraft>(start);
+  const [z] = useState<ZoneDraft>(() => ({ ...start, areas: start.areas.map(withCity) }));
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   const [search, setSearch] = useState("");
+  const [open, setOpen] = useState<Set<string>>(() => new Set(z.areas.map((a) => a.city ?? "")));
   useDeliverySettings();
 
-  const key = (s: string) => s.trim().toLowerCase();
-  const picked = (en: string) => z.areas.some((a) => key(a[0]) === key(en));
-  const toggleArea = (en: string, ar: string) => {
-    if (picked(en)) z.areas = z.areas.filter((a) => key(a[0]) !== key(en));
-    else z.areas.push([en, ar]);
+  // Areas in any other zone are left out of the list altogether.
+  const used = new Set<string>();
+  for (const o of zones)
+    if (o.id !== z.id) for (const a of o.areas) for (const k of areaKeys(a)) used.add(k);
+  const picked = (city: string, en: string) =>
+    z.areas.some((a) => areaKey(a.city, a.en) === areaKey(city, en));
+  const toggleArea = (city: string, en: string, ar: string) => {
+    if (picked(city, en))
+      z.areas = z.areas.filter((a) => areaKey(a.city, a.en) !== areaKey(city, en));
+    else z.areas.push({ city, en, ar });
     refresh();
   };
-  const q = key(search);
-  const options = EGYPT_AREAS.filter(
-    ([en, ar]) => !q || en.toLowerCase().includes(q) || ar.includes(search.trim()),
-  );
+  const toggleCity = (c: City, free: AreaPair[]) => {
+    const all = free.every(([en]) => picked(c.en, en));
+    for (const [en, ar] of free) if (picked(c.en, en) === all) toggleArea(c.en, en, ar);
+  };
+  const toggleOpen = (city: string) => {
+    const next = new Set(open);
+    if (!next.delete(city)) next.add(city);
+    setOpen(next);
+  };
+
+  const q = normSearch(search);
+  const view = CITIES.map((c) => {
+    const free = c.areas.filter(([en]) => !used.has(areaKey(c.en, en)));
+    const cityHit = !!q && (normSearch(c.en).includes(q) || normSearch(c.ar).includes(q));
+    const shown =
+      q && !cityHit
+        ? free.filter(([en, ar]) => normSearch(en).includes(q) || normSearch(ar).includes(q))
+        : free;
+    return { c, free, shown, cityHit };
+  }).filter((v) => v.free.length && v.shown.length);
+  const selectedTotal = z.areas.length;
 
   const save = () => {
     const [name, nameAr] = [z.name[0].trim(), z.name[1].trim()];
@@ -160,14 +208,13 @@ function ZoneDialog({
     if (zoneNameTaken(zones, name, z.id ?? undefined))
       return void toast(`A zone called "${name}" already exists`);
     if (!z.areas.length) return void toast("Add at least one area to this zone");
-    if (z.areas.some((a) => !a[1].trim())) return void toast("Add the Arabic name of every area");
     if (z.fee.trim() === "" || Number.isNaN(fee)) return void toast("Add the fee");
     if (!from || !to || to < from)
       return void toast('"Arrives in" — the second number must not be smaller than the first');
     const row = {
       name,
       nameAr,
-      areas: z.areas.map((a): ZoneArea => ({ en: a[0].trim(), ar: a[1].trim() })),
+      areas: z.areas,
       fee,
       free: z.free.trim() === "" ? null : Number(z.free),
       etaFrom: from,
@@ -194,7 +241,7 @@ function ZoneDialog({
           <BiField label="Zone name *" labelAr="اسم المنطقة *" v={z.name} />
           <Fld
             label="Areas in this zone *"
-            hint="Search in English or Arabic and tick as many areas as you need. Areas already in another zone are greyed out."
+            hint="Tick a city to select all its areas, or open it and tick areas one by one. Areas already in another zone are not shown."
           >
             <input
               value={search}
@@ -203,57 +250,157 @@ function ZoneDialog({
               className={inputCls}
             />
           </Fld>
-          <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-border">
-            {options.map(([en, ar]) => {
-              const owner = areaOwner(zones, en, z.id ?? undefined);
-              const on = picked(en);
+          <div className="mt-2 max-h-[320px] overflow-auto rounded-lg border border-border">
+            {view.map(({ c, free, shown }) => {
+              const n = free.filter(([en]) => picked(c.en, en)).length;
+              const isOpen = open.has(c.en) || !!q;
               return (
-                <label
-                  key={en}
-                  className={cn(
-                    "flex items-center gap-2.5 border-b border-line-soft px-3 py-1.5 text-[13.5px] last:border-b-0",
-                    owner ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:bg-[#f7f7f7]",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    disabled={!!owner}
-                    onChange={() => toggleArea(en, ar)}
-                  />
-                  <span className="flex-1">{en}</span>
-                  {owner && (
-                    <span className="text-[11.5px] text-muted-foreground">in {owner.name}</span>
-                  )}
-                  <span dir="rtl" className="text-muted-foreground">
-                    {ar}
-                  </span>
-                </label>
+                <div key={c.en} className="border-b border-line-soft last:border-b-0">
+                  <div
+                    className="sticky top-0 z-[1] flex cursor-pointer select-none items-center gap-2.5 bg-[#f7f7f7] px-3 py-2 text-[13.5px]"
+                    onClick={() => toggleOpen(c.en)}
+                  >
+                    {isOpen ? (
+                      <Minus className="size-3.5 shrink-0" aria-hidden />
+                    ) : (
+                      <Plus className="size-3.5 shrink-0" aria-hidden />
+                    )}
+                    <input
+                      type="checkbox"
+                      aria-label={`Select all areas in ${c.en}`}
+                      checked={n === free.length}
+                      ref={(el) => {
+                        if (el) el.indeterminate = n > 0 && n < free.length;
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => toggleCity(c, free)}
+                    />
+                    <span className="font-medium">{c.en}</span>
+                    <span className="text-[12px] text-muted-foreground">
+                      {n ? `${n} of ${free.length} selected` : `${free.length} areas`}
+                    </span>
+                    <span dir="rtl" className="ml-auto font-medium">
+                      {c.ar}
+                    </span>
+                  </div>
+                  {isOpen &&
+                    shown.map(([en, ar]) => (
+                      <label
+                        key={en}
+                        className="flex cursor-pointer items-center gap-2.5 border-t border-line-soft py-1.5 pl-9 pr-3 text-[13.5px] hover:bg-[#f7f7f7]"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={picked(c.en, en)}
+                          onChange={() => toggleArea(c.en, en, ar)}
+                        />
+                        <span className="flex-1">{en}</span>
+                        <span dir="rtl" className="text-muted-foreground">
+                          {ar}
+                        </span>
+                      </label>
+                    ))}
+                </div>
               );
             })}
-            {!options.length && (
-              <p className="px-3 py-2 text-[12.5px] text-muted-foreground">No area matches.</p>
+            {!view.length && (
+              <p className="px-3 py-2 text-[12.5px] text-muted-foreground">
+                {q ? "No area matches." : "All areas are already in a zone."}
+              </p>
             )}
           </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {z.areas.map((a) => (
-              <span
-                key={a[0]}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[#f1f1f1] px-2.5 py-1 text-[12.5px]"
+          <div className="flex items-center justify-between text-[12.5px] text-muted-foreground">
+            <span>
+              {selectedTotal ? `${selectedTotal} area${selectedTotal > 1 ? "s" : ""} selected` : ""}
+            </span>
+            <span className="flex gap-3">
+              <button
+                type="button"
+                className="underline underline-offset-[3px]"
+                onClick={() => setOpen(new Set(CITIES.map((c) => c.en)))}
               >
-                {a[0]}
-                <button
-                  type="button"
-                  aria-label={`Remove ${a[0]}`}
-                  className="text-muted-foreground hover:text-bad"
-                  onClick={() => toggleArea(a[0], a[1])}
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
+                Open all
+              </button>
+              <button
+                type="button"
+                className="underline underline-offset-[3px]"
+                onClick={() => setOpen(new Set())}
+              >
+                Close all
+              </button>
+            </span>
+          </div>
+          <div className="mt-1">
             {!z.areas.length && (
               <p className="text-[12.5px] text-muted-foreground">No areas selected.</p>
+            )}
+            {[...CITIES.map((c) => c.en), ""].map((cityEn) => {
+              const city = CITIES.find((c) => c.en === cityEn);
+              const mine = z.areas.filter((a) =>
+                city
+                  ? lower(a.city ?? "") === lower(city.en)
+                  : !CITIES.some((c) => lower(c.en) === lower(a.city ?? "")),
+              );
+              if (!mine.length) return null;
+              const total = city
+                ? city.areas.filter(([en]) => !used.has(areaKey(city.en, en))).length
+                : 0;
+              const whole = !!city && mine.length === total;
+              return (
+                <div key={cityEn} className="mb-2">
+                  <div className="mb-1 text-[11.5px] uppercase tracking-wider text-muted-foreground">
+                    {city?.en ?? "Other"}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {whole ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary px-2.5 py-1 text-[12.5px] text-primary-foreground">
+                        All of {city.en} · {total} areas
+                        <button
+                          type="button"
+                          aria-label={`Remove all of ${city.en}`}
+                          onClick={() =>
+                            toggleCity(
+                              city,
+                              city.areas.filter(([en]) => !used.has(areaKey(city.en, en))),
+                            )
+                          }
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ) : (
+                      mine.map((a) => (
+                        <span
+                          key={areaKey(a.city, a.en)}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[#f1f1f1] px-2.5 py-1 text-[12.5px]"
+                        >
+                          {a.en}
+                          <button
+                            type="button"
+                            aria-label={`Remove ${a.en}`}
+                            className="text-muted-foreground hover:text-bad"
+                            onClick={() => toggleArea(a.city ?? "", a.en, a.ar)}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {z.areas.length > 0 && (
+              <button
+                type="button"
+                className="text-[12.5px] underline underline-offset-[3px]"
+                onClick={() => {
+                  z.areas = [];
+                  refresh();
+                }}
+              >
+                Clear all
+              </button>
             )}
           </div>
           <div className="mt-4 grid gap-3.5 sm:grid-cols-3">
@@ -487,6 +634,8 @@ export default function DeliveryPage() {
   const [courier, setCourier] = useState<CourierName | null>(null);
   const [q, setQ] = useState("");
   const [zoneFilter, setZoneFilter] = useState("");
+  const [areaPage, setAreaPage] = useState(1);
+  const [areaPageSize, setAreaPageSize] = useState(10);
   const [af, setAf] = useState<{
     old: ZoneArea | null;
     oldZone: string;
@@ -567,6 +716,8 @@ export default function DeliveryPage() {
       (!q || `${r.area.en} ${r.area.ar}`.toLowerCase().includes(q.toLowerCase())) &&
       (!zoneFilter || r.zone.name === zoneFilter),
   );
+  const areaCur = Math.min(areaPage, Math.max(1, Math.ceil(areaRows.length / areaPageSize)));
+  const shownAreas = areaRows.slice((areaCur - 1) * areaPageSize, areaCur * areaPageSize);
   const saveArea = () => {
     if (!af) return;
     const [en, ar] = [af.name[0].trim(), af.name[1].trim()];
@@ -743,19 +894,40 @@ export default function DeliveryPage() {
       {tab === "areas" && (
         <Card>
           <FilterBar>
-            <SearchInput value={q} onChange={setQ} placeholder="Search areas" />
+            <SearchInput
+              value={q}
+              onChange={(v) => {
+                setQ(v);
+                setAreaPage(1);
+              }}
+              placeholder="Search areas"
+            />
             <FilterSelect
               value={zoneFilter}
-              onChange={setZoneFilter}
+              onChange={(v) => {
+                setZoneFilter(v);
+                setAreaPage(1);
+              }}
               all="All zones"
               options={zones.map((z) => z.name)}
             />
           </FilterBar>
           <DataTable
             columns={dimWhenOff(areaCols, (r) => !r.zone.on)}
-            rows={areaRows}
+            rows={shownAreas}
             rowKey={(r) => r.area.en}
             empty="No area matches"
+          />
+          <Pager
+            page={areaCur}
+            pageSize={areaPageSize}
+            total={areaRows.length}
+            noun="areas"
+            onPage={setAreaPage}
+            onPageSize={(n) => {
+              setAreaPageSize(n);
+              setAreaPage(1);
+            }}
           />
           <p className="mt-3 text-[12.5px] text-muted-foreground">
             Fee and delivery time come from the zone. To change them, edit the zone.
